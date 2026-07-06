@@ -24,8 +24,16 @@ def test_generate_brand_report_has_all_five_platforms():
 
 
 def test_check_wikipedia_presence_uses_safe_requests_get():
-    """Confirm the rewired function goes through url_safety, not raw requests."""
-    with patch.object(url_safety, "safe_requests_get") as mock_get:
+    """Confirm the rewired function goes through url_safety, not raw requests.
+
+    brand_scanner.py does `from url_safety import safe_requests_get`, which
+    binds a name in brand_scanner's own module namespace at import time.
+    Patching url_safety.safe_requests_get would not affect that already-bound
+    reference (a classic unittest.mock "patch where it's looked up, not
+    where it's defined" gotcha) — so the mock target here must be
+    brand_scanner.safe_requests_get, not url_safety.safe_requests_get.
+    """
+    with patch.object(brand_scanner, "safe_requests_get") as mock_get:
         mock_get.side_effect = url_safety.URLSafetyError("blocked for test")
         result = brand_scanner.check_wikipedia_presence("Acme Corp")
         assert mock_get.called
@@ -37,7 +45,7 @@ def test_check_wikipedia_presence_never_raises_on_unsafe_target():
     """Even if Wikipedia's own API URL construction were ever attacker-
     influenced, a URLSafetyError must be swallowed, not propagated."""
     with patch.object(
-        url_safety, "safe_requests_get",
+        brand_scanner, "safe_requests_get",
         side_effect=url_safety.URLSafetyError("blocked"),
     ):
         result = brand_scanner.check_wikipedia_presence("Acme Corp")
