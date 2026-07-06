@@ -225,70 +225,46 @@ Part of the Claude Code skill family:
 3. **Parallel Execution**: Full audits spawn up to 15 subagents simultaneously
 4. **Extension System**: DataForSEO MCP for live data, Firecrawl MCP for site crawling, Banana MCP for AI image generation
 
-## Repository Topology (public + private)
+## Repository Topology
 
-This project is mirrored across two GitHub remotes that share git history.
-Both originate from the same local checkout; neither is a GitHub fork of
-the other (different orgs, no parent/child relationship in the GitHub UI).
+This repository is ZYRA's maintained fork/distribution, published at
+`https://github.com/toolsatZyra/-claude-seo-x-geo`. It is a fork of
+`AgriciDaniel/claude-seo` (MIT), grafted with the AEO/GEO modules from
+`zubair-trabzada/geo-seo-claude` (MIT) — see [NOTICE.md](NOTICE.md) and
+[CONTRIBUTORS.md](CONTRIBUTORS.md) for full attribution.
 
-| Remote | URL | Visibility | Role |
-|---|---|---|---|
-| `origin` | `https://github.com/AgriciDaniel/claude-seo` | **Public** | Published distribution. Users discover, clone, and install from here. `main` only reflects released history. |
-| `aimh` | `https://github.com/AI-Marketing-Hub/claude-seo` | **Private** | Working repo inside the AI Marketing Hub org. Daily development. v2 branch + post-release work lives here before promotion to public. |
+| Remote | URL | Role |
+|---|---|---|
+| `origin` | `https://github.com/toolsatZyra/-claude-seo-x-geo` | This fork's published distribution. `main` reflects released/authorized history. |
 
-### Workflow
-
-Daily development:
-- Work on `v2` (or feature branches off `v2`) locally.
-- `git push aimh <branch>` to publish work-in-progress to the private repo
-  (Dependabot, Actions, and CI run there).
-
-Promoting to public on release:
-1. Merge `v2` into local `main` when ready to release (fast-forward).
-2. Tag the release locally (`git tag -a vX.Y.Z`).
-3. Push the tag and main to **both** remotes in this order:
-   - First: `git push aimh main && git push aimh vX.Y.Z`
-   - Then: `git push origin main && git push origin vX.Y.Z`
-   - The "tag before merge" sequence (see `feedback_push_caution` memory)
-     applies on `origin` to avoid the `curl|bash` outage window where
-     users pull a tag that doesn't yet point at code on `main`.
-4. `gh release create vX.Y.Z --repo AgriciDaniel/claude-seo` (public-only).
-5. `/release-blog` to publish the release post.
+The dual-remote public/private release workflow that this section
+previously described (a `AgriciDaniel/claude-seo` + `AI-Marketing-Hub`
+topology) was specific to the upstream project this repo was forked from
+and does not apply here — this fork has a single remote. If ZYRA later adds
+a private working remote alongside `origin`, document its role and safety
+rules here before relying on it.
 
 ### Safety rules
 
-- **Never push to `origin/main` autonomously.** The public is release-only;
-  pushes are user-authorized per-release.
-- **`aimh` accepts day-to-day pushes.** No release-gate ceremony required
-  for the private remote.
-- **Tags push to private first.** v2.0.0 is the current example: tag lives
-  on `aimh` (private) but not yet on `origin` (public) — that's intentional
-  until release.
-- **History stays shared.** Never rewrite history on either remote with
+- **Never push to `origin/main` autonomously.** Pushes are user-authorized;
+  confirm before pushing, especially for anything affecting the default
+  branch.
+- **History stays shared.** Never rewrite history on `origin` with
   force-push unless explicitly authorized for that specific operation.
-
-### Verifying the topology
-
-```bash
-# Both remotes configured
-git remote -v        # expects: origin (public) + aimh (private)
-
-# Both share main HEAD
-git ls-remote --heads aimh main
-git ls-remote --heads origin main   # origin = aimh/main + 1 public-branding commit (intentional; see docs/WORKFLOW-public-private.md)
-```
-
-Full workflow reference: `docs/WORKFLOW-public-private.md`.
+- **This is a fork, not the upstream project.** Do not push to
+  `AgriciDaniel/claude-seo` or `AI-Marketing-Hub/claude-seo` from this
+  checkout — those are the upstream repos this project was forked from,
+  not remotes of this repository, and this fork has no authorization to
+  publish to them.
 
 ## Release Blog Post
 
-After cutting a new release (git tag + `gh release create`), run:
-
-```
-/release-blog
-```
-
-This generates a blog post on https://claude-seo.md/blog/, handles cover image generation, SEO metadata, FAQ schema, internal linking, sitemap/llms.txt updates, Vercel deployment, and Google indexing.
+The upstream project this repo was forked from has a `/release-blog`
+workflow that publishes to `https://claude-seo.md/blog/` — that domain and
+workflow belong to the upstream project (`AgriciDaniel/claude-seo`), not
+this fork. Do not run `/release-blog` expecting it to publish anywhere on
+ZYRA's behalf until it's been reconfigured with ZYRA's own publishing
+target, if one is set up.
 
 ## Answer Engine Optimization (AEO) - stance override
 

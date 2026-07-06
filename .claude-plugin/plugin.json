@@ -3,13 +3,13 @@
   "version": "3.0.0",
   "description": "Comprehensive SEO analysis plugin for Claude Code. 32 sub-skills (28 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 20 sub-agents cover technical SEO, content, schema, sitemaps, Core Web Vitals, local SEO, backlinks, first-class AEO/GEO (citability scoring, platform optimization, AI crawlers, brand mentions), ecommerce, hreflang, SXO, clustering, drift monitoring, and Google APIs. Includes MCP extensions, SPA-aware rendering, portability, and hardened SSRF-safe fetchers.",
   "author": {
-    "name": "AgriciDaniel",
-    "email": "agricidaniel@gmail.com",
-    "url": "https://github.com/AgriciDaniel"
+    "name": "ZYRA",
+    "email": "hello@growthzyra.com",
+    "url": "https://growthzyra.com"
   },
   "license": "MIT",
-  "homepage": "https://claude-seo.md",
-  "repository": "https://github.com/AgriciDaniel/claude-seo",
+  "homepage": "https://github.com/toolsatZyra/-claude-seo-x-geo",
+  "repository": "https://github.com/toolsatZyra/-claude-seo-x-geo",
   "keywords": [
     "seo",
     "technical-seo",

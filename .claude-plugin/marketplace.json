@@ -1,8 +1,8 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "agricidaniel-claude-seo",
+  "name": "toolsatzyra-claude-seo-x-geo",
   "owner": {
-    "name": "AgriciDaniel"
+    "name": "ZYRA"
   },
   "metadata": {
     "description": "Comprehensive SEO analysis plugin for Claude Code. 32 sub-skills and 20 sub-agents, plus 8 optional MCP extensions (DataForSEO, Firecrawl, Banana, Ahrefs, SE Ranking, Profound, Bing Webmaster, Unlighthouse). v3 adds first-class AEO/GEO (deterministic citability scoring, per-platform optimization, AI crawler access, brand-mention tracking) as a separately-scored dimension, on top of v2's shared headless rendering, QRG-aligned content quality gates, LCP subparts via CrUX, IndexNow, four Schema.org generators, AI Share-of-Voice tracking, parasite-SEO risk scanning, multi-platform portability, and a hardened SSRF + DNS-rebinding safety layer."
@@ -13,12 +13,12 @@
       "source": "./",
       "description": "Comprehensive SEO analysis plugin for Claude Code. 32 sub-skills (28 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 20 sub-agents cover technical SEO, content quality, schema, sitemaps, Core Web Vitals, local SEO, backlinks, first-class AEO/GEO (deterministic citability scoring, per-platform optimization, AI crawler access, brand-mention tracking), ecommerce, hreflang, SXO, clustering, drift monitoring, and Google APIs, plus 8 optional MCP extensions. v2 adds shared headless rendering across every fetching agent, QRG-aligned content quality gates, LCP subparts via CrUX, IndexNow submission, four Schema.org generators (Reservation / OrderAction / DiscussionForumPosting / ProfilePage), AI Share-of-Voice tracking, parasite-SEO risk scanning, and multi-platform portability.",
       "author": {
-        "name": "AgriciDaniel",
-        "email": "agricidaniel@gmail.com",
-        "url": "https://github.com/AgriciDaniel"
+        "name": "ZYRA",
+        "email": "hello@growthzyra.com",
+        "url": "https://growthzyra.com"
       },
       "category": "marketing",
-      "homepage": "https://claude-seo.md",
+      "homepage": "https://github.com/toolsatZyra/-claude-seo-x-geo",
       "keywords": [
         "seo",
         "technical-seo",
