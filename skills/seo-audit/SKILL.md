@@ -24,7 +24,7 @@ metadata:
    - `seo-sitemap` -- structure analysis, quality gates, missing pages
    - `seo-performance` -- LCP, INP, CLS measurements
    - `seo-visual` -- screenshots, mobile testing, above-fold analysis
-   - `seo-geo` -- AI crawler access, llms.txt, citability, brand mention signals
+   - `seo-geo` -- AEO router; no longer scores AI search readiness itself (see `## AEO fan-out` below, which calls the `geo-*` cluster directly for the scored track)
    - `seo-local` -- GBP signals, NAP consistency, reviews, local schema, industry-specific local factors (spawn when Local Service industry detected: brick-and-mortar, SAB, or hybrid business type)
    - `seo-maps` -- Geo-grid rank tracking, GBP audit, review intelligence, competitor radius mapping (spawn when Local Service detected AND DataForSEO MCP available)
    - `seo-google` -- CWV field data (CrUX), URL indexation (GSC), organic traffic (GA4) (spawn when Google API credentials detected via `python3 scripts/google_auth.py --check`)
@@ -103,13 +103,17 @@ Write `{domain}-audit/audit-data.json` with this shape so `python3 scripts/googl
 
 | Category | Weight |
 |----------|--------|
-| Technical SEO | 22% |
-| Content Quality | 23% |
-| On-Page SEO | 20% |
-| Schema / Structured Data | 10% |
+| Technical SEO | 25% |
+| Content Quality | 25% |
+| On-Page SEO | 22% |
+| Schema / Structured Data | 13% |
 | Performance (CWV) | 10% |
-| AI Search Readiness | 10% |
 | Images | 5% |
+
+**AI Search Readiness / AEO is not in this table.** It was previously
+blended in at 10% weight; as of the AEO fan-out (see below), it is scored
+and reported as a fully separate 0-100 AEO figure and must never be folded
+back into the SEO Health Score above.
 
 ## Report Structure
 
@@ -152,10 +156,46 @@ Write `{domain}-audit/audit-data.json` with this shape so `python3 scripts/googl
 - Oversized images
 - Format recommendations
 
-### AI Search Readiness
-- Citability score
-- Structural improvements
-- Authority signals
+**AI Search Readiness / AEO is reported as its own section, not a
+subsection of the SEO report above.** See `## AEO fan-out` below for what
+runs and `### Final report structure (mandatory)` for the exact shape.
+
+## AEO fan-out (distinct scored track)
+
+A full `seo-audit` run additionally fans out to the AEO cluster as a
+**separate, parallel scored track** — never blended into the SEO score
+computed above. Specifically:
+
+1. Run `scripts/citability_scorer.py::analyze_page_citability(url)` for the
+   deterministic 0-100 citability figure.
+2. Run `geo-platform-optimizer` for per-platform readiness notes (Google
+   AIO, ChatGPT, Perplexity, Gemini, Bing Copilot).
+3. Run `geo-crawlers` for AI-crawler-access findings (GPTBot, ClaudeBot,
+   PerplexityBot, Google-Extended, Bingbot/Copilot).
+4. Run `scripts/brand_scanner.py::generate_brand_report(brand, domain)` for
+   brand/AI-visibility findings, if a brand name is available.
+5. Audit llms.txt via `scripts/llmstxt_generator.py::validate_llmstxt(url)`,
+   respecting the current `aeo.llmstxt_mode` (see `skills/seo-geo/SKILL.md`)
+   — generate only if mode is `generate` and the user explicitly asks.
+
+### Final report structure (mandatory)
+
+The audit report must present:
+
+```
+## SEO Score: <0-100>
+<existing SEO category breakdown, unchanged>
+
+## AEO Score: <0-100 citability figure from citability_scorer.py>
+- Per-platform notes: AIO / ChatGPT / Perplexity / Gemini / Bing Copilot
+- AI-crawler-access findings: GPTBot / ClaudeBot / PerplexityBot / Google-Extended / Bingbot-Copilot
+- Brand/AI-visibility findings (if brand name available)
+- llms.txt status (forward-looking, low-confidence — see policy)
+```
+
+**These two scores are never averaged, weighted together, or presented as a
+single number.** A page can score 95 SEO / 40 AEO or vice versa — that
+divergence is the point of treating AEO as first-class.
 
 ## Priority Definitions
 
