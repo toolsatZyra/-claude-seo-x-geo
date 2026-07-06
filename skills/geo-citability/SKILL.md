@@ -172,17 +172,47 @@ This measures whether the content provides information that AI systems cannot fi
 
 ## Analysis Procedure
 
-### Step 1: Fetch and Parse Page Content
+**The score itself must come from the deterministic scorer script, not free-form
+judgment.** Per root `CLAUDE.md`: "citability is scored by
+`scripts/citability_scorer.py`, not by free-form judgment." The rubric above
+(Categories 1-5) documents *what* the scorer measures and *why*, so you can
+explain findings and write rewrite suggestions intelligently — but the actual
+0-100 numbers reported to the user must come from running the script, not from
+manually eyeballing the categories.
 
-1. Use WebFetch to retrieve the target URL.
+### Step 1: Run the Deterministic Citability Scorer
+
+Run the script against the target URL to get the authoritative score:
+
+```bash
+python3 scripts/citability_scorer.py <url>
+```
+
+This invokes `analyze_page_citability(url)`, which fetches the page, segments it
+into content blocks, and scores each block and the page overall using the same
+five weighted dimensions described in the rubric above (Answer Block Quality 30%,
+Self-Containment 25%, Structural Readability 20%, Statistical Density 15%,
+Uniqueness 10%). It returns per-block scores plus a page-level score as
+structured JSON — use these numbers directly in the Output Format below rather
+than re-deriving scores by hand.
+
+If the script fails (network error, unparseable content, page unreachable),
+report the failure explicitly and do not fabricate a score. Do not fall back to
+manual/free-form scoring as a silent substitute — surface the error to the user.
+
+### Step 2: Fetch and Parse Page Content (for rewrite context)
+
+1. Use WebFetch to retrieve the target URL (or reuse content already fetched by
+   the scorer script if its output includes the extracted text).
 2. Extract the main content area (exclude navigation, footer, sidebar, ads).
 3. Preserve heading structure (H1-H6 tags).
 4. Preserve paragraph boundaries, lists, and tables.
 5. Calculate total word count of main content.
 
-### Step 2: Segment Content into Blocks
+### Step 3: Segment Content into Blocks (for rewrite context)
 
-1. Split content at each heading (H2 or H3) to create content blocks.
+1. Split content at each heading (H2 or H3) to create content blocks, matching
+   the blocks the scorer script identified.
 2. For each block, record:
    - The heading text
    - The full text content under that heading
@@ -193,31 +223,33 @@ This measures whether the content provides information that AI systems cannot fi
    - Whether the block contains a definition pattern
    - Whether the first 60 words form a standalone answer
 
-### Step 3: Score Each Block
+Use this manual review pass to understand *why* the script scored each block
+the way it did — not to override or recompute the score itself.
 
-For each content block, calculate:
-- Answer Block Quality sub-score (0-100)
-- Self-Containment sub-score (0-100)
-- Structural Readability sub-score (0-100)
-- Statistical Density sub-score (0-100)
-- Uniqueness sub-score (0-100)
+### Step 4: Use the Script's Page-Level Score
 
-**Block Citability Score** = (Answer * 0.30) + (SelfContain * 0.25) + (Structure * 0.20) + (Stats * 0.15) + (Unique * 0.10)
+1. Use the page-level citability score returned by
+   `analyze_page_citability(url)` directly — do not average blocks by hand.
+2. Identify the top 3 highest-scoring blocks per the script's output (highlight
+   as strengths).
+3. Identify the bottom 3 lowest-scoring blocks per the script's output (flag for
+   rewriting).
+4. Use the script's reported percentage of blocks scoring above 70 (the
+   "citability coverage" metric), if provided; otherwise compute it directly
+   from the script's per-block output.
 
-### Step 4: Calculate Page-Level Score
+### Step 5: Generate Rewrite Suggestions (manual judgment, clearly separated from scoring)
 
-1. Calculate the average of all block scores for the page-level citability score.
-2. Identify the top 3 highest-scoring blocks (highlight as strengths).
-3. Identify the bottom 3 lowest-scoring blocks (flag for rewriting).
-4. Calculate the percentage of blocks scoring above 70 (the "citability coverage" metric).
-
-### Step 5: Generate Rewrite Suggestions
-
-For each block scoring below 60, generate a specific rewrite suggestion:
+For each block scoring below 60 per the script's output, generate a specific
+rewrite suggestion:
 1. Identify the primary weakness (buried answer, lack of facts, poor structure, etc.).
 2. Propose a rewritten opening sentence using a definition or answer-first pattern.
 3. Suggest specific statistics or facts that could be added.
 4. Recommend structural improvements (add list, add table, split paragraph).
+
+This step is genuinely qualitative/manual — that's expected. The rewrite
+suggestions are advisory; only the citability score itself must be
+machine-derived.
 
 ---
 

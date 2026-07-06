@@ -4,7 +4,8 @@ name: geo-ai-visibility
 description: >
   GEO specialist analyzing AI search visibility: citability scoring, AI crawler
   access, llms.txt compliance, and brand mention presence across AI-cited platforms.
-  Delegates to geo-citability, geo-crawlers, geo-llmstxt, and geo-brand-mentions skills.
+  Delegates to geo-citability, geo-crawlers, the seo-geo llms.txt policy, and
+  geo-brand-mentions skills.
 allowed-tools: Read, Bash, WebFetch, Write, Glob, Grep
 ---
 
@@ -99,12 +100,11 @@ If not found:
 - Note the absence.
 - Recommend creation with a template based on the site type detected.
 
-Calculate **llms.txt Score**:
-- 0 if absent.
-- 30 if present but malformed.
-- 50 if present, valid format, but minimal content.
-- 70 if present, valid, and covers primary content areas.
-- 90-100 if comprehensive with llms-full.txt also available.
+**llms.txt is a flag/note, not a scored input.** Per the reconciled llms.txt policy
+in `skills/seo-geo/SKILL.md`, llms.txt is forward-looking and low-confidence — no
+audit score is gained or lost based on its presence. Report its status
+(Present/Absent, and if present, format validity and completeness) descriptively
+in the output, but do NOT fold it into the AI Visibility Score composite below.
 
 ### Step 5: Brand Mention Scanning
 
@@ -112,18 +112,15 @@ Search for the brand/site name across platforms frequently cited by AI models:
 
 1. **YouTube**: Use WebFetch to search `site:youtube.com "brand name"` patterns. Check for official channel presence, video count, and engagement.
 2. **Reddit**: Search for brand mentions on Reddit. Check discussion sentiment, subreddit presence, and mention recency.
-3. **Wikipedia (CRITICAL — use API check, not just web search)**:
-   - **FIRST**, run the Wikipedia API directly via Bash to check definitively:
+3. **Wikipedia (CRITICAL — use scanner script check, not just web search)**:
+   - **FIRST**, run the SSRF-hardened brand scanner script to check definitively:
      ```bash
-     python3 -c "
-     import requests; from urllib.parse import quote_plus
-     brand='[BRAND_NAME]'
-     r=requests.get(f'https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch={quote_plus(brand)}&format=json', headers={'User-Agent':'GEO-Audit/1.0'}, timeout=15)
-     results=r.json().get('query',{}).get('search',[])
-     if results and brand.lower() in results[0].get('title','').lower(): print(f'FOUND: https://en.wikipedia.org/wiki/{results[0][\"title\"].replace(\" \",\"_\")}')
-     else: print('NOT FOUND')
-     "
+     python3 scripts/brand_scanner.py "[BRAND_NAME]" [domain]
      ```
+     This calls `generate_brand_report(brand_name, domain=None)`, which routes its
+     Wikipedia/Wikidata API calls through `url_safety.safe_requests_get` rather than
+     a raw, unhardened `requests.get`. Read the Wikipedia/Wikidata section of its
+     output.
    - **SECOND**, try WebFetch on `https://en.wikipedia.org/wiki/[Brand_Name]` directly to verify.
    - **DO NOT** rely solely on web search (`site:wikipedia.org`) — it frequently returns false negatives.
    - This is the single strongest signal for entity recognition by AI models.
@@ -148,16 +145,20 @@ Assemble findings into a structured markdown section.
 
 ### Step 7: Calculate AI Visibility Score
 
-Compute the composite **AI Visibility Score (0-100)** using these weights:
+Compute the composite **AI Visibility Score (0-100)** using these weights. llms.txt
+is intentionally excluded from this formula (see Step 4) — its presence is reported
+as a flag/note only, per the reconciled `skills/seo-geo/SKILL.md` policy that no
+audit score is gained or lost based on llms.txt presence. The 10% previously
+allocated to it has been redistributed proportionally across the remaining
+components:
 
 | Component | Weight |
 |---|---|
-| Citability Score | 35% |
-| Brand Mention Score | 30% |
-| Crawler Access Score | 25% |
-| llms.txt Score | 10% |
+| Citability Score | 39% |
+| Brand Mention Score | 33% |
+| Crawler Access Score | 28% |
 
-Formula: `AI_Visibility = (Citability * 0.35) + (Brand_Mentions * 0.30) + (Crawler_Access * 0.25) + (LLMS_TXT * 0.10)`
+Formula: `AI_Visibility = (Citability * 0.39) + (Brand_Mentions * 0.33) + (Crawler_Access * 0.28)`
 
 ## Output Format
 
@@ -177,10 +178,12 @@ Score interpretation:
 
 | Component | Score | Weight | Weighted |
 |---|---|---|---|
-| Citability | [X]/100 | 35% | [X] |
-| Brand Mentions | [X]/100 | 30% | [X] |
-| Crawler Access | [X]/100 | 25% | [X] |
-| llms.txt | [X]/100 | 10% | [X] |
+| Citability | [X]/100 | 39% | [X] |
+| Brand Mentions | [X]/100 | 33% | [X] |
+| Crawler Access | [X]/100 | 28% | [X] |
+
+llms.txt is reported separately below as a flag/note — it is not a scored input
+into the AI Visibility Score (see `skills/seo-geo/SKILL.md` policy).
 
 ### Citability Assessment
 
@@ -212,11 +215,11 @@ Citation-unlikely areas needing improvement:
 
 **Content Signals:** [Present — list parsed key=value pairs with plain-English meaning] / [Absent — Recommendation: add `Content-Signal:` directive to robots.txt. See https://contentsignals.org/]
 
-### llms.txt Status
+### llms.txt Status (flag/note only — not scored)
 
 **Status:** [Present/Absent]
-**Score:** [X]/100
-[Validation details or recommendation to create]
+[Validation details or recommendation to create. Presence/absence does not
+affect the AI Visibility Score.]
 
 ### Brand Mention Presence
 
