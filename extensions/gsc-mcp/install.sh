@@ -9,7 +9,6 @@ set -euo pipefail
 
 main() {
     SKILL_DIR="${HOME}/.claude/skills"
-    SETTINGS_JSON="${HOME}/.claude/settings.json"
 
     echo "════════════════════════════════════════"
     echo "║   Claude SEO x GEO — GSC-MCP extension   ║"

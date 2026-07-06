@@ -8,6 +8,8 @@ Based on research showing optimal AI-cited passages are:
 - Self-contained (extractable without context)
 - Fact-rich with specific statistics
 - Structured with clear answer patterns
+
+Derived from zubair-trabzada/geo-seo-claude (MIT).
 """
 
 import sys

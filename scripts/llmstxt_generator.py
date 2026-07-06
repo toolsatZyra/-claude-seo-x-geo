@@ -9,6 +9,8 @@ This module must refuse to generate anything when mode == "off".
 
 Location: /llms.txt (root of domain)
 Extended: /llms-full.txt (detailed version)
+
+Derived from zubair-trabzada/geo-seo-claude (MIT).
 """
 
 import sys
