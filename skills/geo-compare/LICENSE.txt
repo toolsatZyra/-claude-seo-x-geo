@@ -1,0 +1,8 @@
+MIT License
+
+Portions derived from zubair-trabzada/geo-seo-claude (MIT).
+See /LICENSES/geo-seo-claude-LICENSE.txt for the original license text and
+/NOTICE.md for full attribution.
+
+Copyright (c) 2026 Zubair Trabzada
+Copyright (c) 2026 agricidaniel (fork integration)
