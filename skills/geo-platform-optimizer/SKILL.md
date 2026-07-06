@@ -12,7 +12,7 @@ metadata:
 
 ## Core Insight
 
-Only **11% of domains** are cited by BOTH ChatGPT and Google AI Overviews for the same query. Each AI search platform uses different indexes, ranking logic, and source preferences. A page optimized for Google AI Overviews may be invisible to ChatGPT, and vice versa. Platform-specific optimization is not optional — it is the foundation of any serious GEO strategy.
+Cross-platform citation overlap is low: only a minority of domains (commonly cited as ~11%, though this figure has not been independently re-verified -- treat as directional, see [[evidence-registry]]) are cited by BOTH ChatGPT and Google AI Overviews for the same query. Each AI search platform uses different indexes, ranking logic, and source preferences. A page optimized for Google AI Overviews may be invisible to ChatGPT, and vice versa. Platform-specific optimization is not optional — it is the foundation of any serious GEO strategy.
 
 ## How to Use This Skill
 
@@ -26,8 +26,8 @@ Only **11% of domains** are cited by BOTH ChatGPT and Google AI Overviews for th
 ## Platform 1: Google AI Overviews (AIO)
 
 ### How AIO Selects Sources
-- 92% of AIO citations come from pages already ranking in the **top 10 organic results** — traditional SEO is the gateway
-- However, 47% of citations come from pages ranking **below position 5** — AIO has its own selection logic favoring clarity and directness over raw rank
+- A large majority of AIO citations come from pages already ranking in the **top 10 organic results** — traditional SEO is the gateway. The exact share moves quickly: Ahrefs reported 38% in one study and 76% in a later one within the same research year. Don't quote a fixed percentage without checking [[evidence-registry]] for the current figure first.
+- AIO also has its own selection logic independent of raw rank -- some citations come from pages outside the top 5, favoring clarity and directness over position alone
 - AIO strongly favors pages with **clean structure, direct answers, and scannable formatting**
 - Featured snippet optimization has ~70% overlap with AIO optimization
 - AIO prefers **concise, factual, unambiguous answers** — hedging and filler reduce citation probability
@@ -38,7 +38,7 @@ Only **11% of domains** are cited by BOTH ChatGPT and Google AI Overviews for th
 2. **Direct Answer in First Paragraph**: After each question heading, provide a clear 1-2 sentence answer immediately. Then expand with supporting detail. The first sentence should be a standalone citation candidate.
 3. **Tables and Structured Comparisons**: AIO heavily cites tables. Convert any comparison, pricing, specification, or feature data into HTML tables. Use clear column headers.
 4. **Ordered and Unordered Lists**: Step-by-step processes should use ordered lists. Feature lists should use unordered lists. AIO extracts these directly.
-5. **FAQ Sections**: Add a dedicated FAQ section with 5-10 real questions. Use proper H3 headings for each question. While FAQPage schema rich results are restricted to govt/health sites since Aug 2023, the content pattern still helps AIO extraction.
+5. **FAQ Sections**: Add a dedicated FAQ section with 5-10 real questions. Use proper H3 headings for each question. Google retired FAQ rich results for ALL sites on May 7, 2026 (superseding the Aug 2023 gov/health-only restriction) -- there is no SERP rich-result benefit anymore. Keep the FAQ content pattern anyway: it still aids AIO/AI Mode extraction and entity resolution as a supporting signal, not a ranking feature. See `seo-schema/SKILL.md` for the canonical position.
 6. **Definitions and Glossary Boxes**: For any industry-specific term, provide a clear definition. Format: "**[Term]** is [concise definition]." AIO frequently cites definitions.
 7. **Statistics with Sources**: Include specific numbers with attribution. "According to [Source], [statistic]." AIO prefers citeable, specific claims over vague assertions.
 8. **Publication Date**: Include a visible publication date and last-updated date. AIO deprioritizes undated content for time-sensitive queries.
@@ -66,7 +66,7 @@ Only **11% of domains** are cited by BOTH ChatGPT and Google AI Overviews for th
 
 ### How ChatGPT Selects Sources
 - Uses **Bing's search index** as its foundation (not Google)
-- Top citation sources by domain share: **Wikipedia (47.9%)**, Reddit (11.3%), YouTube, major news outlets
+- Top citation sources by domain share: Wikipedia is the most-cited domain across all major AI assistants; Ahrefs' Dec 2025 study (75K brands) put ChatGPT's Wikipedia citation rate at ~16.3%, ahead of Perplexity (~12.5%) and Google AI Overviews (~8.4%) -- see [[evidence-registry]] for the source and re-check before quoting an exact number, as these shift between studies. Reddit, YouTube, and major news outlets round out the top sources.
 - ChatGPT heavily weights **entity recognition** — if your brand exists as a structured entity (Wikipedia, Wikidata, Crunchbase), it is far more likely to be cited
 - Prefers **authoritative, well-established sources** over new or niche sites
 - Longer, more comprehensive articles get cited more often than short pieces
@@ -104,7 +104,7 @@ Only **11% of domains** are cited by BOTH ChatGPT and Google AI Overviews for th
 ## Platform 3: Perplexity AI
 
 ### How Perplexity Selects Sources
-- Top citation sources: **Reddit (46.7%)**, Wikipedia, YouTube, major publications
+- Top citation sources: Reddit, Wikipedia, YouTube, and major publications all feature prominently; the specific per-domain share figure previously here could not be independently verified and has been removed rather than left uncorrected -- check [[evidence-registry]] before citing an exact number to a client
 - Perplexity places the **heaviest emphasis on community validation** of all AI search platforms
 - Strongly favors **discussion threads** where claims are debated, validated, or expanded by multiple participants
 - Prefers recent content — publication date is a strong ranking signal
