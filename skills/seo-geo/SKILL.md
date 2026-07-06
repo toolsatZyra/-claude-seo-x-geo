@@ -72,6 +72,7 @@ not free-form judgment. Brand/AI visibility is scored by
 - [[google-ai-optimization-guide]] — Google's own "AEO/GEO is still SEO" position, myth-busting section.
 - [[aeo-scoring-weights]] — Princeton citation-lift weights, encoded as constants in `citability_scorer.py`.
 - [[sourc-e-framework]] — StudioHawk SOURC-E framework, summarized in our own words (no verbatim copying — license unclear for redistribution).
+- [[evidence-registry]] — every precise AEO/GEO statistic used across the `geo-*` cluster, with source, confidence, and retrieval date. Check here before quoting a number to a client, and add a row before introducing a new one.
 
 ## Evidence discipline
 
