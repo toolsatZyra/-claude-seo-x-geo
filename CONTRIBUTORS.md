@@ -78,6 +78,14 @@ Responsible disclosures incorporated into v2.2.0. Thank you for reporting privat
 | [@webgunnz](https://github.com/webgunnz) | [#122](https://github.com/AgriciDaniel/claude-seo/issues/122), [#121](https://github.com/AgriciDaniel/claude-seo/issues/121) | Google API key leak in error output; UTF-8 double-encode |
 | [@fayerman-source](https://github.com/fayerman-source) | [#130](https://github.com/AgriciDaniel/claude-seo/issues/130), [#103](https://github.com/AgriciDaniel/claude-seo/issues/103) | GSC false "0 clicks" totals; NLP V1 entity metadata |
 
+## AEO/GEO merge (v3.0.0)
+
+- Zubair Trabzada — original author of geo-seo-claude, source of all `geo-*`
+  skills, `citability_scorer.py`, `brand_scanner.py`, `llmstxt_generator.py`,
+  and the schema/white-label contributions folded into this fork.
+- GrowthZyra — merge integration (grafting, rewiring onto claude-seo's
+  SSRF-hardened fetcher, deduplication, test coverage).
+
 ## How to Contribute
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on submitting pull requests,
