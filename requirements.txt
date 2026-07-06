@@ -29,4 +29,4 @@ google-analytics-data>=0.18.0,<1.0.0         # No known CVEs
 
 # AEO dashboard (optional extension: extensions/geo-dashboard)
 flask>=3.0.0,<4.0.0
-rich>=13.0.0,<14.0.0
+rich>=15.0.0,<16.0.0
