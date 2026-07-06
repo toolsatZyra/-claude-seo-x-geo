@@ -66,6 +66,30 @@ Allow: /
 
 **Recommendation:** Consider your AI visibility strategy before blocking. Being cited by AI systems drives brand awareness and referral traffic. Cross-reference the `seo-geo` skill for full AI visibility optimization.
 
+#### AI crawler accessibility (AEO)
+
+Beyond classic Googlebot/Bingbot crawlability, check robots.txt rules for
+the AI crawlers below. This is a summary table — full analysis, per-crawler
+recommendations, and a complete Tier 1/2/3 reference lives in the
+`geo-crawlers` skill; run that skill for the full audit.
+
+| Crawler | Operator | Purpose |
+|---|---|---|
+| GPTBot | OpenAI | Training data / ChatGPT browsing |
+| ClaudeBot | Anthropic | Training data / Claude web search |
+| PerplexityBot | Perplexity | Answer-engine indexing |
+| Google-Extended | Google | Controls use in Gemini/AI Overviews training (separate from Googlebot's classic indexing directive) |
+| Bingbot / Copilot | Microsoft | Classic indexing + Bing Copilot answer sourcing |
+
+Blocking these does not affect classic Google/Bing search rankings — it
+only controls whether that specific AI system's answer engine or model
+training can access the page. Recommend allowing them unless the client has
+an explicit content-licensing objection; blocking is a business decision,
+not a technical-SEO best practice.
+
+Core Web Vitals, INP, and the rest of this skill's technical checks remain
+authoritative and unchanged by this AEO addition — see the sections above.
+
 ### 2. Indexability
 - Canonical tags: self-referencing, no conflicts with noindex
 - Duplicate content: near-duplicates, parameter URLs, www vs non-www
