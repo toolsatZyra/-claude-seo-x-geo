@@ -255,7 +255,7 @@ For parallel analysis during audits:
 - `seo-sitemap` -- Structure, coverage, quality gates
 - `seo-performance` -- Core Web Vitals measurement
 - `seo-visual` -- Screenshots, mobile testing, above-fold
-- `seo-geo` -- AI crawler access, llms.txt, citability, brand mention signals
+- `seo-geo` -- AEO router; no longer scores AI search readiness itself, fans out to the `geo-*` skill cluster and carries the llms.txt policy
 - `seo-local` -- GBP signals, NAP consistency, reviews, local schema, industry-specific local factors (conditional: spawned when Local Service detected)
 - `seo-maps` -- Geo-grid rank tracking, GBP audit, review intelligence, competitor radius mapping (conditional: spawned when Local Service detected AND DataForSEO MCP available)
 - `seo-google` -- CWV field data, URL indexation status, organic traffic trends (conditional: spawned when Google API credentials detected)
@@ -267,6 +267,10 @@ For parallel analysis during audits:
 - `seo-flow` -- FLOW framework prompts (conditional: spawned for content strategy workflows)
 - `seo-dataforseo` -- Live SERP, keyword, backlink, local SEO data (extension, optional)
 - `seo-image-gen` -- SEO image audit and generation plan (extension, optional)
+
+Additionally, two AEO-focused agents are available outside the `seo-*` naming
+convention (not subject to the `seo-*` count check above): `geo-ai-visibility`
+and `geo-platform-analysis`.
 
 ## Error Handling
 
