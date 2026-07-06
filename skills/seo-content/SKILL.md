@@ -164,6 +164,39 @@ Per Google's AI optimization guide, "AEO" and "GEO" are rebranded labels for SEO
 - Last updated date if content has been revised
 - Flag content older than 12 months without update for fast-changing topics
 
+## Citability pass (AEO)
+
+Every content audit run through this skill also runs a deterministic
+citability pass via `scripts/citability_scorer.py::analyze_page_citability(url)`.
+This returns a 0-100 score per content block plus a page-level average — it
+is not free-form judgment. Report this as a distinct **AEO citability score**
+(surfaced in Output below as "AEO Citability Score"), never averaged into
+this skill's SEO/content-quality score. This scorer is the mechanical backend
+for the qualitative "AI Citation Readiness (GEO signals)" guidance above —
+that section explains *what* to look for; this pass is *how it gets scored*.
+
+### Front-loading check (mandatory, not just guidance)
+
+Per [[aeo-scoring-weights]], approximately 44% of AI citations come from the
+first 30% of a page. This skill's content check must explicitly verify:
+
+1. Does each major H2/H3 section open with a direct, self-contained answer
+   in its first 1-3 sentences (not a lead-in, not a rhetorical question)?
+2. Is the single most important fact/answer on the page located within the
+   first 30% of total word count?
+
+If either check fails, flag it as a specific, actionable finding — "Section
+X buries its answer after 400 words of preamble" — not a vague "improve
+readability" note.
+
+### What this pass does NOT recommend
+
+Per the evidence in `skills/seo-geo/references/google-ai-optimization-guide.md`
+and this plugin's AEO stance (see root `CLAUDE.md`), do not recommend:
+keyword stuffing, AI-specific keyword rewriting/long-tail variant stuffing,
+or content "chunking" purely for AI parsing. These are neutral-to-negative
+per the Princeton weights in [[aeo-scoring-weights]].
+
 ## Output
 
 ### Content Quality Score: XX/100
@@ -176,7 +209,9 @@ Per Google's AI optimization guide, "AEO" and "GEO" are rebranded labels for SEO
 | Authoritativeness | XX/25 | ... |
 | Trustworthiness | XX/25 | ... |
 
-### AI Citation Readiness: XX/100
+### AEO Citability Score: XX/100
+Per-block scores plus page-level average from `analyze_page_citability(url)`.
+Reported separately from — never averaged into — the Content Quality Score above.
 
 ### Issues Found
 ### Recommendations
