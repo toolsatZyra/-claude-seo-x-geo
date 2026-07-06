@@ -21,7 +21,7 @@ This skill analyzes a website's accessibility to AI crawlers -- the bots that AI
 
 ## Key Insight
 
-As of early 2026, many websites inadvertently block AI crawlers through overly aggressive robots.txt rules, inherited from legacy SEO configurations. An Originality.ai 2025 study found that over 35% of the top 1,000 websites block at least one major AI crawler, and 5-10% block all AI crawlers. Blocking AI crawlers is the single fastest way to become invisible in AI-generated search results.
+As of early 2026, many websites inadvertently block AI crawlers through overly aggressive robots.txt rules, inherited from legacy SEO configurations. An Originality.ai 2025 study found that over 35% of the top 1,000 websites block at least one major AI crawler, and 5-10% block all AI crawlers (this specific figure has not been independently re-verified since the original study; treat as directional and re-check before quoting to a client -- see [[evidence-registry]]). Blocking AI crawlers is the single fastest way to become invisible in AI-generated search results.
 
 ---
 
@@ -31,21 +31,28 @@ As of early 2026, many websites inadvertently block AI crawlers through overly a
 
 These crawlers power the AI search products where users actively look for answers. Blocking them directly reduces your visibility in AI-generated responses.
 
+> **Crawler settings are independent.** Per OpenAI's official bot documentation
+> ([developers.openai.com/api/docs/bots](https://developers.openai.com/api/docs/bots),
+> checked 2026-07-06), allowing or blocking one OpenAI crawler has no effect on
+> the others -- blocking GPTBot does **not** block ChatGPT Search, and vice
+> versa. Do not conflate training-data collection with search inclusion; they
+> are controlled by different bots.
+
 #### GPTBot
 - **Operator:** OpenAI
 - **User-Agent:** `GPTBot`
-- **Full User-Agent String:** `Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.2; +https://openai.com/gptbot)`
-- **Purpose:** Fetches content for ChatGPT's web browsing, plugins, and search features. Content accessed by GPTBot may be used to improve OpenAI models.
-- **Impact of Blocking:** Content will NOT appear in ChatGPT Search results or be accessible when users ask ChatGPT to browse the web. This is the highest-impact AI crawler to allow.
-- **Recommendation:** **ALLOW** -- ChatGPT has 300M+ weekly active users as of 2025. Blocking GPTBot removes your content from one of the largest AI search surfaces.
+- **Full User-Agent String:** `Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; GPTBot/1.1; +https://openai.com/gptbot)`
+- **Purpose:** Collects public web content that may be used to train and improve OpenAI's generative AI foundation models. **Training only -- does not power ChatGPT Search or live browsing.**
+- **Impact of Blocking:** Your content will not be used to train future OpenAI models. This has **no effect** on whether your content appears in ChatGPT Search results or ChatGPT's live web browsing -- those are controlled by OAI-SearchBot and ChatGPT-User respectively (see below).
+- **Recommendation:** **ALLOW** if you have no objection to your content being used as training data; **BLOCK** if you do. Either choice is independent of AI search visibility, so make this decision on training-data policy grounds, not search-visibility grounds.
 
 #### OAI-SearchBot
 - **Operator:** OpenAI
 - **User-Agent:** `OAI-SearchBot`
-- **Full User-Agent String:** `Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; OAI-SearchBot/1.0; +https://docs.openai.com/bots/overview)`
-- **Purpose:** Specifically powers ChatGPT's search feature. Unlike GPTBot, content accessed by OAI-SearchBot is NOT used for model training -- only for live search results.
-- **Impact of Blocking:** Content will not appear in ChatGPT's search results even if GPTBot is allowed.
-- **Recommendation:** **ALLOW** -- This is a search-only crawler with no training implications. There is no strategic reason to block it.
+- **Full User-Agent String:** `Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko; compatible; OAI-SearchBot/1.0; +https://openai.com/searchbot)`
+- **Purpose:** Powers ChatGPT Search -- this is the crawler that determines whether your content can be surfaced and cited in ChatGPT's search results. Content it accesses is **not** used for model training.
+- **Impact of Blocking:** Content will not appear in ChatGPT Search results. This is the actual highest-impact AI crawler to allow if ChatGPT Search visibility is the goal -- not GPTBot.
+- **Recommendation:** **ALLOW** -- this is a search-only crawler with no training implications. There is no strategic reason to block it.
 
 #### ChatGPT-User
 - **Operator:** OpenAI
@@ -70,6 +77,15 @@ These crawlers power the AI search products where users actively look for answer
 - **Purpose:** Powers Perplexity's AI search engine, which provides sourced answers with direct citations and links back to source pages.
 - **Impact of Blocking:** Content will not appear in Perplexity search results. Perplexity is one of the best referral traffic sources among AI search products because it always displays source links.
 - **Recommendation:** **ALLOW** -- Perplexity drives actual referral traffic and always attributes sources. High-value AI crawler for publishers and businesses.
+
+---
+
+### Not tier-scored: OAI-AdsBot
+
+- **Operator:** OpenAI
+- **User-Agent:** `OAI-AdsBot`
+- **Purpose:** Added to OpenAI's crawler documentation in 2026. Visits pages submitted as ChatGPT ads to check policy compliance and help determine ad relevance. Only relevant if you run ads on ChatGPT -- it does not affect organic search visibility or model training, so it is intentionally excluded from the Tier 1/2/3 scoring rubric below.
+- **Recommendation:** **ALLOW** if you run or plan to run ChatGPT ads; otherwise not a priority either way.
 
 ---
 
@@ -154,8 +170,8 @@ These crawlers are primarily used for AI model training rather than live search 
 
 | Crawler | Tier | Recommendation | Reason |
 |---|---|---|---|
-| GPTBot | 1 | **ALLOW** | Powers ChatGPT Search (300M+ users) |
-| OAI-SearchBot | 1 | **ALLOW** | Search-only, no training use |
+| GPTBot | 1 | **ALLOW/BLOCK** | Training-data collection only -- does not affect ChatGPT Search; decide on training-data policy grounds |
+| OAI-SearchBot | 1 | **ALLOW** | Actually powers ChatGPT Search; search-only, no training use |
 | ChatGPT-User | 1 | **ALLOW** | User-initiated browsing |
 | ClaudeBot | 1 | **ALLOW** | Claude web search and analysis |
 | PerplexityBot | 1 | **ALLOW** | Best referral traffic AI search |
