@@ -98,9 +98,15 @@ Our GEO audit of [DOMAIN], conducted on [DATE], reveals a GEO Readiness Score
 of **[SCORE]/100 ([TIER LABEL])**.
 
 This means your website currently has [TIER DESCRIPTION — use score interpretation table].
-As AI-powered search (ChatGPT, Google AI Overviews, Perplexity) now influences
-**[X]% of online discovery** and is growing at 527% year-over-year, this gap
-represents a measurable risk to your pipeline.
+AI-powered search (ChatGPT, Google AI Overviews, Perplexity) is capturing a
+growing share of discovery traffic -- **[X]% of online discovery** for [COMPANY]'s
+industry -- and this gap represents a measurable risk to your pipeline.
+[Before sending: pull a current AI-referral-growth figure and cite it with a
+source and date; do not reuse a fixed year-over-year percentage without
+checking it first -- see [[evidence-registry]]. Public reports on this have
+ranged from roughly 390% to over 1000% YoY depending on source, vertical, and
+month, so an old or generic number will look wrong to any client who's seen a
+more recent report.]
 
 The three most urgent issues are:
 1. **[CRITICAL FINDING 1]** — [Business impact in one sentence]
@@ -117,17 +123,25 @@ authority in [INDUSTRY].
 
 ### The AI Search Shift Is Already Happening
 
-| Metric | Value |
-|--------|-------|
-| AI-referred traffic growth (2025) | +527% YoY |
-| AI traffic conversion vs. organic | 4.4x higher |
-| ChatGPT weekly active users | 900M+ |
-| Google AI Overviews monthly reach | 1.5B users, 200+ countries |
-| Gartner: traditional search traffic drop by 2028 | -50% |
-| Marketers investing in GEO today | Only 23% |
+> **Before using this table in a live proposal:** every figure below needs a
+> current source and date. Re-check against [[evidence-registry]] first --
+> AI-referral growth and conversion-rate figures in particular vary by 2-3x
+> across published reports depending on source, vertical, and month, so
+> stale or generic numbers are easy for a technical client to catch.
+
+| Metric | Value | Status |
+|--------|-------|--------|
+| AI-referred traffic growth (YoY) | [pull current figure] | Public reports range ~390%-1000%+ YoY; find one specific to the client's industry/geo and cite it |
+| AI traffic conversion vs. organic | [pull current figure] | Public reports range from "converts slightly better" to "11x higher" depending on methodology; do not default to a fixed multiplier |
+| ChatGPT weekly active users | [pull current figure, cite source + date] | Grows quickly; a stale number undermines credibility with a client who's seen a newer one |
+| Google AI Overviews monthly reach | [pull current figure, cite source + date] | Same caveat |
+| Gartner: predicted decline in traditional search engine volume | **-25% by 2026** (Gartner press release, Feb 19, 2024) | This replaces a previous "-50% by 2028" figure in this template that did not match Gartner's actual published prediction -- verified against [gartner.com/en/newsroom/press-releases/2024-02-19-...](https://www.gartner.com/en/newsroom/press-releases/2024-02-19-gartner-predicts-search-engine-volume-will-drop-25-percent-by-2026-due-to-ai-chatbots-and-other-virtual-agents) |
+| Marketers investing in GEO today | [pull current figure] | Could not independently verify "23%"; find and cite a current source |
 
 **First-mover advantage is real.** Companies that invest in GEO now will
-capture the AI search channel before competitors do.
+capture the AI search channel before competitors do. Make this case with
+figures you can defend if the client's own team checks them -- a wrong or
+unsourceable stat in a sales proposal is worse than a smaller, defensible one.
 
 ### Your Current Position
 
@@ -137,7 +151,17 @@ capture the AI search channel before competitors do.
 | AI Crawlers Allowed | [X]/14 | 8/14 | 14/14 |
 | Brand Mentions (AI platforms) | [STATUS] | Moderate | High |
 | Schema Coverage | [STATUS] | Partial | Complete |
-| llms.txt | [Yes/No] | 12% have it | 78% have it |
+| llms.txt | [Yes/No] | [unverified — see note] | [unverified — see note] |
+
+> **Note on the llms.txt row:** this template previously hardcoded "12% have
+> it" / "78% have it" adoption figures we could not verify. More importantly,
+> quoting adoption percentages here creates FOMO pressure that contradicts
+> this plugin's own reconciled stance (`seo-geo/SKILL.md`): llms.txt is
+> audited and can be generated on request, but it is a forward-looking,
+> low-confidence signal, **not** a current ranking or citation lever, and no
+> score should be gained or lost based on its presence. If you fill in real
+> adoption numbers here, keep the "not a ranking lever" framing intact rather
+> than implying the client is falling behind by not having one.
 
 ---
 
