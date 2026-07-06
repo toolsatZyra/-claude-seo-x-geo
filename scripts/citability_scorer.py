@@ -29,6 +29,23 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 from fetch_page import fetch_page  # noqa: E402
 
+# Common sentence-initial / function words that get capitalized purely by
+# position (start of sentence) rather than because they name an entity.
+# Excluding these from the proper-noun count keeps it from being inflated by
+# ordinary, well-punctuated prose that contains no named entities at all.
+_COMMON_CAPITALIZED_WORDS = frozenset(
+    {
+        "a", "an", "the", "this", "that", "these", "those", "there", "here",
+        "it", "in", "on", "at", "for", "with", "as", "if", "when", "while",
+        "however", "additionally", "moreover", "furthermore", "because",
+        "since", "also", "so", "but", "and", "or", "we", "they", "he", "she",
+        "you", "i", "what", "which", "who", "how", "why", "then", "thus",
+        "therefore", "before", "after", "during", "although", "though",
+        "unless", "until", "once", "some", "many", "most", "all", "each",
+        "every", "no", "not",
+    }
+)
+
 
 def score_passage(text: str, heading: Optional[str] = None) -> dict:
     """Score a single passage for AI citability (0-100)."""
@@ -46,11 +63,17 @@ def score_passage(text: str, heading: Optional[str] = None) -> dict:
     # === 1. Answer Block Quality (30%) ===
     abq_score = 0
 
+    # Excludes generic pronoun subjects ("it is a...", "this is the...") so a
+    # definition pattern only fires when the subject is an actual named
+    # entity/noun, not a placeholder reference.
+    _non_entity_subjects = (
+        r"it|this|that|these|those|there|here|he|she|they|i|we|you"
+    )
     definition_patterns = [
-        r"\b\w+\s+is\s+(?:a|an|the)\s",
-        r"\b\w+\s+refers?\s+to\s",
-        r"\b\w+\s+means?\s",
-        r"\b\w+\s+(?:can be |are )?defined\s+as\s",
+        rf"\b(?!(?:{_non_entity_subjects})\b)\w+\s+is\s+(?:a|an|the)\s",
+        rf"\b(?!(?:{_non_entity_subjects})\b)\w+\s+refers?\s+to\s",
+        rf"\b(?!(?:{_non_entity_subjects})\b)\w+\s+means?\s",
+        rf"\b(?!(?:{_non_entity_subjects})\b)\w+\s+(?:can be |are )?defined\s+as\s",
         r"\bin\s+(?:simple|other)\s+(?:terms|words)\s*,",
     ]
     for pattern in definition_patterns:
@@ -120,7 +143,12 @@ def score_passage(text: str, heading: Optional[str] = None) -> dict:
         elif pronoun_ratio < 0.06:
             sc_score += 3
 
-    proper_nouns = len(re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", text))
+    capitalized_phrases = re.findall(r"\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b", text)
+    proper_nouns = sum(
+        1
+        for phrase in capitalized_phrases
+        if phrase.split()[0].lower() not in _COMMON_CAPITALIZED_WORDS
+    )
     if proper_nouns >= 3:
         sc_score += 7
     elif proper_nouns >= 1:
