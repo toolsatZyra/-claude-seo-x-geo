@@ -1120,6 +1120,175 @@ def _build_full_audit_categories(data, section_num=2):
     return "\n".join(lines)
 
 
+def _build_aeo_section(data, section_num=3):
+    """Build the AEO (Answer Engine Optimization) section.
+
+    Reported as its own distinct section — never blended, averaged, or
+    folded into the SEO Health Score rendered by _build_full_audit_categories.
+    Consumes the optional top-level "aeo" key of the audit-data envelope.
+    """
+    aeo = data.get("aeo")
+    if not isinstance(aeo, dict) or not aeo:
+        return ""
+
+    lines = []
+    lines.append(f'\n<!-- {"=" * 55} {section_num}. AEO / ANSWER ENGINE OPTIMIZATION {"=" * 3} -->')
+    lines.append('<div class="section">')
+    lines.append('  <div class="section-header">')
+    lines.append(f'    <h2>{section_num}. AEO Score — Answer Engine Optimization</h2>')
+    lines.append('  </div>')
+    lines.append('')
+    lines.append('  <div class="action-item high">')
+    lines.append('    <p><strong>Reported separately from the SEO Health Score above &mdash; '
+                 'never averaged, weighted together, or presented as a single number.</strong> '
+                 'A page can score high on SEO and low on AEO, or vice versa; that divergence '
+                 'is the point of treating AEO as first-class.</p>')
+    lines.append('  </div>')
+
+    sub = 1
+
+    avs = aeo.get("ai_visibility_score")
+    if isinstance(avs, dict):
+        composite = avs.get("composite_range") or avs.get("composite")
+        label = avs.get("label", "")
+        lines.append(f'  <h3>{section_num}.{sub} AI Visibility Score</h3>')
+        sub += 1
+        if composite is not None:
+            lines.append('  <div class="two-col">')
+            lines.append('    <div class="col">')
+            lines.append(_metric_card(f'{escape(str(composite))}/100', escape(str(label)) or "AI Visibility"))
+            lines.append('    </div>')
+            lines.append('  </div>')
+        components = avs.get("components")
+        if isinstance(components, dict):
+            lines.append('  <table>')
+            lines.append('    <tr><th>Component</th><th>Score</th><th>Weight</th></tr>')
+            for name, comp in components.items():
+                if not isinstance(comp, dict):
+                    continue
+                score_disp = comp.get("score_range", comp.get("score", ""))
+                weight = comp.get("weight", "")
+                lines.append(
+                    f'    <tr><td>{escape(str(name).replace("_", " ").title())}</td>'
+                    f'<td>{escape(str(score_disp))}</td><td>{escape(str(weight))}</td></tr>'
+                )
+            lines.append('  </table>')
+            for name, comp in components.items():
+                if isinstance(comp, dict) and comp.get("note"):
+                    lines.append(f'  <p><em>{escape(str(name).replace("_", " ").title())}: {escape(str(comp["note"]))}</em></p>')
+        note = avs.get("note")
+        if note:
+            lines.append(f'  <p><em>{escape(str(note))}</em></p>')
+
+    cscores = _coerce_items(aeo.get("citability_scores"))
+    if cscores:
+        lines.append(f'  <h3>{section_num}.{sub} Deterministic Citability Scores</h3>')
+        sub += 1
+        summary = aeo.get("citability_summary")
+        if summary:
+            lines.append(f'  <p>{escape(str(summary))}</p>')
+        lines.append('  <table>')
+        lines.append('    <tr><th>Page</th><th>Score</th><th>Grade</th></tr>')
+        for c in cscores:
+            if not isinstance(c, dict):
+                continue
+            lines.append(
+                f'    <tr><td>{escape(str(c.get("url", "")))}</td>'
+                f'<td>{escape(str(c.get("score", "")))}</td>'
+                f'<td>{escape(str(c.get("grade", "")))}</td></tr>'
+            )
+        lines.append('  </table>')
+        for c in cscores:
+            if isinstance(c, dict) and c.get("note"):
+                lines.append(f'  <p><em>{escape(str(c.get("url", "")))}: {escape(str(c["note"]))}</em></p>')
+
+    crawler = aeo.get("ai_crawler_access")
+    if isinstance(crawler, dict) or (isinstance(crawler, str) and crawler):
+        lines.append(f'  <h3>{section_num}.{sub} AI Crawler Access</h3>')
+        sub += 1
+        if isinstance(crawler, dict):
+            if crawler.get("summary"):
+                lines.append(f'  <p>{escape(str(crawler["summary"]))}</p>')
+            tier1 = _coerce_items(crawler.get("tier_1_critical"))
+            if tier1:
+                lines.append('  <h4>Tier 1 &mdash; Critical</h4>')
+                lines.append('  <ul>')
+                for t in tier1:
+                    lines.append(f'    <li>{escape(str(t))}</li>')
+                lines.append('  </ul>')
+            tier2 = _coerce_items(crawler.get("tier_2_secondary"))
+            if tier2:
+                lines.append('  <h4>Tier 2 &mdash; Secondary</h4>')
+                lines.append('  <ul>')
+                for t in tier2:
+                    lines.append(f'    <li>{escape(str(t))}</li>')
+                lines.append('  </ul>')
+            if crawler.get("note"):
+                lines.append(f'  <p><em>{escape(str(crawler["note"]))}</em></p>')
+        else:
+            lines.append(f'  <p>{escape(str(crawler))}</p>')
+
+    llms = aeo.get("llms_txt_status")
+    if llms:
+        lines.append(f'  <h3>{section_num}.{sub} llms.txt Status</h3>')
+        sub += 1
+        lines.append(f'  <p>{escape(str(llms))}</p>')
+
+    brand = aeo.get("brand_visibility")
+    if isinstance(brand, dict) or (isinstance(brand, str) and brand):
+        lines.append(f'  <h3>{section_num}.{sub} Brand / AI-Visibility Presence</h3>')
+        sub += 1
+        if isinstance(brand, dict):
+            score = brand.get("score_range", brand.get("score"))
+            if score is not None:
+                lines.append(f'  <p><strong>Brand Mention Score:</strong> {escape(str(score))}/100</p>')
+            findings = _coerce_items(brand.get("findings"))
+            if findings:
+                lines.append('  <table>')
+                lines.append('    <tr><th>Platform</th><th>Status</th><th>Note</th></tr>')
+                for f in findings:
+                    if not isinstance(f, dict):
+                        continue
+                    lines.append(
+                        f'    <tr><td>{escape(str(f.get("platform", "")))}</td>'
+                        f'<td>{escape(str(f.get("status", "")))}</td>'
+                        f'<td>{escape(str(f.get("note", "")))}</td></tr>'
+                    )
+                lines.append('  </table>')
+            if brand.get("cross_cutting_risk"):
+                lines.append(f'  <p><strong>Cross-cutting risk:</strong> {escape(str(brand["cross_cutting_risk"]))}</p>')
+        else:
+            lines.append(f'  <p>{escape(str(brand))}</p>')
+
+    platforms = aeo.get("per_platform_readiness")
+    if isinstance(platforms, dict) or (isinstance(platforms, str) and platforms):
+        lines.append(f'  <h3>{section_num}.{sub} Per-Platform Readiness</h3>')
+        sub += 1
+        if isinstance(platforms, dict):
+            if platforms.get("average") is not None:
+                lines.append(f'  <p><strong>Average readiness:</strong> {escape(str(platforms["average"]))}/100</p>')
+            scores = _coerce_items(platforms.get("scores"))
+            if scores:
+                lines.append('  <table>')
+                lines.append('    <tr><th>Platform</th><th>Score</th><th>Status</th><th>Top Fix</th></tr>')
+                for p in scores:
+                    if not isinstance(p, dict):
+                        continue
+                    lines.append(
+                        f'    <tr><td>{escape(str(p.get("platform", "")))}</td>'
+                        f'<td>{escape(str(p.get("score", "")))}</td>'
+                        f'<td>{escape(str(p.get("status", "")))}</td>'
+                        f'<td>{escape(str(p.get("top_fix", "")))}</td></tr>'
+                    )
+                lines.append('  </table>')
+        else:
+            lines.append(f'  <p>{escape(str(platforms))}</p>')
+
+    lines.append('  <hr class="divider">')
+    lines.append('</div>')
+    return "\n".join(lines)
+
+
 def _build_audit_action_plan(data, section_num=5):
     """Build a four-phase or custom action-plan section."""
     action_plan = data.get("action_plan", {})
@@ -2234,6 +2403,14 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
                 ],
             })
             sec_num += 1
+        if isinstance(data.get("aeo"), dict) and data.get("aeo"):
+            toc_sections.append({
+                "num": sec_num, "title": "AEO Score", "subs": [
+                    "AI Visibility, Citability & Crawler Access",
+                    "Brand Presence & Per-Platform Readiness",
+                ],
+            })
+            sec_num += 1
         if data.get("psi") or data.get("crux"):
             toc_sections.append({
                 "num": sec_num, "title": "Core Web Vitals &amp; Performance",
@@ -2283,6 +2460,10 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
         current_sec = 2
         if data.get("categories"):
             sections.append(_build_full_audit_categories(data, section_num=current_sec))
+            current_sec += 1
+
+        if isinstance(data.get("aeo"), dict) and data.get("aeo"):
+            sections.append(_build_aeo_section(data, section_num=current_sec))
             current_sec += 1
 
         if data.get("psi") or data.get("crux"):
