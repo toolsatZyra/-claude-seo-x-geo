@@ -17,7 +17,7 @@ metadata:
 
 ## Core Insight
 
-AI language models cite passages that meet specific structural criteria. Research from Princeton, Georgia Tech, and IIT Delhi (2024) found that GEO-optimized content achieves 30-115% higher visibility in AI-generated responses. The key finding: AI systems preferentially extract and cite passages that are **134-167 words long**, **self-contained** (understandable without surrounding context), **fact-rich** (containing specific statistics, dates, or named entities), and **directly answer a question** in the first 1-2 sentences.
+AI language models cite passages that meet specific structural criteria. Aggarwal et al.'s "GEO: Generative Engine Optimization" (Princeton, Georgia Tech, IIT Delhi, and the Allen Institute for AI; ACM SIGKDD 2024 -- [DOI](https://dl.acm.org/doi/10.1145/3637528.3671900)) found that adding citations, statistics, and quotations can each lift a passage's visibility in AI-generated responses by roughly 30-40%, with citing external sources producing up to a 115% lift specifically for lower-ranked content (around position 5, where there is more room to gain). This is one joint study across all four institutions, not separate independent findings per university -- see [[evidence-registry]] for exact figures per technique. Beyond this study, this skill also treats **self-contained** (understandable without surrounding context), **fact-rich** (containing specific statistics, dates, or named entities), and **directly-answers-a-question-in-the-first-1-2-sentences** passages as more citable; these are the scorer's own heuristics, not all independently drawn from the cited paper.
 
 This is fundamentally different from traditional SEO copywriting, which optimizes for keyword density and user engagement metrics. GEO citability optimizes for **extractability** -- the ease with which an AI system can pull a passage from your content and present it as a direct answer.
 
@@ -334,14 +334,19 @@ Generate a file called `GEO-CITABILITY-SCORE.md`:
 
 ## Reference Data
 
-### Optimal Passage Characteristics (from GEO Research)
+### Optimal Passage Characteristics
 
-- **Optimal length for AI citation:** 134-167 words (Bortolato 2025 analysis of AI Overview passages)
-- **Definition patterns increase citation rate by:** 2.1x (Georgia Tech 2024)
-- **Adding statistics to passages increases citation by:** 40% (Princeton GEO study 2024)
-- **Adding quotations from authorities increases citation by:** 115% in certain categories (IIT Delhi 2024)
-- **Fluency optimization increases visibility by:** 30% on average across all query types
-- **Content with source citations is cited:** 20-25% more often by Perplexity and ChatGPT search
+From Aggarwal et al., "GEO: Generative Engine Optimization" (Princeton/Georgia Tech/IIT Delhi/Allen Institute for AI, ACM SIGKDD 2024 -- one joint study, see [[evidence-registry]] for the source link):
+
+- **Adding statistics to passages:** ~41% visibility lift
+- **Adding quotations from authorities:** ~28% visibility lift
+- **Citing external sources:** up to ~115% visibility lift, specifically for content ranked around position 5 (lower-ranked pages have more room to gain; top-ranked pages see little change)
+- **Overall GEO technique lift, across the top methods tested:** commonly cited as up to ~40%
+
+Internal scorer heuristics, not drawn from the paper above -- treat as untested assumptions, not proven findings:
+
+- **134-167 word "optimal" passage length:** this is `citability_scorer.py`'s internal self-containment band. We could not independently verify a specific optimal-word-count finding in the published GEO literature; do not present this range to clients as a research-backed fact. If you find the original source, add it to [[evidence-registry]]; otherwise treat it as a heuristic assumption open to retuning.
+- **Definition patterns / fluency / cross-platform citation-rate multipliers:** earlier versions of this document attributed specific multipliers (e.g. "2.1x", "20-25% more often on Perplexity/ChatGPT") to named institutions and a "Bortolato 2025" source we could not locate or verify. Those figures have been removed rather than left uncorrected. Do not reintroduce a precise multiplier here without a checkable source.
 
 ### AI System Citation Preferences
 

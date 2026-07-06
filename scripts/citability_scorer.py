@@ -3,11 +3,17 @@
 Citability Scorer — Analyzes content blocks for AI citation readiness.
 Scores passages based on how likely AI models are to cite them.
 
-Based on research showing optimal AI-cited passages are:
-- 134-167 words long
+Scores four things the scoring rubric treats as more citable:
 - Self-contained (extractable without context)
 - Fact-rich with specific statistics
 - Structured with clear answer patterns
+- Within a "sweet spot" word-count band
+
+The 134-167 word band used by score_passage() below is this script's own
+internal heuristic, not a figure drawn from published GEO research — we
+could not independently verify a specific optimal-word-count finding in the
+literature (see skills/seo-geo/references/aeo-scoring-weights.md). Treat it
+as an untested assumption open to retuning, not a validated constant.
 
 Derived from zubair-trabzada/geo-seo-claude (MIT).
 """
