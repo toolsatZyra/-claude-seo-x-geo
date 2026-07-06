@@ -38,6 +38,9 @@ except ImportError:
     print("Error: weasyprint required. Install with: pip install weasyprint", file=sys.stderr)
     sys.exit(1)
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from brand_config import load_brand
+
 
 # ─── Brand Colors ────────────────────────────────────────────────────────────
 
@@ -368,7 +371,7 @@ def chart_index_status(data: dict, output_dir: Path) -> str:
 
 # ─── CSS Template ────────────────────────────────────────────────────────────
 
-def _build_css(domain: str) -> str:
+def _build_css(domain: str, brand: Optional[dict] = None) -> str:
     """
     Professional A4 report CSS adapted from generate_pdf.py.
 
@@ -376,7 +379,12 @@ def _build_css(domain: str) -> str:
     from the dexdia.com audit report are preserved with the WeasyPrint-safe
     patterns (div.section for page-break, float:right for badges,
     display:table for two-column layouts).
+
+    `brand` is an optional dict from brand_config.load_brand(). When not
+    supplied (the default), the navy #1e3a5f accent used throughout this
+    template is unchanged from before this parameter existed.
     """
+    primary = (brand or {}).get("colors", {}).get("primary") or BRAND["primary"]
     return f"""\
   @page {{
     size: A4;
@@ -444,7 +452,7 @@ def _build_css(domain: str) -> str:
     color: #1a1a2e;
     position: relative;
     padding: 50mm 30mm 40mm 30mm;
-    border-top: 6mm solid #1e3a5f;
+    border-top: 6mm solid {primary};
   }}
 
   .title-page .badge {{
@@ -456,7 +464,7 @@ def _build_css(domain: str) -> str:
     letter-spacing: 2px;
     text-transform: uppercase;
     margin-bottom: 15mm;
-    color: #1e3a5f;
+    color: {primary};
   }}
 
   .title-page h1 {{
@@ -477,7 +485,7 @@ def _build_css(domain: str) -> str:
 
   .title-page .url {{
     font-size: 12pt;
-    color: #1e3a5f;
+    color: {primary};
     margin-bottom: 15mm;
     padding: 4mm 8mm;
     border: 1px solid #d6d3cc;
@@ -496,7 +504,7 @@ def _build_css(domain: str) -> str:
   .title-page .score-number {{
     font-size: 42pt;
     font-weight: bold;
-    color: #1e3a5f;
+    color: {primary};
     line-height: 1;
   }}
 
@@ -526,10 +534,10 @@ def _build_css(domain: str) -> str:
 
   .toc-page h2 {{
     font-size: 18pt;
-    color: #1e3a5f;
+    color: {primary};
     margin-bottom: 8mm;
     padding-bottom: 3mm;
-    border-bottom: 2px solid #1e3a5f;
+    border-bottom: 2px solid {primary};
   }}
 
   .toc-list {{
@@ -577,7 +585,7 @@ def _build_css(domain: str) -> str:
 
   .section-header {{
     background: #faf9f7;
-    border-left: 4px solid #1e3a5f;
+    border-left: 4px solid {primary};
     padding: 5mm 6mm;
     margin-bottom: 6mm;
     page-break-after: avoid;
@@ -598,7 +606,7 @@ def _build_css(domain: str) -> str:
 
   h3 {{
     font-size: 12pt;
-    color: #1e3a5f;
+    color: {primary};
     margin-top: 6mm;
     margin-bottom: 3mm;
     padding-bottom: 1.5mm;
@@ -799,7 +807,7 @@ def _build_css(domain: str) -> str:
   }}
 
   .action-item.medium {{
-    border-left-color: #1e3a5f;
+    border-left-color: {primary};
     background: #f0f4f8;
   }}
 
@@ -833,7 +841,7 @@ def _build_css(domain: str) -> str:
 
   .priority-critical {{ background: #c53030; }}
   .priority-high {{ background: #d4740e; }}
-  .priority-medium {{ background: #1e3a5f; }}
+  .priority-medium {{ background: {primary}; }}
   .priority-low {{ background: #94a3b8; }}
 
   /* ─── Code blocks ─── */
@@ -871,7 +879,7 @@ def _build_css(domain: str) -> str:
   .roadmap-phase h4 {{
     margin-top: 0;
     border-bottom: none;
-    color: #1e3a5f;
+    color: {primary};
   }}
 
   .roadmap-phase ul {{
@@ -941,8 +949,14 @@ def _metric_card(value, label, color=None):
 
 # ─── Section Builders ────────────────────────────────────────────────────────
 
-def _build_title_page(domain, report_title, subtitle, score=None, score_label=None, meta_items=None):
-    """Build the gradient title page."""
+def _build_title_page(domain, report_title, subtitle, score=None, score_label=None, meta_items=None, brand=None):
+    """Build the gradient title page.
+
+    `brand` is an optional dict from brand_config.load_brand() used for
+    white-label resales. When not supplied (the default), the report reads
+    "Prepared by Claude SEO" exactly as before this parameter existed.
+    """
+    prepared_by = brand.get("name") if brand else "Claude SEO"
     score_html = ""
     if score is not None:
         score_html = (
@@ -978,7 +992,7 @@ def _build_title_page(domain, report_title, subtitle, score=None, score_label=No
         f'<div class="title-page">\n'
         f'  <div class="badge">{report_title}</div>\n'
         f'  <h1>{domain}</h1>\n'
-        f'  <div class="subtitle">Prepared by Claude SEO</div>\n'
+        f'  <div class="subtitle">Prepared by {escape(prepared_by)}</div>\n'
         f'{score_html}'
         f'{meta_html}'
         f'{google_logo_html}'
@@ -1998,7 +2012,8 @@ def _build_methodology_footer(domain, timestamp):
 
 # ─── Report Assemblers ───────────────────────────────────────────────────────
 
-def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
+def generate_report(report_type, data, domain, output_dir, output_format="pdf",
+                     brand_config_path: Optional[str] = None):
     """
     Generate a complete professional PDF/HTML report.
 
@@ -2008,10 +2023,15 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
         domain: Domain name for the report header.
         output_dir: Directory for output files.
         output_format: 'pdf', 'html', or 'both'.
+        brand_config_path: Optional path to a white-label brand.json (see
+            brand_config.py). When None (the default), the report keeps
+            its standard "Claude SEO" branding and navy accent color.
 
     Returns:
         Dictionary with output paths.
     """
+    brand = load_brand(brand_config_path) if brand_config_path else None
+
     output_dir = Path(output_dir)
     charts_dir = output_dir / "charts"
     charts_dir.mkdir(parents=True, exist_ok=True)
@@ -2072,6 +2092,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
             score=perf_score,
             score_label="Lighthouse Performance Score",
             meta_items=[timestamp, "PageSpeed Insights + CrUX"],
+            brand=brand,
         ))
 
         # TOC
@@ -2114,6 +2135,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
             score=f"{clicks:,}",
             score_label="Total Clicks",
             meta_items=[timestamp, "Google Search Console API"],
+            brand=brand,
         ))
 
         toc_sections = [
@@ -2152,6 +2174,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
             score=total,
             score_label="URLs Inspected",
             meta_items=[timestamp, "URL Inspection API"],
+            brand=brand,
         ))
 
         toc_sections = [
@@ -2193,6 +2216,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
             score=display_score,
             score_label="SEO Health Score" if health_score is not None else ("Lighthouse Performance Score" if perf_score else None),
             meta_items=[timestamp, "Full Audit"],
+            brand=brand,
         ))
 
         # Build TOC dynamically based on available data
@@ -2294,7 +2318,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf"):
 
     # ── Assemble Final HTML ──────────────────────────────────────────────────
 
-    css = _build_css(domain)
+    css = _build_css(domain, brand=brand)
     body = "\n".join(sections)
     html_content = (
         f'<!DOCTYPE html>\n'
@@ -2598,6 +2622,11 @@ def main():
         help="Output format: pdf, html, xlsx, both (pdf+html), all (pdf+html+xlsx)",
     )
     parser.add_argument("--json", "-j", action="store_true", help="Output metadata as JSON")
+    parser.add_argument(
+        "--brand-config",
+        help="Path to a white-label brand.json (see scripts/brand_config.py / "
+             "brand.example.json). Omit for standard Claude SEO branding.",
+    )
 
     args = parser.parse_args()
 
@@ -2625,6 +2654,7 @@ def main():
         domain=args.domain,
         output_dir=args.output_dir,
         output_format=args.format,
+        brand_config_path=args.brand_config,
     )
 
     if result.get("error"):
