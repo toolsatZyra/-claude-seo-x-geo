@@ -87,13 +87,51 @@ def _score_class(score):
 
 
 def _rating_css_class(rating):
-    """Return CSS status class from a rating string."""
+    """Return CSS status class from a CrUX-style rating string (good/needs
+    improvement/poor). Do not use this for finding severity levels
+    (Critical/High/Medium/Low/Info) -- none of those match "good", "pass",
+    "poor", or "fail", so they all silently fall through to the same
+    "status-warn" class. Use _severity_badge_class() for severity instead.
+    """
     r = str(rating).lower()
     if "good" in r or "pass" in r:
         return "status-pass"
     elif "poor" in r or "fail" in r:
         return "status-fail"
     return "status-warn"
+
+
+def _severity_badge_class(severity):
+    """Map a finding severity/priority string to its priority-tag modifier
+    class (priority-critical/high/medium/low/info), matching the badge
+    styling already used in the Action Plan / Recommendations sections.
+    """
+    s = str(severity).strip().lower()
+    if s in ("critical", "fail", "failed"):
+        return "priority-critical"
+    if s in ("high", "warning", "warn"):
+        return "priority-high"
+    if s in ("medium", "moderate"):
+        return "priority-medium"
+    if s in ("low",):
+        return "priority-low"
+    return "priority-info"
+
+
+def _severity_action_item_class(severity):
+    """Map a finding severity string to the .action-item border/background
+    modifier class. There is no dedicated "info" variant, so info-level
+    findings share the "low" styling (muted border, no tinted background)
+    rather than defaulting to "medium" for every severity.
+    """
+    s = str(severity).strip().lower()
+    if s in ("critical", "fail", "failed"):
+        return "critical"
+    if s in ("high", "warning", "warn"):
+        return "high"
+    if s in ("medium", "moderate"):
+        return "medium"
+    return "low"
 
 
 # ─── Chart Setup ─────────────────────────────────────────────────────────────
@@ -843,6 +881,7 @@ def _build_css(domain: str, brand: Optional[dict] = None) -> str:
   .priority-high {{ background: #d4740e; }}
   .priority-medium {{ background: {primary}; }}
   .priority-low {{ background: #94a3b8; }}
+  .priority-info {{ background: #6b7280; }}
 
   /* ─── Code blocks ─── */
   .code-block {{
@@ -954,14 +993,19 @@ def _build_title_page(domain, report_title, subtitle, score=None, score_label=No
 
     `brand` is an optional dict from brand_config.load_brand() used for
     white-label resales. When not supplied (the default), the report reads
-    "Prepared by Claude SEO" exactly as before this parameter existed.
+    "Prepared by Zyra SEO".
     """
-    prepared_by = brand.get("name") if brand else "Claude SEO"
+    prepared_by = brand.get("name") if brand else "Zyra SEO"
     score_html = ""
     if score is not None:
+        try:
+            score_color = _score_color(float(score))
+        except (TypeError, ValueError):
+            score_color = None
+        color_style = f' style="color: {score_color};"' if score_color else ""
         score_html = (
             f'  <div class="score-box">\n'
-            f'    <div class="score-number">{score}'
+            f'    <div class="score-number"{color_style}>{score}'
             f'<span style="font-size: 20pt; color: #94a3b8;">/100</span></div>\n'
             f'    <div class="score-label">{score_label or "Lighthouse Performance Score"}</div>\n'
             f'  </div>\n'
@@ -1106,15 +1150,21 @@ def _build_full_audit_categories(data, section_num=2):
                 recommendation = ""
                 if isinstance(finding, dict) and finding.get("recommendation"):
                     recommendation = escape(str(finding["recommendation"]))
-                severity_class = _rating_css_class(severity)
-                lines.append('  <div class="action-item medium">')
-                lines.append(f'    <h4>{title} <span class="{severity_class}">{severity}</span></h4>')
+                badge_class = _severity_badge_class(severity)
+                item_class = _severity_action_item_class(severity)
+                lines.append(f'  <div class="action-item {item_class}">')
+                lines.append(f'    <h4>{title} <span class="priority-tag {badge_class}">{severity.upper()}</span></h4>')
                 if desc:
                     lines.append(f'    <p>{desc}</p>')
                 if recommendation:
                     lines.append(f'    <p><strong>Recommendation:</strong> {recommendation}</p>')
                 lines.append('  </div>')
-        lines.append('  <hr class="divider">')
+        if idx < len(categories):
+            # Only between categories, not after the last one -- a lone
+            # trailing divider right before the next section's forced page
+            # break can end up as the only content on an otherwise-blank
+            # page in WeasyPrint.
+            lines.append('  <hr class="divider">')
 
     lines.append('</div>')
     return "\n".join(lines)
@@ -2140,8 +2190,14 @@ def _build_recommendations(data, section_num=5):
     return "\n".join(lines)
 
 
-def _build_methodology_footer(domain, timestamp):
-    """Build the Data Sources & Methodology footer section."""
+def _build_methodology_footer(domain, timestamp, brand=None):
+    """Build the Data Sources & Methodology footer section.
+
+    `brand` is an optional dict from brand_config.load_brand(), matching
+    _build_title_page()'s "Prepared by" name so the cover page and this
+    footer never disagree about who generated the report.
+    """
+    generated_by = brand.get("name") if brand else "Zyra SEO"
     return (
         f'\n<!-- {"=" * 55} DATA SOURCES & METHODOLOGY {"=" * 3} -->\n'
         f'<div class="section" style="text-align: center; padding-top: 15mm;">\n'
@@ -2170,7 +2226,7 @@ def _build_methodology_footer(domain, timestamp):
         f'    </tbody>\n'
         f'  </table>\n'
         f'  <p style="color: #94a3b8; font-size: 9pt; margin-top: 5mm;">\n'
-        f'    Report generated by Claude SEO &mdash; Google SEO Intelligence Skill &mdash; '
+        f'    Report generated by {escape(str(generated_by))} &mdash; Google SEO Intelligence Skill &mdash; '
         f'{timestamp}<br>\n'
         f'    Methodology based on Google Web Vitals thresholds, Search Console documentation, '
         f'and Lighthouse scoring algorithms.\n'
@@ -2194,7 +2250,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
         output_format: 'pdf', 'html', or 'both'.
         brand_config_path: Optional path to a white-label brand.json (see
             brand_config.py). When None (the default), the report keeps
-            its standard "Claude SEO" branding and navy accent color.
+            its standard "Zyra SEO" branding and navy accent color.
 
     Returns:
         Dictionary with output paths.
@@ -2291,7 +2347,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
         sections.append(cwv_html)
 
         sections.append(_build_recommendations(data, section_num=3))
-        sections.append(_build_methodology_footer(domain, timestamp))
+        sections.append(_build_methodology_footer(domain, timestamp, brand=brand))
 
     # ── GSC-PERFORMANCE report ───────────────────────────────────────────────
     elif report_type == "gsc-performance":
@@ -2330,7 +2386,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
         sections.append(gsc_html)
 
         sections.append(_build_recommendations(data, section_num=3))
-        sections.append(_build_methodology_footer(domain, timestamp))
+        sections.append(_build_methodology_footer(domain, timestamp, brand=brand))
 
     # ── INDEXATION report ────────────────────────────────────────────────────
     elif report_type == "indexation":
@@ -2367,7 +2423,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
         sections.append(idx_html)
 
         sections.append(_build_recommendations(data, section_num=3))
-        sections.append(_build_methodology_footer(domain, timestamp))
+        sections.append(_build_methodology_footer(domain, timestamp, brand=brand))
 
     # ── FULL report ──────────────────────────────────────────────────────────
     elif report_type == "full":
@@ -2495,7 +2551,7 @@ def generate_report(report_type, data, domain, output_dir, output_format="pdf",
             sections.append(action_html)
         else:
             sections.append(_build_recommendations(data, section_num=rec_num))
-        sections.append(_build_methodology_footer(domain, timestamp))
+        sections.append(_build_methodology_footer(domain, timestamp, brand=brand))
 
     # ── Assemble Final HTML ──────────────────────────────────────────────────
 
@@ -2806,7 +2862,7 @@ def main():
     parser.add_argument(
         "--brand-config",
         help="Path to a white-label brand.json (see scripts/brand_config.py / "
-             "brand.example.json). Omit for standard Claude SEO branding.",
+             "brand.example.json). Omit for standard Zyra SEO branding.",
     )
 
     args = parser.parse_args()
