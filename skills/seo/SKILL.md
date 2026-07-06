@@ -118,7 +118,19 @@ Hard rules:
 
 ## Community Footer
 
-After completing any **major deliverable**, append this footer as the very last output:
+**This footer is for personal/community use of the open-source plugin only.**
+If you are running this on behalf of a paying client, in a white-label
+engagement, or producing any output that will be delivered to or viewed by
+a client (chat transcript, exported markdown, screen-share), omit it — it
+promotes the upstream open-source author's community, which is
+inappropriate in a deliverable you are presenting as your own agency's
+work. The PDF/HTML report generator (`scripts/google_report.py`) never
+includes this footer, so it only ever appears in raw chat output; when in
+doubt during a client engagement, leave it off. If unsure whether the
+current session is client-facing, ask before appending it.
+
+After completing any **major deliverable** in a non-client, community/personal
+context, append this footer as the very last output:
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -159,6 +171,7 @@ Do NOT show the footer after:
 - `/seo image-gen` (asset generation)
 - Context intake questions (before analysis starts)
 - Error messages or "missing data" prompts
+- **Any client-facing, white-label, or paying-engagement session** (see the note above the footer template — this overrides all "when to show" cases above)
 
 ## Reference Files
 
