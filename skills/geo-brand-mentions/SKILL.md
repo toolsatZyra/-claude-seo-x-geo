@@ -1,6 +1,6 @@
 ---
 name: geo-brand-mentions
-description: Brand mention and authority scanner for AI visibility. Analyzes brand presence across platforms that AI models rely on for entity recognition and citation decisions. Produces a Brand Authority Score (0-100) with platform-specific recommendations.
+description: Brand mention and authority scanner for AI visibility. Automates Wikipedia/Wikidata presence checks via API and guides manual research across YouTube, Reddit, LinkedIn, and other platforms that AI models rely on for entity recognition and citation decisions. Produces a Brand Authority Score (0-100) that is part-measured, part-researcher-judgment -- not fully deterministic.
 allowed-tools:
   - Read
   - Grep
@@ -15,9 +15,21 @@ metadata:
 
 # Brand Mention Scanner Skill
 
+## What's actually automated here
+
+**Only Wikipedia/Wikidata presence is checked via a real API call**
+(`scripts/brand_scanner.py::check_wikipedia_presence`). YouTube, Reddit,
+LinkedIn, and "Other Platforms" return search URLs and a manual checklist --
+no API call is made for them, and the script marks each platform result with
+`"automated": true/false` so this is never ambiguous downstream. Do not
+present the resulting "Brand Authority Score" to a client as a fully
+automated, deterministic measurement the way `geo-citability`'s score is --
+80% of the inputs here require a human to actually look at YouTube/Reddit/
+LinkedIn and judge what they see.
+
 ## Core Insight
 
-Brand mentions correlate approximately 3x more strongly with AI visibility than traditional backlinks. An Ahrefs study published in December 2025, analyzing 75,000 brands across AI search platforms, found that **unlinked brand mentions** -- references to a brand name without a hyperlink -- are a stronger predictor of whether AI systems cite and recommend a brand than Domain Rating or backlink count.
+Brand mentions correlate approximately 3x more strongly with AI visibility than traditional backlinks (specifically: web-mention correlation ~0.664 vs. backlink correlation ~0.218 with AI Overview brand visibility). Ahrefs' study of 75,000 brands ([ahrefs.com/blog/ai-brand-visibility-correlations](https://ahrefs.com/blog/ai-brand-visibility-correlations/), December 2025 follow-up to their original July 2025 study) found that **unlinked brand mentions** -- references to a brand name without a hyperlink -- are a stronger predictor of whether AI systems cite and recommend a brand than Domain Rating or backlink count. This figure has been independently verified against Ahrefs' own published post as of 2026-07-06.
 
 The critical finding: **the platform where the mention appears matters enormously.** Not all mentions are equal. A mention on YouTube or Reddit carries far more weight for AI citation than a mention on a low-authority blog, because AI training data and retrieval systems disproportionately index high-engagement platforms.
 
@@ -27,7 +39,7 @@ This inverts a core assumption of traditional SEO. In traditional SEO, a backlin
 
 ## Platform Importance Ranking for AI Citations
 
-Based on the Ahrefs December 2025 study and corroborating research from Profound (2025) and Terakeet (2025):
+Based on the Ahrefs December 2025 study (verified, see Core Insight above). "Corroborating research from Profound (2025) and Terakeet (2025)" was named here without a specific claim or link attached -- we could not verify what finding this refers to, so treat it as unconfirmed context rather than an independent citation until a specific source is added.
 
 ### 1. YouTube Mentions -- Correlation ~0.737 (STRONGEST)
 
@@ -64,7 +76,7 @@ Based on the Ahrefs December 2025 study and corroborating research from Profound
 **Why Reddit matters:**
 - Reddit is one of the most heavily indexed platforms in AI training data (confirmed in Google's $60M/year Reddit licensing deal, 2024).
 - AI systems heavily weight Reddit for product recommendations, comparisons, and user sentiment.
-- "Reddit" is now appended to an estimated 10-15% of Google searches by users seeking authentic opinions.
+- Anecdotally, many users append "Reddit" to Google searches seeking authentic opinions; the specific "10-15% of Google searches" figure could not be independently verified and should not be quoted to a client as a hard number -- treat the underlying behavior as real and the percentage as unconfirmed.
 - Perplexity frequently cites Reddit threads as sources.
 - ChatGPT and Claude both reference Reddit discussions when answering product/service questions.
 

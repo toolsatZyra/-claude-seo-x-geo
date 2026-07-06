@@ -40,13 +40,18 @@ DEFAULT_HEADERS = {
 
 
 def check_youtube_presence(brand_name: str) -> dict:
-    """Check brand presence on YouTube."""
+    """Return manual-check instructions for YouTube brand presence.
+
+    Not automated: this makes no API call. It returns a search URL and a
+    checklist for a human (or the calling skill) to work through. Any
+    boolean "found" field here would be a placeholder, not a finding, so
+    none is included -- do not synthesize one downstream.
+    """
     result = {
         "platform": "YouTube",
+        "automated": False,
         "correlation": 0.737,
         "weight": "25%",
-        "has_channel": False,
-        "mentioned_in_videos": False,
         "search_url": f"https://www.youtube.com/results?search_query={quote_plus(brand_name)}",
         "recommendations": [],
     }
@@ -70,13 +75,16 @@ def check_youtube_presence(brand_name: str) -> dict:
 
 
 def check_reddit_presence(brand_name: str) -> dict:
-    """Check brand presence on Reddit."""
+    """Return manual-check instructions for Reddit brand presence.
+
+    Not automated: no API call is made. See check_youtube_presence()'s
+    docstring for why no placeholder boolean fields are included.
+    """
     result = {
         "platform": "Reddit",
+        "automated": False,
         "correlation": "High",
         "weight": "25%",
-        "has_subreddit": False,
-        "mentioned_in_discussions": False,
         "search_url": f"https://www.reddit.com/search/?q={quote_plus(brand_name)}",
         "recommendations": [],
     }
@@ -103,11 +111,15 @@ def check_reddit_presence(brand_name: str) -> dict:
 def check_wikipedia_presence(brand_name: str) -> dict:
     """Check brand/entity presence on Wikipedia and Wikidata.
 
+    The only platform in this module that is actually automated: makes real
+    API calls to Wikipedia and Wikidata search endpoints, so has_wikipedia_page
+    and has_wikidata_entry below are genuine findings, not placeholders.
     Uses claude-seo's scripts/url_safety.safe_requests_get for DNS-rebinding
     protected requests, rather than calling requests.get directly.
     """
     result = {
         "platform": "Wikipedia",
+        "automated": True,
         "correlation": "High",
         "weight": "20%",
         "has_wikipedia_page": False,
@@ -157,13 +169,17 @@ def check_wikipedia_presence(brand_name: str) -> dict:
 
 
 def check_linkedin_presence(brand_name: str) -> dict:
-    """Check brand presence on LinkedIn."""
+    """Return manual-check instructions for LinkedIn brand presence.
+
+    Not automated: no API call is made (LinkedIn's API does not expose this
+    kind of public search). See check_youtube_presence()'s docstring for why
+    no placeholder boolean fields are included.
+    """
     result = {
         "platform": "LinkedIn",
+        "automated": False,
         "correlation": "Moderate",
         "weight": "15%",
-        "has_company_page": False,
-        "employee_thought_leadership": False,
         "search_url": f"https://www.linkedin.com/search/results/companies/?keywords={quote_plus(brand_name)}",
         "recommendations": [],
     }
@@ -188,9 +204,13 @@ def check_linkedin_presence(brand_name: str) -> dict:
 
 
 def check_other_platforms(brand_name: str) -> dict:
-    """Check brand presence on additional platforms."""
+    """Return manual-check search URLs for additional platforms.
+
+    Not automated: no API calls are made for any of these platforms.
+    """
     result = {
         "platform": "Other Platforms",
+        "automated": False,
         "weight": "15%",
         "platforms_checked": {},
         "recommendations": [],
@@ -223,7 +243,17 @@ def check_other_platforms(brand_name: str) -> dict:
 
 
 def generate_brand_report(brand_name: str, domain: str = None) -> dict:
-    """Generate a comprehensive brand mention report."""
+    """Generate a brand mention report.
+
+    Only the "wikipedia" entry in report["platforms"] is produced by a real
+    API call (see check_wikipedia_presence). The other four entries
+    (youtube, reddit, linkedin, other) are manual-check instructions and
+    search URLs, not automated findings -- each carries "automated": False
+    to make that explicit to any downstream consumer. A "Brand Authority
+    Score" computed from this report is therefore part-measured,
+    part-researcher-judgment, not a fully deterministic score like
+    citability_scorer.py's output.
+    """
     report = {
         "brand_name": brand_name,
         "domain": domain,
