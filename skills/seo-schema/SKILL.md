@@ -35,6 +35,34 @@ metadata:
   - Invalid date formats
 - Flag deprecated types (see below)
 
+## AI-citation-oriented schema (AEO)
+
+Beyond classic SEO schema validity, these Schema.org types carry specific
+weight for AI citation and entity recognition — folded in from
+geo-seo-claude's `geo-schema` module:
+
+- **Organization** — critical for entity recognition. AI systems use this to
+  disambiguate "which brand is this page about," especially when `sameAs`
+  links to Wikipedia, Wikidata, LinkedIn, Crunchbase, and other
+  AI-cited platforms (cross-reference `geo-brand-mentions`). Missing or
+  incomplete Organization schema is a common reason a page ranks well in
+  classic SEO but is never cited by an AI answer engine.
+- **Person** (author) — pairs with E-E-A-T signals. AI systems weigh
+  byline authorship more heavily than classic SERPs do, particularly for
+  YMYL content.
+- **FAQPage-as-entity-signal** — not for "FAQ rich snippet" purposes (Google
+  has scaled back FAQ rich results), but because a well-formed FAQPage block
+  gives an AI answer engine a pre-structured, self-contained Q&A pair it can
+  extract directly. Use sparingly — only for genuine, non-duplicative FAQs.
+
+These are additive to classic SEO schema requirements below, not a
+replacement — see the deprecation table above/below for what Google has
+deprecated for search-result purposes specifically.
+
+Import missing templates from `schema/` if this project lacks them:
+`schema/software-saas.json`, `schema/article-author.json` (see Task 18 for
+the selective merge that adds these two files).
+
 ## Schema Type Status (as of May 2026)
 
 Read `references/schema-types.md` for the full list. Key rules:
