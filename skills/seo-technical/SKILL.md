@@ -41,10 +41,12 @@ As of 2025-2026, AI companies actively crawl the web to train models and power A
 | Bytespider | ByteDance | `Bytespider` | Model training |
 | Google-Extended | Google | `Google-Extended` | Gemini training (NOT search) |
 | CCBot | Common Crawl | `CCBot` | Open dataset |
+| Bingbot / Copilot | Microsoft | `Bingbot` | Classic Bing indexing + Bing Copilot answer sourcing (same UA handles both) |
 
 **Key distinctions:**
 - Blocking `Google-Extended` prevents Gemini training use but does NOT affect Google Search indexing or AI Overviews (those use `Googlebot`)
 - Blocking `GPTBot` prevents OpenAI training but does NOT prevent ChatGPT from citing your content via browsing (`ChatGPT-User`)
+- Blocking any of these does not affect classic Google/Bing search rankings — it only controls whether that specific AI system's answer engine or model training can access the page
 - ~3-5% of websites now use AI-specific robots.txt rules
 
 **Example, selective AI crawler blocking:**
@@ -64,31 +66,9 @@ User-agent: *
 Allow: /
 ```
 
-**Recommendation:** Consider your AI visibility strategy before blocking. Being cited by AI systems drives brand awareness and referral traffic. Cross-reference the `seo-geo` skill for full AI visibility optimization.
+**Recommendation:** Consider your AI visibility strategy before blocking. Being cited by AI systems drives brand awareness and referral traffic. Recommend allowing these crawlers unless the client has an explicit content-licensing objection; blocking is a business decision, not a technical-SEO best practice. Cross-reference the `seo-geo` skill for AI visibility strategy, and the `geo-crawlers` skill for a complete Tier 1/2/3 crawler reference and per-crawler audit.
 
-#### AI crawler accessibility (AEO)
-
-Beyond classic Googlebot/Bingbot crawlability, check robots.txt rules for
-the AI crawlers below. This is a summary table — full analysis, per-crawler
-recommendations, and a complete Tier 1/2/3 reference lives in the
-`geo-crawlers` skill; run that skill for the full audit.
-
-| Crawler | Operator | Purpose |
-|---|---|---|
-| GPTBot | OpenAI | Training data / ChatGPT browsing |
-| ClaudeBot | Anthropic | Training data / Claude web search |
-| PerplexityBot | Perplexity | Answer-engine indexing |
-| Google-Extended | Google | Controls use in Gemini/AI Overviews training (separate from Googlebot's classic indexing directive) |
-| Bingbot / Copilot | Microsoft | Classic indexing + Bing Copilot answer sourcing |
-
-Blocking these does not affect classic Google/Bing search rankings — it
-only controls whether that specific AI system's answer engine or model
-training can access the page. Recommend allowing them unless the client has
-an explicit content-licensing objection; blocking is a business decision,
-not a technical-SEO best practice.
-
-Core Web Vitals, INP, and the rest of this skill's technical checks remain
-authoritative and unchanged by this AEO addition — see the sections above.
+Core Web Vitals, INP, and the rest of this skill's technical checks remain authoritative and unaffected by AI crawler configuration — see the sections below.
 
 ### 2. Indexability
 - Canonical tags: self-referencing, no conflicts with noindex
