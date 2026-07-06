@@ -171,7 +171,10 @@ def test_extension_skillmd_has_required_frontmatter(
     assert f"name: {skill_dir}" in head, f"{name}: frontmatter name must be {skill_dir}"
     assert "description:" in head, f"{name}: missing description"
     assert "metadata:" in head, f"{name}: missing metadata block"
-    assert 'version: "2.2.0"' in head, f"{name}: SKILL.md must declare version 2.2.0"
+    # Version pin tracks plugin.json's canonical version (bumped 2.2.0 -> 3.0.0
+    # in the v3.0.0 AEO/GEO merge; test_manifest_consistency.py's
+    # test_skill_metadata_versions_match_plugin_json enforces this repo-wide).
+    assert 'version: "3.0.0"' in head, f"{name}: SKILL.md must declare version 3.0.0"
 
 
 # ---------------------------------------------------------------------------

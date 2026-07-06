@@ -1,7 +1,7 @@
 {
   "name": "claude-seo",
-  "version": "2.2.0",
-  "description": "Comprehensive SEO analysis plugin for Claude Code. 25 sub-skills (21 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 18 sub-agents cover technical SEO, content quality, schema, sitemaps, Core Web Vitals, local SEO, backlinks, AI/GEO, ecommerce, hreflang, SXO, clustering, drift monitoring, and Google APIs. Includes optional MCP extensions, SPA-aware rendering, portability, and hardened SSRF/DNS-rebinding safe fetchers.",
+  "version": "3.0.0",
+  "description": "Comprehensive SEO analysis plugin for Claude Code. 32 sub-skills (28 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 20 sub-agents cover technical SEO, content, schema, sitemaps, Core Web Vitals, local SEO, backlinks, first-class AEO/GEO (citability scoring, platform optimization, AI crawlers, brand mentions), ecommerce, hreflang, SXO, clustering, drift monitoring, and Google APIs. Includes MCP extensions, SPA-aware rendering, portability, and hardened SSRF-safe fetchers.",
   "author": {
     "name": "AgriciDaniel",
     "email": "agricidaniel@gmail.com",
@@ -47,6 +47,15 @@
     "headless-rendering",
     "ssrf-safe-fetchers",
     "ai-citation-optimization",
-    "synthesis-framework"
+    "synthesis-framework",
+    "answer-engine-optimization",
+    "aeo",
+    "citability-scoring",
+    "platform-optimization",
+    "perplexity",
+    "chatgpt-search",
+    "gemini",
+    "ai-crawlers",
+    "brand-mentions"
   ]
 }

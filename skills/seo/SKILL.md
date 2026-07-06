@@ -6,7 +6,7 @@ argument-hint: "[command] [url]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "2.2.0"
+  version: "3.0.0"
   category: seo
 ---
 
@@ -17,8 +17,8 @@ metadata:
 **Scripts:** Located at the plugin root `scripts/` directory.
 
 Comprehensive SEO analysis across all industries (SaaS, local services,
-e-commerce, publishers, agencies). Orchestrates 24 sub-skills (21 core + 1 framework
-integration + 2 extension mirrors) and 18 sub-agents. A separate optional Firecrawl
+e-commerce, publishers, agencies). Orchestrates 31 sub-skills (28 core + 1 framework
+integration + 2 extension mirrors) and 20 sub-agents. A separate optional Firecrawl
 extension is also installable (see "Optional Extensions" below).
 
 ## Quick Reference
@@ -196,8 +196,8 @@ Weighted aggregate of all categories:
 
 ## Sub-Skills
 
-This skill orchestrates 24 sub-skills (21 core + 1 framework integration + 2 extension
-mirrors). The orchestrator itself (`seo`) is the 25th in `skills/`, but does not
+This skill orchestrates 31 sub-skills (28 core + 1 framework integration + 2 extension
+mirrors). The orchestrator itself (`seo`) is the 32nd in `skills/`, but does not
 orchestrate itself, so it is not enumerated below.
 
 1. **seo-audit** -- Full website audit with parallel delegation
@@ -224,6 +224,13 @@ orchestrate itself, so it is not enumerated below.
 22. **seo-dataforseo** -- Live SEO data via DataForSEO MCP (extension mirror)
 23. **seo-image-gen** -- AI image generation for SEO assets via Gemini (extension mirror)
 24. **seo-flow** -- FLOW framework integration (Find -> Leverage -> Optimize -> Win, 41 AI prompts, CC BY 4.0)
+25. **geo-citability** -- AI citability scoring and optimization (0-100 score with rewrite suggestions)
+26. **geo-platform-optimizer** -- Platform-specific AI search optimization (Google AI Overviews, ChatGPT, Perplexity, Gemini, Bing Copilot)
+27. **geo-compare** -- Monthly delta tracking and progress reporting for GEO clients
+28. **geo-brand-mentions** -- Brand mention and authority scanner for AI visibility (Brand Authority Score)
+29. **geo-crawlers** -- AI crawler access analysis (robots.txt, meta tags, HTTP headers)
+30. **geo-prospect** -- CRM-lite for managing GEO agency prospects and clients
+31. **geo-proposal** -- Auto-generate client-ready GEO service proposals from audit data
 
 ### Optional Extensions
 

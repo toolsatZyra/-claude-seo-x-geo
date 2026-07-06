@@ -4,11 +4,13 @@
 
 This repository contains **Claude SEO**, a Tier 4 Claude Code skill for comprehensive
 SEO analysis across all industries. It follows the Agent Skills open standard and the
-3-layer architecture (directive, orchestration, execution). 25 sub-skills (21 core +
-1 orchestrator + 1 framework integration + 2 extension mirrors), 18 sub-agents (15 core +
-1 framework integration + 2 extension mirrors), and an extensible reference
+3-layer architecture (directive, orchestration, execution). 32 sub-skills (28 core +
+1 orchestrator + 1 framework integration + 2 extension mirrors), 20 sub-agents, and
+an extensible reference
 system cover technical SEO, content quality,
-schema markup, image optimization, sitemap architecture, AI search optimization,
+schema markup, image optimization, sitemap architecture, first-class AEO/GEO
+(deterministic citability scoring, per-platform optimization, AI crawler access,
+brand-mention tracking),
 local SEO (GBP, citations, reviews, map pack), maps intelligence, semantic topic
 clustering, search experience optimization (SXO), SEO drift monitoring, e-commerce
 SEO, and international SEO with cultural adaptation profiles.
@@ -21,9 +23,9 @@ claude-seo/
   CONTRIBUTORS.md                    # Community credits (Pro Hub Challenge)
   AGENTS.md                          # Multi-platform agent instructions (Cursor, Antigravity)
   .claude-plugin/
-    plugin.json                    # Plugin manifest (v2.2.0)
+    plugin.json                    # Plugin manifest (v3.0.0)
     marketplace.json               # Marketplace catalog for distribution
-  skills/                            # 25 sub-skills (auto-discovered)
+  skills/                            # 32 sub-skills (auto-discovered)
     seo/                           # Main orchestrator skill
       SKILL.md                     # Entry point, routing table, core rules
       references/                  # On-demand knowledge files (12 files)
@@ -62,7 +64,7 @@ claude-seo/
     seo-image-gen/              # AI image generation for SEO assets (extension mirror)
       SKILL.md
       references/                # Image gen reference files (7 files)
-  agents/                          # 18 subagents (auto-discovered)
+  agents/                          # 20 subagents (auto-discovered)
     seo-technical.md             # Crawlability, indexability, security
     seo-content.md               # E-E-A-T, readability, thin content
     seo-schema.md                # Structured data validation
@@ -287,3 +289,29 @@ After cutting a new release (git tag + `gh release create`), run:
 ```
 
 This generates a blog post on https://claude-seo.md/blog/, handles cover image generation, SEO metadata, FAQ schema, internal linking, sitemap/llms.txt updates, Vercel deployment, and Google indexing.
+
+## Answer Engine Optimization (AEO) - stance override
+
+This build treats AEO/GEO as a FIRST-CLASS, SEPARATELY-SCORED dimension, not a
+relabeling of SEO. Audits must surface an AEO score distinct from the SEO score.
+The eligibility floor is still normal indexation, but AEO adds citation-structure
+signals that classic SEO does not measure.
+
+Scoring weights (grounded in Princeton's 2024 GEO study and 2026 citation data):
+- Cited sources / statistics with attribution: strongest positive lift.
+- Front-loading: the first ~30% of a page carries a large share of AI citations;
+  major sections must open with a direct, self-contained answer.
+- Passage self-containment and question-phrased headings: positive.
+- Keyword stuffing / AI-specific keyword rewriting: negative or neutral; do not
+  recommend.
+
+Determinism: citability is scored by scripts/citability_scorer.py (0-100), not by
+free-form judgment. Brand/AI visibility is scored by scripts/brand_scanner.py.
+
+llms.txt: audited and optionally generated, reported as forward-looking and
+low-confidence, never as a ranking lever. See seo-geo/references/llmstxt-evidence.md
+and the aeo.llmstxt_mode flag.
+
+Evidence discipline retained: every AEO recommendation keeps a falsifiability check
+(observation it rests on, dependency, "how would we know it failed", leading
+indicator), consistent with the rest of this plugin.

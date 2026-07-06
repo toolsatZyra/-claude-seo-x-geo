@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v3.0.0 — 2026-07-06
+
+Merged AEO/GEO depth from [geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude)
+(Zubair Trabzada, MIT) into this fork of claude-seo. AEO is now a first-class,
+separately-scored dimension — `seo-audit` reports distinct SEO and AEO scores,
+never blended.
+
+- Grafted 7 first-class `geo-*` skills: `geo-citability`, `geo-platform-optimizer`,
+  `geo-compare`, `geo-brand-mentions`, `geo-crawlers`, `geo-prospect`, `geo-proposal`.
+- Grafted 2 agents: `geo-ai-visibility`, `geo-platform-analysis`.
+- Rewired `citability_scorer.py`, `brand_scanner.py`, `llmstxt_generator.py` onto
+  this fork's SSRF/DNS-rebinding-hardened `fetch_page`/`url_safety` modules.
+- Rewrote `seo-geo` from a scoring skill into the AEO router; encoded the
+  reconciled llms.txt policy (`aeo.llmstxt_mode: audit | generate | off`,
+  default `generate` — forward-looking, low-confidence, never a ranking lever).
+- Folded unique logic from 8 overlapping geo skills into their `seo-*`
+  equivalents, then removed the standalone geo skills — no duplicate function.
+- Added two optional extensions: `extensions/geo-dashboard/` (Flask/rich CRM
+  dashboard) and `extensions/gsc-mcp/` (OAuth-free GSC alternative to the
+  native `seo-google` integration). Neither is a core dependency.
+- Encoded Princeton 2024 GEO study citation-lift weights as constants in
+  `citability_scorer.py`; added `sourc-e-framework.md` and
+  `aeo-scoring-weights.md` methodology references (summarized, not copied).
+
 ## [2.2.0] - 2026-06-12
 
 Security, cross-platform, and data-accuracy release. Folds the v2.1.0 currency content into the first public ship and closes the full open-issue and PR backlog. No breaking changes.

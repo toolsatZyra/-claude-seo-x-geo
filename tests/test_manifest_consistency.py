@@ -30,11 +30,20 @@ def _count_skill_dirs() -> int:
 
 
 def _count_agent_files() -> int:
-    """Count agents/seo-*.md files."""
+    """Count agents/seo-*.md and agents/geo-*.md files.
+
+    geo-* agents (geo-ai-visibility, geo-platform-analysis) were grafted in the
+    AEO/GEO merge (v3.0.0) as first-class agents alongside the pre-existing
+    seo-* set. They don't share the seo- prefix, so the original seo-*-only
+    regex undercounts disk reality by 2 once they land. Extended here so
+    plugin.json's "N sub-agents" claim can be truthfully verified against the
+    full agents/ directory, not just its seo-prefixed subset.
+    """
     agents_dir = REPO_ROOT / "agents"
     return sum(
         1 for f in agents_dir.iterdir()
-        if f.is_file() and f.suffix == ".md" and f.name.startswith("seo-")
+        if f.is_file() and f.suffix == ".md"
+        and (f.name.startswith("seo-") or f.name.startswith("geo-"))
     )
 
 
@@ -206,7 +215,10 @@ def test_orchestrator_sub_skills_list_matches_disk():
     """
     text = (REPO_ROOT / "skills" / "seo" / "SKILL.md").read_text()
     section = _extract_section(text, "Sub-Skills")
-    listed_list = re.findall(r"^\d+\.\s+\*\*(seo-[a-z-]+)\*\*", section, re.MULTILINE)
+    # Matches both seo-* and geo-* entries: the AEO/GEO merge (v3.0.0) grafted
+    # 7 first-class geo-* skills into skills/ alongside the pre-existing seo-*
+    # set, and the orchestrator's Sub-Skills list documents both prefixes.
+    listed_list = re.findall(r"^\d+\.\s+\*\*((?:seo|geo)-[a-z-]+)\*\*", section, re.MULTILINE)
     assert len(listed_list) == len(set(listed_list)), (
         f"Duplicate entries in Sub-Skills list: "
         f"{[n for n in listed_list if listed_list.count(n) > 1]}"
