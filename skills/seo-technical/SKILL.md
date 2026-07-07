@@ -189,17 +189,23 @@ own point allocation, is scored on the 6-tier scale via its sub-checks
 (`nearest of 0/20/40/60/80/100% to satisfied/total sub-checks`), and
 **requires cited evidence per sub-check** — state what you found, or
 "No evidence found," never an assumption. Do not add, drop, or reweight
-criteria at scoring time.
+criteria at scoring time. Per Rule 7, score from the crawl already
+captured in `{domain}-audit/evidence-snapshot.json` (when run inside a
+full `seo-audit`) rather than re-fetching pages mid-scoring.
 
 ### Technical Score criteria (sum to 100)
 
+Per Rule 8, every compound sub-check below (joined by "/" or "and") is
+satisfied only if **all** of its listed parts hold — no partial credit
+within a single sub-check.
+
 | Criterion | Points | Sub-checks (tier by fraction satisfied) |
 |---|---|---|
-| Crawlability | 15 | robots.txt exists/valid/not blocking important resources; XML sitemap exists/referenced/valid; no unintentional noindex on an important page; important pages ≤3 clicks from homepage; critical content has SSR/prerender (not JS-only) |
+| Crawlability | 15 | robots.txt exists AND is valid AND does not block important resources (all three required); XML sitemap exists AND is referenced in robots.txt AND is valid (all three required); no unintentional noindex on an important page; important pages ≤3 clicks from homepage; critical content has SSR/prerender (not JS-only) |
 | Indexability | 15 | canonical present and non-conflicting; no unresolved duplicate/parameter URLs; no thin content below the page-type floor; hreflang correct (mark satisfied if single-language/region — not applicable); no index bloat |
-| Security | 10 | HTTPS enforced + valid SSL + no mixed content; CSP present; HSTS present; X-Frame-Options present; X-Content-Type-Options and Referrer-Policy both present (one combined sub-check) |
+| Security | 10 | HTTPS enforced AND valid SSL AND no mixed content (all three required); CSP present; HSTS present; X-Frame-Options present; X-Content-Type-Options AND Referrer-Policy both present (one combined sub-check, both required) |
 | URL Structure | 8 | no query-parameter URLs for indexable content; no redirect chains (>1 hop); URLs ≤100 characters; consistent hierarchy and trailing-slash usage |
-| Mobile | 12 | viewport meta / responsive layout present; content parity between mobile and desktop; touch targets ≥48x48px and base font ≥16px; no horizontal scroll |
+| Mobile | 12 | viewport meta / responsive layout present; content parity between mobile and desktop; touch targets ≥48x48px AND base font ≥16px (both required); no horizontal scroll |
 | Core Web Vitals (presence check only — full CWV scoring lives in the Performance category) | 10 | LCP at "Good" tier; INP at "Good" tier; CLS at "Good" tier (per the thresholds in `agents/seo-performance.md`) — state "No evidence found" per metric if no CrUX/Lighthouse data was pulled this run, which scores that sub-check as unsatisfied |
 | Structured Data (presence check only — full validation lives in `seo-schema`) | 10 | valid, parseable JSON-LD is present somewhere on the page; no deprecated schema type is in use |
 | JS Rendering | 15 | critical content visible in raw HTML (SSR/prerender, not CSR-only); canonical and meta-robots identical between raw HTML and JS-rendered output; time-sensitive structured data (Product/Offer) is not JS-only |
@@ -216,14 +222,19 @@ category description above). Tier each criterion across all crawled
 pages using the proportion-based table in the scoring rubric (share of
 pages failing), not a single representative page.
 
+Per Rule 8, a page counts toward "Excellent" for a criterion only if
+**every** listed condition holds for that page — a title that is present,
+unique, but 5 characters over length does not count as a pass when
+computing the proportion for that criterion.
+
 | Criterion | Points | What "Excellent" (100%) looks like |
 |---|---|---|
-| Title tag | 20 | Present, 50-60 characters, unique across the site, on every crawled page |
-| Meta description | 15 | Present, 150-160 characters, on every crawled page |
-| H1 | 20 | Exactly one H1 per page, matching page intent, on every crawled page |
+| Title tag | 20 | Present AND 50-60 characters AND unique across the site (all three required per page), on every crawled page |
+| Meta description | 15 | Present AND 150-160 characters (both required per page), on every crawled page |
+| H1 | 20 | Exactly one H1 per page AND it names the page's actual primary topic rather than a generic template default (both required), on every crawled page |
 | Heading hierarchy | 10 | H2-H6 follow a logical order with no skipped levels, on every crawled page |
-| Internal linking | 20 | Zero orphan pages; 3-5 relevant internal links per 1000 words site-wide |
-| External linking | 15 | Links to authoritative sources where topically expected, in reasonable count |
+| Internal linking | 20 | Two independently-scored halves, 10 points each: (a) zero orphan pages site-wide, tiered by share of pages with zero inbound internal links; (b) 3-5 relevant internal links per 1000 words site-wide, tiered by share of pages meeting that density. Sum the two halves — do not blend them into one proportion, since a site can have no orphans but poor link density or vice versa |
+| External linking | 15 | Links to authoritative sources where topically expected; tier by share of pages with at least one external link to a source outside the site's own domain when the topic calls for one (e.g. a stat, a claim, a comparison) |
 
 `On-Page SEO Score = sum(criterion_score across all 6 rows)`.
 

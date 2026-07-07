@@ -397,7 +397,7 @@ The AI Crawler Access Score is calculated as:
 |---|---|---|
 | Tier 1 Crawlers Allowed | 50% | 20 points per Tier 1 crawler allowed (5 crawlers = 100 points max, scaled to 50) |
 | Tier 2 Crawlers Allowed | 25% | 20 points per Tier 2 crawler allowed (5 crawlers = 100 points max, scaled to 25) |
-| No Blanket AI Blocks | 15% | Full points if no `User-agent: *` Disallow: / and no noai meta tags |
+| No Blanket AI Blocks | 15% | Full points only if BOTH hold (per Rule 8 in scoring-rubric.md): no `User-agent: *` `Disallow: /` line, AND no `noai`/`noimageai` meta tag anywhere on the page |
 | AI-Specific Files Present | 10% | 5 points for llms.txt, 5 points for sitemap accessible to AI crawlers |
 
 Final score = sum of all weighted components, capped at 100.

@@ -98,21 +98,8 @@ For every criterion, before assigning a tier:
    specifically names that evidence, and explicitly state in the report
    which other criterion you deliberately did *not* also dock for the same
    gap, and why.
-6. **The Evidence column is structural, not optional prose.** Every
-   Criteria Breakdown table this project outputs must include an explicit
-   `Evidence` column, one cell per criterion — not evidence folded into
-   surrounding paragraphs, and not omitted for criteria that "obviously"
-   pass or fail. A cell that says "No evidence found" is a complete,
-   valid answer and forces that row's score to 0. A controlled two-run
-   test (identical pages fetched by both runs, so coverage couldn't
-   explain the gap) found the run using this exact tabular format caught
-   its own unjustified scores and landed on materially more accurate
-   totals than the run that scored criteria in loose prose — one criterion
-   scored "15/15" with no stated justification, which a mandatory Evidence
-   cell would have visibly left blank or forced to state what the 15/15
-   was actually based on. Do not merge this column into the Tier/Status
-   column — they answer different questions ("what did you find" vs "what
-   tier does that map to").
+6. **The Evidence column is structural** — see Rule 6 below, which
+   promotes this out of prose guidance into a required table column.
 
 ## Rule 4: Compute the final sum with a tool call, not prose arithmetic
 
@@ -136,7 +123,7 @@ reported 24. The criteria and evidence were sound; the mental addition of
    table), treat that score as unverified — this applies retroactively to
    every rubric in this project, including ones written before this rule.
 
-### N/A criteria and renormalization
+## Rule 5: N/A criteria renormalize the denominator
 
 Some criteria are conditionally not applicable (e.g. "GitHub presence" for
 a non-technical brand, "Bing Places" for a non-local business, "Google
@@ -153,6 +140,130 @@ against the full 100-point denominator (that silently penalizes a
 criterion that was never supposed to apply), and do not leave the
 denominator ambiguous. State which criteria were excluded as N/A and why,
 alongside the rescaled computation from Rule 4 above.
+
+## Rule 6: The Evidence column is structural, not optional prose
+
+Every Criteria Breakdown table this project outputs must include an
+explicit `Evidence` column, one cell per criterion — not evidence folded
+into surrounding paragraphs, and not omitted for criteria that "obviously"
+pass or fail. A cell that says "No evidence found" is a complete, valid
+answer and forces that row's score to 0.
+
+A controlled two-run test (identical pages fetched by both runs, so
+coverage couldn't explain the gap) found the run using this exact tabular
+format caught its own unjustified scores and landed on materially more
+accurate totals than the run that scored criteria in loose prose — one
+criterion scored "15/15" with no stated justification, which a mandatory
+Evidence cell would have visibly left blank or forced to state what the
+15/15 was actually based on. Do not merge this column into the Tier/Status
+column — they answer different questions ("what did you find" vs "what
+tier does that map to").
+
+## Rule 7: Snapshot evidence before scoring — score the snapshot, not the live web
+
+Rules 1-6 made the *scoring arithmetic and criteria* deterministic. A
+follow-up controlled test (same 3 pages, same rubric, Rules 1-6 all
+active) still found the two runs' scores diverging 8-15 points per
+platform — and this time neither bad math nor missing evidence explained
+it. One run's Bing search hit a CAPTCHA wall and scored a criterion 0;
+the other run's search succeeded and scored the same criterion 5. One run
+found a LinkedIn page and treated it as a genuine match; another run's
+search surfaced a name-collision with an unrelated company. **The
+scoring logic was identical and correct — the live web simply returned
+different things to each run.** That is a fifth, distinct failure mode,
+and it cannot be fixed by rewriting criteria, formulas, or evidence
+requirements, because the criteria and evidence requirements are not what
+varied.
+
+The fix is to stop letting scoring and evidence-collection happen in the
+same pass:
+
+1. **Collect first, in one dedicated pass.** Fetch every page, run every
+   API/search check (Bing, Wikipedia, Wikidata, robots.txt, sitemap.xml,
+   etc.) exactly once, and write the raw results — including outright
+   failures like "Bing returned a CAPTCHA page, could not parse results"
+   — to a persisted evidence snapshot file (e.g.
+   `{domain}-audit/evidence-snapshot.json`), stamped with the date/time
+   collected.
+2. **Score only from the snapshot, in a separate pass.** Once collection
+   is done, every criterion's evidence must be read from the snapshot
+   file, never re-fetched live mid-scoring. If the snapshot says a check
+   failed or returned nothing, that criterion scores 0/Not-Implemented
+   (per Rule 3) — do not retry the live check "just this once" while
+   scoring.
+3. **Re-scoring the same snapshot must be deterministic.** Given a fixed
+   snapshot file, running the scoring pass twice must produce identical
+   category/platform scores — this is now testable and falsifiable in a
+   way "re-run the live audit twice" never fully was, because it removes
+   live-web variance from the comparison entirely.
+4. **A new audit takes a new, dated snapshot — it does not silently
+   reuse or quietly refresh an old one.** Comparing two audits over time
+   means comparing two snapshots with two dates; a score change should be
+   traceable to a specific diff between those snapshots (the site
+   changed, a search result changed, a CAPTCHA cleared), not treated as
+   unexplained noise.
+5. **This does not eliminate live-data variance — it isolates it.** The
+   Bing-CAPTCHA-vs-success problem is still real and still happens at
+   collection time; Rule 7 does not make Bing's CAPTCHA go away. What it
+   does is guarantee that *given the same collected evidence*, the score
+   is always the same — so any remaining run-to-run difference is now
+   attributable to a specific, inspectable line in the snapshot, not
+   blamed vaguely on "the model."
+
+## Rule 8: Compound conditions require ALL parts, and presence is not completeness
+
+Even scoring the exact same frozen snapshot (Rule 7 fully applied), two
+runs still diverged 5-11 points on several criteria. Tracing it down: some
+criteria are worded as several conditions joined by "and," "+," or a
+slash ("robots.txt exists/valid/not blocking"), and it was never stated
+whether all parts must hold or whether partial matches blend. Separately,
+some criteria that ask "is X present" were scored by checking whether X
+was *fully populated with every optional property*, not just present —
+the exact presence-vs-completeness confusion `seo-schema` was rewritten to
+avoid, recurring elsewhere because that fix wasn't generalized.
+
+1. **A slash or comma joining several items in one cell is ambiguous by
+   default and must be disambiguated explicitly — it is not safe to assume
+   it always means AND or always means OR.** Two genuinely different
+   patterns show up in this project's rubrics and must not be conflated:
+   - **Compound-AND** (several separate conditions that must *all* hold for
+     the check to mean anything): "robots.txt exists/valid/not blocking" —
+     a robots.txt that exists but blocks everything has not passed. Mark
+     these explicitly as "(all required)."
+   - **Example-list-OR** (several examples of one underlying signal, any
+     one of which is sufficient evidence that the signal is present):
+     "Original research/case studies/before-after results" as one of
+     several E-E-A-T Experience signals — finding just one of these three
+     is enough to count that signal as present. Mark these explicitly as
+     "(any one qualifies)."
+   Every existing "/"-joined cell in this project's criteria tables should
+   be reviewed once and re-tagged with whichever of the two it actually
+   means — do not leave a bare slash for a future reader to guess at
+   again. If a title tag is present and unique but 5 characters over the
+   target length, that is a Compound-AND failure (not passing) — do not
+   award partial credit inside a single AND condition. If a criterion
+   should genuinely give partial credit across independent sub-parts, it
+   must be split into two separately-weighted criteria instead (see next
+   point), not left as one ambiguous cell.
+2. **If a criterion silently tries to check both "does X exist" and "is X
+   well-formed/complete,"** split it into two criteria with their own
+   point allocations rather than one blended cell — e.g. "Organization
+   schema is present" (existence) and "Organization schema has sameAs/
+   contact properties" (completeness) are two different questions and
+   must be two different rows if both matter.
+3. **"Present" means present — full stop — unless the criterion's own
+   text names specific required properties to check.** A criterion whose
+   100% tier says "entity schema is present" is satisfied by the `@type`
+   existing; do not additionally require `sameAs`, `openingHours`, or any
+   other property that criterion's text didn't name. If a specialist skill
+   (like `seo-schema`) already scores completeness/required-properties as
+   its own criterion elsewhere, a different skill's presence-only
+   criterion must not re-score that same completeness question — that is
+   double-counting across skills, the cross-skill analog of Rule 3 item 5.
+4. Every criteria table in this project should be periodically re-read
+   against this rule — ambiguity of this kind is easy to reintroduce when
+   editing a single row without checking the pattern across the whole
+   table.
 
 ## Why this replaced the severity-deduction table
 
