@@ -83,10 +83,63 @@ python3 scripts/crux_history.py URL --json
 ```
 Field data (28-day Chrome user average) is more representative than lab data (single Lighthouse run). Use lab data as fallback when CrUX returns 404 (insufficient traffic).
 
+## Scoring (deterministic, fixed-criteria)
+
+Use the fixed-criteria method in `skills/seo/references/scoring-rubric.md`:
+LCP, INP, and CLS are the 3 named criteria (they sum to 100), each scored
+against Google's own Good/Needs-Improvement/Poor bands from the table
+above, mapped onto 3 of the master rubric's 6 tiers (CWV only has 3
+official bands, so Poor/Not-Implemented in the master scale both mean the
+same thing here: report Not-Implemented(0%) specifically when no data —
+field or lab — could be obtained at all, and Poor(20%) when data was
+obtained and it falls in Google's "Poor" band):
+
+| Criterion | Points | Good = Excellent (100%) | Needs Improvement = Good-but-weaknesses (60%) | Poor (20%) | No data obtainable = Not Implemented (0%) |
+|---|---|---|---|---|---|
+| LCP | 34 | ≤2.5s | 2.5s-4.0s | >4.0s | — |
+| INP | 33 | ≤200ms | 200ms-500ms | >500ms | — |
+| CLS | 33 | ≤0.1 | 0.1-0.25 | >0.25 | — |
+
+```
+criterion_score = round(points x tier_percentage)   # e.g. LCP Good = round(34 x 1.00) = 34
+Performance Score = sum(criterion_score across LCP, INP, CLS)
+```
+
+Per the master rubric's Rule 4, compute this sum with an actual tool call
+(e.g. `python3 -c "print(34+20+7)"`) using the 3 real criterion scores and
+show that expression — do not add them in prose.
+
+**Evidence required, per the master rubric's Rule 3:** state the actual
+measured value and its source (CrUX field / Lighthouse lab) for each of
+the 3 criteria before assigning a tier — never assign "Good" because a
+site "seems fast." If no CrUX data exists and no Lighthouse run was
+performed, that criterion is Not Implemented (0%), not assumed-Good.
+
+**Data source matters for reproducibility:**
+- Prefer CrUX field data (75th percentile, 28-day window) whenever
+  available — it does not vary between two audits run the same day, since
+  the window hasn't moved.
+- If CrUX is unavailable (low-traffic site) and you fall back to Lighthouse
+  lab data, run it 3 times and use the **median** value per metric before
+  applying the tier table above — a single lab run has real network/CPU
+  jitter and is the one legitimate source of score drift on an otherwise
+  unchanged page. State in the output which data source was used (`field`
+  vs `lab (median of 3)`), since a score reported from lab data is expected
+  to wobble a few points between runs and that isn't a bug.
+
 ## Output Format
 
 Provide:
-- Performance score (0-100)
+- Performance score (0-100), computed via the formula above — never eyeballed
+- Criteria breakdown as a table with a mandatory Evidence column (Rule 6)
+  — not folded into surrounding prose:
+
+  | Criterion | Points possible | Measured value | Tier | Points earned | Evidence |
+  |---|---|---|---|---|---|
+  | LCP | 34 | ... | ... | XX | source + value, or "No evidence found" |
+  | INP | 33 | ... | ... | XX | source + value, or "No evidence found" |
+  | CLS | 33 | ... | ... | XX | source + value, or "No evidence found" |
+- Data source used: CrUX field data or Lighthouse lab (median of 3)
 - Core Web Vitals status (pass/fail per metric)
 - Specific bottlenecks identified
 - Prioritized recommendations with expected impact

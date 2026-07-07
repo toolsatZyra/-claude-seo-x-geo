@@ -197,17 +197,61 @@ keyword stuffing, AI-specific keyword rewriting/long-tail variant stuffing,
 or content "chunking" purely for AI parsing. These are neutral-to-negative
 per the Princeton weights in [[aeo-scoring-weights]].
 
+## Scoring
+
+Compute the Content Quality Score using the fixed-criteria method in
+`skills/seo/references/scoring-rubric.md`: 7 named criteria, each with its
+own point allocation, scored on the 6-tier scale, **with cited evidence
+per criterion** — state what you found, or "No evidence found," never an
+assumption. Do not add, drop, or reweight criteria at scoring time, and do
+not double-count: criterion 5 below (Who/How/Why + AI-content quality) is
+the *single* place low-quality-AI-content and missing-authorship evidence
+gets scored — a live test run previously double-counted the same "no
+author byline" gap under two separately-worded checks, producing a 15-point
+swing between two audits of the same page. If you find yourself docking
+points under more than one criterion for the same missing piece of
+evidence, stop and consolidate it into criterion 5 only.
+
+### Content Quality criteria (sum to 100)
+
+| # | Criterion | Points | What "Excellent" (100%) looks like |
+|---|---|---|---|
+| 1 | Experience (E-E-A-T) | 20 | Original research/case studies/before-after results; personal anecdotes/process documentation; unique data/proprietary insights; photos/videos from direct experience — rate each of these 4 signals present/absent, tier by fraction present |
+| 2 | Expertise (E-E-A-T) | 20 | Author credentials/certifications/bio; professional background relevant to topic; technical depth appropriate for audience; accurate, well-sourced claims — 4 signals, tier by fraction present |
+| 3 | Authoritativeness (E-E-A-T) | 15 | External citations/backlinks from authoritative sources; brand mentions/industry recognition; published in recognized outlets; cited by other experts — 4 signals, tier by fraction present |
+| 4 | Trustworthiness (E-E-A-T) | 15 | Contact info/physical address; privacy policy/terms of service; testimonials/reviews; date stamps/transparent corrections; secure HTTPS — 5 signals, tier by fraction present |
+| 5 | Who/How/Why helpfulness + AI-content quality (single combined criterion — see note above) | 15 | Visible byline/author bio; process disclosure where readers would expect it; content exists "to help" not just to attract clicks; no generic/repetitive AI-typical phrasing; no factual inaccuracies |
+| 6 | Content depth vs. page-type floor | 10 | Word count at/above the floor in the Word Count Analysis table above (topical-coverage floor, not a target) |
+| 7 | Freshness | 5 | Publication date visible; last-updated date visible if revised; not stale (>12 months, no update) on a fast-moving topic |
+
+`Content Quality Score = sum(criterion_score across all 7 rows)`.
+
+Front-loading/citability checks are AEO signals, not SEO content-quality
+signals — they belong only in the AEO Citability Score below, never in
+these 7 criteria (this mirrors the "never blend" rule already stated for
+that pass).
+
 ## Output
 
 ### Content Quality Score: XX/100
+State each criterion's tier and cited evidence. Per scoring-rubric.md
+Rule 4, compute the sum with an actual tool call (e.g.
+`python3 -c "print(...)"`) using the 7 real numbers and show that
+expression — do not add them in prose.
 
-### E-E-A-T Breakdown
-| Factor | Score | Key Signals |
-|--------|-------|-------------|
-| Experience | XX/25 | ... |
-| Expertise | XX/25 | ... |
-| Authoritativeness | XX/25 | ... |
-| Trustworthiness | XX/25 | ... |
+### Criteria Breakdown
+Evidence is a mandatory column (Rule 6), not optional — "No evidence
+found" is a complete answer and forces that row's score to 0.
+
+| Criterion | Points possible | Points earned | Tier | Evidence |
+|---|---|---|---|---|
+| Experience | 20 | XX | ... | ... |
+| Expertise | 20 | XX | ... | ... |
+| Authoritativeness | 15 | XX | ... | ... |
+| Trustworthiness | 15 | XX | ... | ... |
+| Who/How/Why + AI-content quality | 15 | XX | ... | ... |
+| Content depth | 10 | XX | ... | ... |
+| Freshness | 5 | XX | ... | ... |
 
 ### AEO Citability Score: XX/100
 Per-block scores plus page-level average from `analyze_page_citability(url)`.

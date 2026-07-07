@@ -384,6 +384,13 @@ See https://contentsignals.org/ for the full specification.
 
 ## Scoring for Crawler Access
 
+This score is already close to deterministic — every input is a literal,
+parseable fact (a `Disallow`/`Allow` line for a named user-agent, a meta
+tag, an HTTP header), not a judgment call. Keep it that way: quote the
+exact robots.txt line (or state "no rule found for this user-agent," which
+means allowed by default) backing each crawler's status in the table
+above, rather than inferring access from general impressions of the site.
+
 The AI Crawler Access Score is calculated as:
 
 | Component | Weight | Scoring |

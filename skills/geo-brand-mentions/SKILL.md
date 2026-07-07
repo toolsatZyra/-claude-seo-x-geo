@@ -27,6 +27,15 @@ automated, deterministic measurement the way `geo-citability`'s score is --
 80% of the inputs here require a human to actually look at YouTube/Reddit/
 LinkedIn and judge what they see.
 
+**Evidence discipline still applies to the judgment-based 80%** (see
+`skills/seo/references/scoring-rubric.md` Rule 3): for every platform
+score, cite the specific count you actually found (subscriber count,
+number of threads, article class, follower count) that places it in the
+chosen range below — never pick a range from a general impression of
+"how well-known this brand seems." If a platform wasn't actually checked
+this run, say so explicitly and score it in the 0-9 band rather than
+guessing a mid-range value.
+
 ## Core Insight
 
 Brand mentions correlate approximately 3x more strongly with AI visibility than traditional backlinks (specifically: web-mention correlation ~0.664 vs. backlink correlation ~0.218 with AI Overview brand visibility). Ahrefs' study of 75,000 brands ([ahrefs.com/blog/ai-brand-visibility-correlations](https://ahrefs.com/blog/ai-brand-visibility-correlations/), December 2025 follow-up to their original July 2025 study) found that **unlinked brand mentions** -- references to a brand name without a hyperlink -- are a stronger predictor of whether AI systems cite and recommend a brand than Domain Rating or backlink count. This figure has been independently verified against Ahrefs' own published post as of 2026-07-06.

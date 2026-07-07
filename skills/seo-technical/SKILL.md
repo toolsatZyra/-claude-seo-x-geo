@@ -137,6 +137,21 @@ Google updated its JavaScript SEO documentation in December 2025 with critical c
 - Supported by search engines other than Google
 - Recommend implementation for faster indexing on non-Google engines
 
+### 10. On-Page SEO
+
+No other specialist covers this for full-site audits — `seo-page` covers it
+for single-page runs, but `seo-audit` does not spawn `seo-page`, so this
+skill is the sole source of the "On-Page SEO" figure in the aggregate
+Health Score. Check per crawled page (reuse the per-page crawl already
+performed for categories 1-2, don't re-crawl):
+
+- Title tag: present, 50-60 characters, unique across the site
+- Meta description: present, 150-160 characters
+- H1: exactly one, matches page intent
+- H2-H6: logical hierarchy, no skipped levels
+- Internal links: no orphan pages (zero inbound internal links), 3-5 relevant links per 1000 words
+- External links: to authoritative sources where topically expected
+
 ## Agent-Friendly Pages (forward-looking)
 
 AI agents (not just AI summarizers) increasingly read sites through three
@@ -166,22 +181,84 @@ without scoring, use `python3 scripts/render_page.py <url> --a11y-tree --json`.
 Surface findings as **opportunities**, not failures. The standards (WebMCP,
 agent UX heuristics) are early — don't gate audits on a sub-100 score.
 
+## Scoring
+
+Compute both scores using the fixed-criteria method in
+`skills/seo/references/scoring-rubric.md`: each criterion below has its
+own point allocation, is scored on the 6-tier scale via its sub-checks
+(`nearest of 0/20/40/60/80/100% to satisfied/total sub-checks`), and
+**requires cited evidence per sub-check** — state what you found, or
+"No evidence found," never an assumption. Do not add, drop, or reweight
+criteria at scoring time.
+
+### Technical Score criteria (sum to 100)
+
+| Criterion | Points | Sub-checks (tier by fraction satisfied) |
+|---|---|---|
+| Crawlability | 15 | robots.txt exists/valid/not blocking important resources; XML sitemap exists/referenced/valid; no unintentional noindex on an important page; important pages ≤3 clicks from homepage; critical content has SSR/prerender (not JS-only) |
+| Indexability | 15 | canonical present and non-conflicting; no unresolved duplicate/parameter URLs; no thin content below the page-type floor; hreflang correct (mark satisfied if single-language/region — not applicable); no index bloat |
+| Security | 10 | HTTPS enforced + valid SSL + no mixed content; CSP present; HSTS present; X-Frame-Options present; X-Content-Type-Options and Referrer-Policy both present (one combined sub-check) |
+| URL Structure | 8 | no query-parameter URLs for indexable content; no redirect chains (>1 hop); URLs ≤100 characters; consistent hierarchy and trailing-slash usage |
+| Mobile | 12 | viewport meta / responsive layout present; content parity between mobile and desktop; touch targets ≥48x48px and base font ≥16px; no horizontal scroll |
+| Core Web Vitals (presence check only — full CWV scoring lives in the Performance category) | 10 | LCP at "Good" tier; INP at "Good" tier; CLS at "Good" tier (per the thresholds in `agents/seo-performance.md`) — state "No evidence found" per metric if no CrUX/Lighthouse data was pulled this run, which scores that sub-check as unsatisfied |
+| Structured Data (presence check only — full validation lives in `seo-schema`) | 10 | valid, parseable JSON-LD is present somewhere on the page; no deprecated schema type is in use |
+| JS Rendering | 15 | critical content visible in raw HTML (SSR/prerender, not CSR-only); canonical and meta-robots identical between raw HTML and JS-rendered output; time-sensitive structured data (Product/Offer) is not JS-only |
+| IndexNow | 5 | IndexNow key file or protocol support detected |
+
+`Technical Score = sum(criterion_score across all 9 rows)`. On-Page SEO
+is scored and reported separately below — never folded into this number.
+
+### On-Page SEO criteria (sum to 100)
+
+This is the sole source of the weighted "On-Page SEO" aggregate category
+for full-site audits — no other specialist covers it (see note in the
+category description above). Tier each criterion across all crawled
+pages using the proportion-based table in the scoring rubric (share of
+pages failing), not a single representative page.
+
+| Criterion | Points | What "Excellent" (100%) looks like |
+|---|---|---|
+| Title tag | 20 | Present, 50-60 characters, unique across the site, on every crawled page |
+| Meta description | 15 | Present, 150-160 characters, on every crawled page |
+| H1 | 20 | Exactly one H1 per page, matching page intent, on every crawled page |
+| Heading hierarchy | 10 | H2-H6 follow a logical order with no skipped levels, on every crawled page |
+| Internal linking | 20 | Zero orphan pages; 3-5 relevant internal links per 1000 words site-wide |
+| External linking | 15 | Links to authoritative sources where topically expected, in reasonable count |
+
+`On-Page SEO Score = sum(criterion_score across all 6 rows)`.
+
 ## Output
 
 ### Technical Score: XX/100
+Sum of the 9 criteria above. State each criterion's tier and the cited
+evidence/sub-check results that produced it. Per scoring-rubric.md Rule 4,
+compute the sum with an actual tool call (e.g. `python3 -c "print(...)"`)
+using the 9 real numbers and show that expression — do not add them in
+prose. A live test found reported totals did not match their own itemized
+scores when this step was skipped.
 
-### Category Breakdown
-| Category | Status | Score |
-|----------|--------|-------|
-| Crawlability | pass/warn/fail | XX/100 |
-| Indexability | pass/warn/fail | XX/100 |
-| Security | pass/warn/fail | XX/100 |
-| URL Structure | pass/warn/fail | XX/100 |
-| Mobile | pass/warn/fail | XX/100 |
-| Core Web Vitals | pass/warn/fail | XX/100 |
-| Structured Data | pass/warn/fail | XX/100 |
-| JS Rendering | pass/warn/fail | XX/100 |
-| IndexNow | pass/warn/fail | XX/100 |
+### Criteria Breakdown
+Evidence is a mandatory column (Rule 6), not optional — "No evidence
+found" is a complete answer and forces that row's score to 0.
+
+| Criterion | Points possible | Points earned | Tier | Evidence |
+|----------|--------|-------|-------|-------|
+| Crawlability | 15 | XX | ... | ... |
+| Indexability | 15 | XX | ... | ... |
+| Security | 10 | XX | ... | ... |
+| URL Structure | 8 | XX | ... | ... |
+| Mobile | 12 | XX | ... | ... |
+| Core Web Vitals | 10 | XX | ... | ... |
+| Structured Data | 10 | XX | ... | ... |
+| JS Rendering | 15 | XX | ... | ... |
+| IndexNow | 5 | XX | ... | ... |
+
+### On-Page SEO Score: XX/100
+Reported separately (see Scoring section above) — feeds the "On-Page SEO"
+line of the aggregate Health Score, not the Technical Score above. Include
+the same per-criterion breakdown (6 rows, points possible/earned/tier/
+evidence), and the same tool-computed sum required above (Rule 4) — not
+prose addition.
 
 ### Critical Issues (fix immediately)
 ### High Priority (fix within 1 week)
