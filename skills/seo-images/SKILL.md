@@ -174,13 +174,15 @@ using the fixed-criteria method in
 100, each tiered by the **proportion of images that fail it** (see the
 proportion-based tiering table there), not a flat per-instance deduction
 with an instance cap. State the true affected/total count for every
-criterion regardless of tier.
+criterion regardless of tier. Per Rule 7, score from the crawl already
+captured in `{domain}-audit/evidence-snapshot.json` (when run inside a
+full `seo-audit`) rather than re-fetching pages mid-scoring.
 
 ### Image criteria (sum to 100)
 
 | # | Criterion | Points | Excellent (100%) |
 |---|---|---|---|
-| 1 | Alt text | 20 | Every image has present, descriptive alt text (decorative images may use `alt=""` deliberately — that counts as satisfying this criterion, not failing it) |
+| 1 | Alt text | 20 | Every image has an `alt` attribute present AND, for non-decorative images, its text is more specific than the bare filename or a generic placeholder like "image"/"photo" (both required — decorative images may use `alt=""` deliberately, which counts as satisfying this criterion, not failing it) |
 | 2 | File size budget | 20 | No image exceeds 500KB; tier this criterion by the share of images over 500KB using the proportion table — an image in the 200-500KB band alone does not fail this criterion, only >500KB counts as a failure for tiering purposes |
 | 3 | Dimensions set | 20 | Every image has explicit `width`/`height` (or CSS aspect-ratio) to prevent CLS |
 | 4 | Modern format | 15 | Every image uses WebP/AVIF, or JPEG/PNG use is explicitly justified (e.g. transparency needs not supported by the chosen format) |

@@ -58,6 +58,21 @@ Apply this discipline when running the rubrics:
    the earned-points sum and the max-points denominator, then the result is
    rescaled to /100. Do not silently score an N/A criterion as 0 out of
    the full possible total.
+7. **Snapshot every external lookup before scoring, per
+   `skills/seo/references/scoring-rubric.md` Rule 7.** This is the
+   platform most exposed to live-web variance: a controlled test with
+   Rules 1-6 all active still found two runs diverging 8-15 points per
+   platform because one run's Bing search hit a CAPTCHA and the other's
+   didn't, and one run's LinkedIn search surfaced a name-collision the
+   other avoided — not a scoring bug, a live-lookup one. Run every check
+   (Bing `site:` search, Wikipedia/Wikidata API, robots.txt, sitemap.xml,
+   IndexNow key file, social/forum searches) exactly once, write the raw
+   result — including "CAPTCHA encountered, could not parse" or "search
+   returned zero relevant results" as facts — to
+   `{domain}-audit/evidence-snapshot.json` (or `{domain}-geo/
+   evidence-snapshot.json` if run standalone, outside a full `seo-audit`),
+   then score every criterion from that file only. Do not re-run a check
+   mid-scoring because the first attempt "might have been unlucky."
 
 ---
 
@@ -208,9 +223,9 @@ Apply this discipline when running the rubrics:
 | Google Knowledge Panel exists | 15 | 15 if a panel appears for a brand-name search with logo, description, and social links all populated, 10 if a panel appears but is missing 1+ of those fields, 0 if no panel appears |
 | Google Business Profile complete | 10 | 10 if GBP exists with hours, services, photos, and a post within the last 90 days all present, 5 if a GBP exists but is missing 1+ of those, 0 if no GBP found |
 | YouTube channel with topic-relevant content | 20 | 20 if a channel exists with a video in the last 90 days using chapters/timestamps, 10 if a channel exists but lacks a recent video or chapters, 0 if no channel found |
-| Schema.org structured data implemented | 15 | 15 if entity schema (Organization/Person) AND a page-type schema (Product/Article/LocalBusiness) are both present with required properties, 10 if only one of those two is present, 5 if only a minimal/incomplete schema block exists, 0 if no schema present |
+| Schema.org structured data implemented | 15 | 15 if both an entity schema type (Organization/Person) AND a page-type schema type (Product/Article/LocalBusiness/etc.) exist (per Rule 8, this checks presence of the correct `@type` only — do not additionally require `sameAs`, `openingHours`, or any other property; that is a different question this row does not ask), 10 if only one of the two is present, 5 if a schema block exists but matches neither category, 0 if no schema present at all |
 | Google ecosystem presence (Scholar, News, Maps) | 10 | 10 if 3+, 5 if 1-2, 0 if none |
-| Image optimization (alt text, filenames) | 10 | 10 if 100% of checked images have descriptive alt text and non-generic filenames, 5 if 50-99% do, 0 if <50% do |
+| Image optimization (alt text, filenames) | 10 | Per Rule 8, evaluate per image: an image only counts as passing if it has BOTH descriptive alt text AND a non-generic filename (do not average the two metrics separately across the page). 10 if 100% of checked images pass both, 5 if 50-99% pass both, 0 if <50% pass both — a page with excellent alt text but generic filenames throughout does not earn credit from the alt-text half alone |
 | E-E-A-T signals (author pages, about, editorial) | 10 | 10 if all 3 present (author bio page with credentials, About page, stated editorial/review policy), 5 if 1-2 present, 0 if none present |
 | Google Merchant Center (if e-commerce) | 5 | 5 if products are found listed in Google Merchant Center / Shopping results, 0 if e-commerce but no listings found, N/A if not an e-commerce site |
 | Multi-modal content (text + images + video) | 5 | 5 if the page includes text, at least 1 relevant image, and at least 1 embedded/linked video, 3 if it includes text plus only one of image or video, 0 if text-only |
@@ -248,7 +263,7 @@ Apply this discipline when running the rubrics:
 | Bing index coverage of key pages | 10 | 10 if a `site:domain.com` Bing search returns all checked key pages, 5 if some but not all are returned, 0 if none are returned or not checked |
 | LinkedIn company page (complete) | 10 | 10 if a company page exists with description, logo, and a post within the last 90 days, 5 if a page exists but is missing 1+ of those, 0 if no company page found |
 | GitHub presence (if applicable) | 5 | 5 if a GitHub org/repo exists with a commit within the last 90 days, 0 if a GitHub presence exists but the last commit is 90+ days old, N/A if not applicable (non-technical brand) |
-| Meta descriptions optimized | 10 | 10 if 100% of checked key pages have a unique meta description 150-160 characters, 5 if 50-99% do, 0 if <50% do |
+| Meta descriptions optimized | 10 | Per Rule 8, evaluate per page: a page only counts as passing if its meta description is present AND unique across the site AND 150-160 characters (all three required). 10 if 100% of checked pages pass all three, 5 if 50-99% pass all three, 0 if <50% pass all three |
 | Social media engagement signals | 10 | 10 if a company social profile is found with visible posts within the last 30 days, 5 if a profile exists but the most recent post is 30+ days old, 0 if no profile found or not checked |
 | Exact-match keywords in titles/headings | 10 | 10 if the exact target phrase appears in the title tag AND at least one heading, 5 if it appears in only one of the two, 0 if it appears in neither |
 | Page load speed < 2 seconds | 10 | 10 if < 2s, 5 if < 4s, 0 if > 4s |

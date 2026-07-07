@@ -17,7 +17,16 @@ metadata:
 1. **Render homepage**: use `python3 scripts/render_page.py <url> --mode auto --json` to capture raw HTML, rendered HTML, extracted text, SPA status, and accessibility data when needed
 2. **Detect business type**: analyze homepage signals per seo orchestrator
 3. **Crawl site**: follow internal links up to 500 pages, respect robots.txt
-4. **Delegate to subagents** (if available, otherwise run inline sequentially):
+3a. **Snapshot evidence** (per `skills/seo/references/scoring-rubric.md`
+    Rule 7): before any specialist scores anything, write every fetched
+    page and every external check result (robots.txt, sitemap.xml, any
+    API/search lookups a specialist will need) to
+    `{domain}-audit/evidence-snapshot.json`, stamped with the collection
+    date/time. Include outright failures (a CAPTCHA'd search, a 404, a
+    timeout) as facts in the snapshot, not as gaps to silently retry
+    later. This snapshot is the single source of truth for every
+    specialist below — none of them re-fetch live data mid-scoring.
+4. **Delegate to subagents** (if available, otherwise run inline sequentially) — each one scores exclusively from `{domain}-audit/evidence-snapshot.json`, per Rule 7:
    - `seo-technical` -- robots.txt, sitemaps, canonicals, Core Web Vitals, security headers
    - `seo-content` -- E-E-A-T, readability, thin content, AI citation readiness
    - `seo-schema` -- detection, validation, generation recommendations
@@ -55,6 +64,12 @@ Delay between requests: 1 second
 
 ## Output Files
 
+- `{domain}-audit/evidence-snapshot.json`: Every fetched page and external
+  check result, collected once and timestamped (Rule 7) — the sole
+  evidence source every specialist below scores from. Re-running the
+  scoring pass against an unchanged snapshot must reproduce identical
+  scores; a new audit takes a new, separately dated snapshot rather than
+  silently refreshing this one.
 - `{domain}-audit/FULL-AUDIT-REPORT.md`: Comprehensive findings
 - `{domain}-audit/ACTION-PLAN.md`: Prioritized recommendations (Critical > High > Medium > Low)
 - `{domain}-audit/audit-data.json`: Structured audit envelope for report generation

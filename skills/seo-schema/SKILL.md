@@ -181,7 +181,10 @@ The 5 criteria below are written to be checkable as **strict presence or
 absence only** — never "how complete" or "how good" — precisely to close
 that gap. Use the fixed-criteria method in
 `skills/seo/references/scoring-rubric.md`, with cited evidence per
-criterion (quote the actual JSON-LD, or state "No evidence found").
+criterion (quote the actual JSON-LD, or state "No evidence found"). Per
+Rule 7, score from the crawl already captured in
+`{domain}-audit/evidence-snapshot.json` (when run inside a full
+`seo-audit`) rather than re-fetching pages mid-scoring.
 
 ### Schema criteria (sum to 100)
 
@@ -191,7 +194,7 @@ criterion (quote the actual JSON-LD, or state "No evidence found").
 | 2 | Core entity/page-type schema is present | 25 | A schema type matching the detected page type exists **at all** (Organization for a homepage/business site, Product for a product page, Article for a blog post, LocalBusiness for a local page, etc.) — this criterion is satisfied by mere presence of the right `@type`; do **not** dock this criterion for missing optional properties like `sameAs`, `telephone`, or `openingHours` — that belongs to criterion 3, never here |
 | 3 | Required properties present for each type in use | 20 | Every schema type detected on the page has all properties Google's documentation marks *required* for that type (see `references/schema-types.md`) — check against that literal required-properties list only, not a subjective "richness" judgment; missing *recommended* (non-required) properties does not fail this criterion |
 | 4 | No deprecated schema types in use | 15 | None of the types in the DEPRECATED table above appear on the page (FAQPage is NOT deprecated — see the NO RICH RESULTS note — so its presence never fails this criterion) |
-| 5 | Absolute URLs, no placeholder text, valid data types/dates | 15 | Every URL value in the schema is absolute (not relative); no placeholder strings (`"[Company Name]"`, `"TODO"`, etc.) remain; date fields parse as valid dates; property values match their expected type |
+| 5 | Absolute URLs, no placeholder text, valid data types/dates | 15 | 4 independent checks (per Rule 8, not one blended AND) tiered by fraction holding across every schema block found: (a) all URL values absolute, not relative; (b) no placeholder strings (`"[Company Name]"`, `"TODO"`, etc.) remain; (c) date fields parse as valid dates; (d) property values match their expected type |
 
 `Schema Score = sum(criterion_score across all 5 rows)`. If no schema
 markup exists at all, criteria 1-3 all score 0 (Not Implemented) and 4-5

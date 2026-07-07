@@ -210,19 +210,28 @@ gets scored — a live test run previously double-counted the same "no
 author byline" gap under two separately-worded checks, producing a 15-point
 swing between two audits of the same page. If you find yourself docking
 points under more than one criterion for the same missing piece of
-evidence, stop and consolidate it into criterion 5 only.
+evidence, stop and consolidate it into criterion 5 only. Per Rule 7, score
+from the crawl already captured in `{domain}-audit/evidence-snapshot.json`
+(when run inside a full `seo-audit`) rather than re-fetching pages
+mid-scoring.
 
 ### Content Quality criteria (sum to 100)
 
+Per Rule 8, each bullet inside a signal (e.g. "Original research/case
+studies/before-after results") is an **example-list-OR** — finding any
+one of the listed examples is sufficient to count that signal as present.
+The signals themselves (Experience/Expertise/etc. each having 4-5 signals)
+are what gets fraction-tiered, not the examples within a single signal.
+
 | # | Criterion | Points | What "Excellent" (100%) looks like |
 |---|---|---|---|
-| 1 | Experience (E-E-A-T) | 20 | Original research/case studies/before-after results; personal anecdotes/process documentation; unique data/proprietary insights; photos/videos from direct experience — rate each of these 4 signals present/absent, tier by fraction present |
-| 2 | Expertise (E-E-A-T) | 20 | Author credentials/certifications/bio; professional background relevant to topic; technical depth appropriate for audience; accurate, well-sourced claims — 4 signals, tier by fraction present |
-| 3 | Authoritativeness (E-E-A-T) | 15 | External citations/backlinks from authoritative sources; brand mentions/industry recognition; published in recognized outlets; cited by other experts — 4 signals, tier by fraction present |
-| 4 | Trustworthiness (E-E-A-T) | 15 | Contact info/physical address; privacy policy/terms of service; testimonials/reviews; date stamps/transparent corrections; secure HTTPS — 5 signals, tier by fraction present |
-| 5 | Who/How/Why helpfulness + AI-content quality (single combined criterion — see note above) | 15 | Visible byline/author bio; process disclosure where readers would expect it; content exists "to help" not just to attract clicks; no generic/repetitive AI-typical phrasing; no factual inaccuracies |
+| 1 | Experience (E-E-A-T) | 20 | 4 signals, each satisfied by any one qualifying example: (a) original research, case study, or before-after result; (b) personal anecdote or process documentation; (c) unique data or proprietary insight; (d) photo/video from direct experience — tier by fraction of the 4 signals present |
+| 2 | Expertise (E-E-A-T) | 20 | 4 signals, each satisfied by any one qualifying example: (a) author credentials, certification, or bio; (b) professional background relevant to topic; (c) technical depth appropriate for audience; (d) accurate, well-sourced claims — tier by fraction present |
+| 3 | Authoritativeness (E-E-A-T) | 15 | 4 signals, each satisfied by any one qualifying example: (a) external citation or backlink from an authoritative source; (b) brand mention or industry recognition; (c) published in a recognized outlet; (d) cited by another expert — tier by fraction present |
+| 4 | Trustworthiness (E-E-A-T) | 15 | 5 signals, each satisfied by any one qualifying example: (a) contact info or physical address; (b) privacy policy or terms of service; (c) testimonials or reviews; (d) date stamps or transparent corrections; (e) secure HTTPS — tier by fraction present |
+| 5 | Who/How/Why helpfulness + AI-content quality (single combined criterion — see note above) | 15 | ALL of the following required (compound-AND, not example list): visible byline/author bio present; process disclosure present where readers would expect it; content reads as existing "to help" not just to attract clicks; no generic/repetitive AI-typical phrasing; no factual inaccuracies found |
 | 6 | Content depth vs. page-type floor | 10 | Word count at/above the floor in the Word Count Analysis table above (topical-coverage floor, not a target) |
-| 7 | Freshness | 5 | Publication date visible; last-updated date visible if revised; not stale (>12 months, no update) on a fast-moving topic |
+| 7 | Freshness | 5 | ALL required (compound-AND): publication date visible; last-updated date visible if the page has been revised; not stale (>12 months, no update) on a fast-moving topic |
 
 `Content Quality Score = sum(criterion_score across all 7 rows)`.
 
