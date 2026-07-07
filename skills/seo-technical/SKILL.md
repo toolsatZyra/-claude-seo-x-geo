@@ -231,7 +231,11 @@ pages failing), not a single representative page.
 
 ### Technical Score: XX/100
 Sum of the 9 criteria above. State each criterion's tier and the cited
-evidence/sub-check results that produced it.
+evidence/sub-check results that produced it. Per scoring-rubric.md Rule 4,
+compute the sum with an actual tool call (e.g. `python3 -c "print(...)"`)
+using the 9 real numbers and show that expression — do not add them in
+prose. A live test found reported totals did not match their own itemized
+scores when this step was skipped.
 
 ### Criteria Breakdown
 | Criterion | Points possible | Points earned | Tier |
@@ -249,7 +253,8 @@ evidence/sub-check results that produced it.
 ### On-Page SEO Score: XX/100
 Reported separately (see Scoring section above) — feeds the "On-Page SEO"
 line of the aggregate Health Score, not the Technical Score above. Include
-the same per-criterion breakdown (6 rows, points possible/earned/tier).
+the same per-criterion breakdown (6 rows, points possible/earned/tier), and
+the same tool-computed sum required above (Rule 4) — not prose addition.
 
 ### Critical Issues (fix immediately)
 ### High Priority (fix within 1 week)

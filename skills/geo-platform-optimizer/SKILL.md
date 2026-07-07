@@ -44,6 +44,20 @@ Apply this discipline when running the rubrics:
 4. **Do not let one platform's score influence another's.** A brand
    strong on YouTube is not thereby more likely to be strong on Reddit —
    score each platform from that platform's own evidence only.
+5. **Compute every platform total with an actual tool call, not prose
+   arithmetic** (`skills/seo/references/scoring-rubric.md` Rule 4). A live
+   test found both independent runs' reported totals didn't match their
+   own itemized scores (one summed to 23 but reported 38; the other summed
+   to 10 but reported 24) — good criteria and cited evidence were not
+   enough on their own. Run e.g. `python3 -c "print(20+0+15+...)"` with the
+   exact scores just assigned, and show that expression in the output next
+   to the total.
+6. **N/A criteria renormalize, per Rule 4** — a criterion marked N/A
+   (GitHub for non-technical brands, Bing Places for non-local businesses,
+   Google Merchant Center for non-e-commerce sites) is excluded from both
+   the earned-points sum and the max-points denominator, then the result is
+   rescaled to /100. Do not silently score an N/A criterion as 0 out of
+   the full possible total.
 
 ---
 
@@ -265,23 +279,33 @@ Apply this discipline when running the rubrics:
 
 ## Output Format
 
-Generate **GEO-PLATFORM-OPTIMIZATION.md** with the following structure:
+Generate **GEO-PLATFORM-OPTIMIZATION.md** with the following structure.
+Per Rule 4, each platform score and the Combined GEO Score must show the
+actual computed expression, not just the resulting number — e.g.
+`python3 -c "print(20+0+15+5+10+0+3+0+5)"` alongside its output — so a
+reader can re-verify the sum against the itemized criteria table.
 
 ```markdown
 # GEO Platform Optimization Report — [Domain]
 Date: [Date]
 
 ## Overall Platform Readiness
-- Combined GEO Score: XX/100 (average of all platform scores)
+- Combined GEO Score: XX/100 — computed as
+  `round((AIO + ChatGPT + Perplexity + Gemini + Copilot) / 5)`; show the
+  actual tool call with the 5 real numbers substituted in, not just the
+  final figure
 
 ## Platform Scores
-| Platform | Score | Status |
-|---|---|---|
-| Google AI Overviews | XX/100 | [Strong/Moderate/Weak] |
-| ChatGPT Web Search | XX/100 | [Strong/Moderate/Weak] |
-| Perplexity AI | XX/100 | [Strong/Moderate/Weak] |
-| Google Gemini | XX/100 | [Strong/Moderate/Weak] |
-| Bing Copilot | XX/100 | [Strong/Moderate/Weak] |
+| Platform | Score | Computation shown | Status |
+|---|---|---|---|
+| Google AI Overviews | XX/100 | `python3 -c "print(...)"` -> XX | [Strong/Moderate/Weak] |
+| ChatGPT Web Search | XX/100 | `python3 -c "print(...)"` -> XX | [Strong/Moderate/Weak] |
+| Perplexity AI | XX/100 | `python3 -c "print(...)"` -> XX | [Strong/Moderate/Weak] |
+| Google Gemini | XX/100 | `python3 -c "print(...)"` -> XX | [Strong/Moderate/Weak] |
+| Bing Copilot | XX/100 | `python3 -c "print(...)"` -> XX | [Strong/Moderate/Weak] |
+
+If any platform excluded an N/A criterion, state which one and show the
+renormalized computation (Rule 4) instead of the plain sum.
 
 Status thresholds: Strong = 70+, Moderate = 40-69, Weak = 0-39
 

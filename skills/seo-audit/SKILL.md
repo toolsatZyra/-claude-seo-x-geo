@@ -124,9 +124,13 @@ SEO Health Score = round(sum(category_subscore_i * weight_i for each row above))
 ```
 
 Round half up, once, at this final step — do not re-round or adjust an
-individual category subscore during aggregation. See
-`skills/seo/references/scoring-rubric.md` for the full deduction formula
-each subscore must already satisfy before it reaches this step.
+individual category subscore during aggregation. Per Rule 4 in that file,
+compute this weighted sum with an actual tool call (e.g.
+`python3 -c "print(round(99*0.25+82*0.25+80*0.22+72*0.13+0*0.10+0*0.05))"`)
+using the real category subscores, and show that expression — do not add
+them in prose. See `skills/seo/references/scoring-rubric.md` for the full
+criteria formula each subscore must already satisfy before it reaches this
+step.
 
 **AI Search Readiness / AEO is not in this table.** It was previously
 blended in at 10% weight; as of the AEO fan-out (see below), it is scored

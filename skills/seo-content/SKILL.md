@@ -234,7 +234,10 @@ that pass).
 ## Output
 
 ### Content Quality Score: XX/100
-State each criterion's tier and cited evidence.
+State each criterion's tier and cited evidence. Per scoring-rubric.md
+Rule 4, compute the sum with an actual tool call (e.g.
+`python3 -c "print(...)"`) using the 7 real numbers and show that
+expression — do not add them in prose.
 
 ### Criteria Breakdown
 | Criterion | Points possible | Points earned | Tier |

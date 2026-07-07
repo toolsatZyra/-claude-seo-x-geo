@@ -105,6 +105,10 @@ criterion_score = round(points x tier_percentage)   # e.g. LCP Good = round(34 x
 Performance Score = sum(criterion_score across LCP, INP, CLS)
 ```
 
+Per the master rubric's Rule 4, compute this sum with an actual tool call
+(e.g. `python3 -c "print(34+20+7)"`) using the 3 real criterion scores and
+show that expression — do not add them in prose.
+
 **Evidence required, per the master rubric's Rule 3:** state the actual
 measured value and its source (CrUX field / Lighthouse lab) for each of
 the 3 criteria before assigning a tier — never assign "Good" because a

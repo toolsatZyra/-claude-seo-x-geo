@@ -205,7 +205,9 @@ rather than treating "nothing found" as an error.
 
 ### Schema Score: XX/100
 State each criterion's tier and cited evidence (quote the JSON-LD or
-state "No evidence found").
+state "No evidence found"). Per scoring-rubric.md Rule 4, compute the sum
+with an actual tool call (e.g. `python3 -c "print(...)"`) using the 5 real
+numbers and show that expression — do not add them in prose.
 
 ### Criteria Breakdown
 | Criterion | Points possible | Points earned | Tier |

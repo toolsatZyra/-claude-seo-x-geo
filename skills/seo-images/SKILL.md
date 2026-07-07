@@ -194,6 +194,9 @@ criterion regardless of tier.
 ### Image Score: XX/100
 State each criterion's tier, the affected/total count backing it, and
 cited evidence (e.g. the specific `<img>` tags found without dimensions).
+Per scoring-rubric.md Rule 4, compute the sum with an actual tool call
+(e.g. `python3 -c "print(...)"`) using the 6 real numbers and show that
+expression — do not add them in prose.
 
 ### Criteria Breakdown
 | Criterion | Points possible | Points earned | Affected / Total | Tier |

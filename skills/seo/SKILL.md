@@ -209,7 +209,9 @@ SEO Health Score = round(sum(category_subscore_i * weight_i for each row above))
 
 Round half up, once, at this final step. Each category subscore must
 already come from that specialist's own deterministic formula — see
-`references/scoring-rubric.md` — not be re-judged here.
+`references/scoring-rubric.md` — not be re-judged here. Per that file's
+Rule 4, compute the weighted sum with an actual tool call, not prose
+arithmetic, and show the expression alongside the result.
 
 **AI Search Readiness / AEO is not in this table.** It is scored and reported
 as a fully separate 0-100 AEO figure (see `seo-geo` / the AEO fan-out in

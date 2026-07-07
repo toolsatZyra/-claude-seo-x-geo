@@ -99,6 +99,46 @@ For every criterion, before assigning a tier:
    which other criterion you deliberately did *not* also dock for the same
    gap, and why.
 
+## Rule 4: Compute the final sum with a tool call, not prose arithmetic
+
+A live two-run test of `geo-platform-optimizer` (same fixed-criteria method
+as this file, run against an unchanged site) found that **neither run's
+reported total matched its own itemized per-criterion evidence** — one run's
+line items summed to 23 but it reported 38; the other's summed to 10 but it
+reported 24. The criteria and evidence were sound; the mental addition of
+9-10 numbers in prose was not. This is a distinct failure mode from Rules
+1-3 and needs its own fix:
+
+1. After scoring every criterion, **actually run the addition as a tool
+   call** — e.g. `python3 -c "print(15+10+0+20+...)"` or an equivalent
+   Bash arithmetic expression — using the exact criterion scores just
+   assigned. Do not add them in your head or in prose and then write down
+   whatever number "feels right."
+2. **Show the expression you computed**, not just the result, so the sum
+   is auditable against the itemized breakdown in the same report.
+3. If a category/platform score is reported without a shown computation
+   (or without one that a reader can re-add by hand from the criteria
+   table), treat that score as unverified — this applies retroactively to
+   every rubric in this project, including ones written before this rule.
+
+### N/A criteria and renormalization
+
+Some criteria are conditionally not applicable (e.g. "GitHub presence" for
+a non-technical brand, "Bing Places" for a non-local business, "Google
+Merchant Center" for a non-e-commerce site). When a criterion is N/A:
+
+```
+category_score = round(100 x sum(earned points, applicable criteria only)
+                            / sum(max points, applicable criteria only))
+```
+
+Exclude the N/A criterion's points from **both** the numerator and the
+denominator, then rescale to /100 — do not score an N/A criterion as 0
+against the full 100-point denominator (that silently penalizes a
+criterion that was never supposed to apply), and do not leave the
+denominator ambiguous. State which criteria were excluded as N/A and why,
+alongside the rescaled computation from Rule 4 above.
+
 ## Why this replaced the severity-deduction table
 
 An earlier version of this rubric scored categories as
