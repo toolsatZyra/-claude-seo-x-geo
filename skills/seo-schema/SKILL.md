@@ -170,10 +170,51 @@ When generating schema for a page:
 }
 ```
 
+## Scoring
+
+This skill previously had no numeric score at all, and a first attempt at
+adding one (a Critical/High/Medium/Low deduction table) still produced a
+28-point gap between two independent audits of the same page — one run
+read "Organization schema" as present/absent (literal), the other read it
+as complete/incomplete (docking points for a present-but-partial block).
+The 5 criteria below are written to be checkable as **strict presence or
+absence only** — never "how complete" or "how good" — precisely to close
+that gap. Use the fixed-criteria method in
+`skills/seo/references/scoring-rubric.md`, with cited evidence per
+criterion (quote the actual JSON-LD, or state "No evidence found").
+
+### Schema criteria (sum to 100)
+
+| # | Criterion | Points | Excellent (100%) — literal presence/absence only |
+|---|---|---|---|
+| 1 | Valid JSON-LD syntax | 25 | At least one `<script type="application/ld+json">` block parses as valid JSON with a `@context` and `@type` — binary per block found (tier by fraction of blocks that parse cleanly if multiple exist) |
+| 2 | Core entity/page-type schema is present | 25 | A schema type matching the detected page type exists **at all** (Organization for a homepage/business site, Product for a product page, Article for a blog post, LocalBusiness for a local page, etc.) — this criterion is satisfied by mere presence of the right `@type`; do **not** dock this criterion for missing optional properties like `sameAs`, `telephone`, or `openingHours` — that belongs to criterion 3, never here |
+| 3 | Required properties present for each type in use | 20 | Every schema type detected on the page has all properties Google's documentation marks *required* for that type (see `references/schema-types.md`) — check against that literal required-properties list only, not a subjective "richness" judgment; missing *recommended* (non-required) properties does not fail this criterion |
+| 4 | No deprecated schema types in use | 15 | None of the types in the DEPRECATED table above appear on the page (FAQPage is NOT deprecated — see the NO RICH RESULTS note — so its presence never fails this criterion) |
+| 5 | Absolute URLs, no placeholder text, valid data types/dates | 15 | Every URL value in the schema is absolute (not relative); no placeholder strings (`"[Company Name]"`, `"TODO"`, etc.) remain; date fields parse as valid dates; property values match their expected type |
+
+`Schema Score = sum(criterion_score across all 5 rows)`. If no schema
+markup exists at all, criteria 1-3 all score 0 (Not Implemented) and 4-5
+score 100 (nothing present to violate them) — state this explicitly
+rather than treating "nothing found" as an error.
+
 ## Output
 
 - `SCHEMA-REPORT.md`: detection and validation results
 - `generated-schema.json`: ready-to-use JSON-LD snippets
+
+### Schema Score: XX/100
+State each criterion's tier and cited evidence (quote the JSON-LD or
+state "No evidence found").
+
+### Criteria Breakdown
+| Criterion | Points possible | Points earned | Tier |
+|---|---|---|---|
+| Valid JSON-LD syntax | 25 | XX | ... |
+| Core entity/page-type schema present | 25 | XX | ... |
+| Required properties present | 20 | XX | ... |
+| No deprecated types in use | 15 | XX | ... |
+| Absolute URLs / no placeholders / valid data | 15 | XX | ... |
 
 ### Validation Results
 | Schema | Type | Status | Issues |

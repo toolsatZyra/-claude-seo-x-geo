@@ -182,6 +182,7 @@ Load these on-demand as needed (do NOT load all at startup):
 - `references/quality-gates.md`: Content length minimums, uniqueness thresholds
 - `references/local-seo-signals.md`: Local ranking factors, review benchmarks, citation tiers, GBP status
 - `references/local-schema-types.md`: LocalBusiness subtypes, industry-specific schema and citation sources
+- `references/scoring-rubric.md`: deterministic severity->deduction formula used by every category score (Technical, On-Page, Content, Schema, Images, Performance) — read before computing or explaining any score
 
 Maps-specific references (loaded by seo-maps skill, not at startup):
 - `references/maps-geo-grid.md`, `references/maps-gbp-checklist.md`, `references/maps-api-endpoints.md`, `references/maps-free-apis.md`
@@ -189,17 +190,33 @@ Maps-specific references (loaded by seo-maps skill, not at startup):
 ## Scoring Methodology
 
 ### SEO Health Score (0-100)
-Weighted aggregate of all categories:
+Weighted aggregate of all categories. This table must stay identical to the
+`## Scoring Weights` table in `skills/seo-audit/SKILL.md` — the two are one
+formula, not two independent ones:
 
 | Category | Weight |
 |----------|--------|
-| Technical SEO | 22% |
-| Content Quality | 23% |
-| On-Page SEO | 20% |
-| Schema / Structured Data | 10% |
+| Technical SEO | 25% |
+| Content Quality | 25% |
+| On-Page SEO | 22% |
+| Schema / Structured Data | 13% |
 | Performance (CWV) | 10% |
-| AI Search Readiness | 10% |
 | Images | 5% |
+
+```
+SEO Health Score = round(sum(category_subscore_i * weight_i for each row above))
+```
+
+Round half up, once, at this final step. Each category subscore must
+already come from that specialist's own deterministic formula — see
+`references/scoring-rubric.md` — not be re-judged here.
+
+**AI Search Readiness / AEO is not in this table.** It is scored and reported
+as a fully separate 0-100 AEO figure (see `seo-geo` / the AEO fan-out in
+`seo-audit/SKILL.md`) and must never be folded back into the SEO Health
+Score above, even partially. If you find yourself blending an AEO number
+into this score, stop — that reintroduces the exact inconsistency this note
+exists to prevent.
 
 ### Priority Levels
 - **Critical**: Blocks indexing or causes penalties (immediate fix required)

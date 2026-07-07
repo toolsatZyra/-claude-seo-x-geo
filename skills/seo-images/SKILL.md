@@ -165,7 +165,45 @@ Add `decoding="async"` to non-LCP images to prevent image decoding from blocking
 - Recommend CDN for image-heavy sites
 - Check for edge caching headers
 
+## Scoring
+
+This skill previously had no numeric score at all despite Images being a
+weighted category in the aggregate Health Score. Compute an Image Score
+using the fixed-criteria method in
+`skills/seo/references/scoring-rubric.md`: 6 named criteria summing to
+100, each tiered by the **proportion of images that fail it** (see the
+proportion-based tiering table there), not a flat per-instance deduction
+with an instance cap. State the true affected/total count for every
+criterion regardless of tier.
+
+### Image criteria (sum to 100)
+
+| # | Criterion | Points | Excellent (100%) |
+|---|---|---|---|
+| 1 | Alt text | 20 | Every image has present, descriptive alt text (decorative images may use `alt=""` deliberately — that counts as satisfying this criterion, not failing it) |
+| 2 | File size budget | 20 | No image exceeds 500KB; tier this criterion by the share of images over 500KB using the proportion table — an image in the 200-500KB band alone does not fail this criterion, only >500KB counts as a failure for tiering purposes |
+| 3 | Dimensions set | 20 | Every image has explicit `width`/`height` (or CSS aspect-ratio) to prevent CLS |
+| 4 | Modern format | 15 | Every image uses WebP/AVIF, or JPEG/PNG use is explicitly justified (e.g. transparency needs not supported by the chosen format) |
+| 5 | Lazy-loading correctness | 15 | Below-fold images are lazy-loaded (native `loading="lazy"` or a detected JS lazy-loader) **and** the LCP/hero image is never lazy-loaded. **Override:** if the LCP image itself has `loading="lazy"`, this criterion scores 0 (Not Implemented) regardless of below-fold compliance elsewhere — that specific mistake directly harms LCP and is scored as a hard failure of this criterion, not averaged away |
+| 6 | LCP image priority hint | 10 | The identified LCP/hero image has `fetchpriority="high"`. Binary, not proportion-based (there is one LCP image per page) — score 0 if the LCP image cannot be identified with evidence, rather than guessing |
+
+`Image Score = sum(criterion_score across all 6 rows)`.
+
 ## Output
+
+### Image Score: XX/100
+State each criterion's tier, the affected/total count backing it, and
+cited evidence (e.g. the specific `<img>` tags found without dimensions).
+
+### Criteria Breakdown
+| Criterion | Points possible | Points earned | Affected / Total | Tier |
+|---|---|---|---|---|
+| Alt text | 20 | XX | X/X | ... |
+| File size budget | 20 | XX | X/X | ... |
+| Dimensions set | 20 | XX | X/X | ... |
+| Modern format | 15 | XX | X/X | ... |
+| Lazy-loading correctness | 15 | XX | X/X | ... |
+| LCP priority hint | 10 | XX | — | ... |
 
 ### Image Audit Summary
 

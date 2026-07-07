@@ -21,6 +21,7 @@ metadata:
    - `seo-technical` -- robots.txt, sitemaps, canonicals, Core Web Vitals, security headers
    - `seo-content` -- E-E-A-T, readability, thin content, AI citation readiness
    - `seo-schema` -- detection, validation, generation recommendations
+   - `seo-images` -- alt text, file size, format, dimensions, lazy loading (always include — this is the sole source of the weighted "Images" category score; a prior version of this list omitted it, which meant Images had no data source in full audits)
    - `seo-sitemap` -- structure analysis, quality gates, missing pages
    - `seo-performance` -- LCP, INP, CLS measurements
    - `seo-visual` -- screenshots, mobile testing, above-fold analysis
@@ -33,7 +34,11 @@ metadata:
    - `seo-sxo` -- Search experience analysis: page-type mismatch, user stories, persona scoring (always include in full audits)
    - `seo-drift` -- Drift analysis: compare against stored baseline (spawn when drift baseline exists for the URL via `python3 scripts/drift_history.py <url>`)
    - `seo-ecommerce` -- Product schema, marketplace intelligence (spawn when E-commerce industry detected)
-5. **Score** -- aggregate into SEO Health Score (0-100)
+5. **Score** -- aggregate into SEO Health Score (0-100). Each category
+   subscore must already come from that specialist's own deterministic
+   formula (see `skills/seo/references/scoring-rubric.md` and the
+   `## Scoring Weights` table below) — this step is a plain weighted sum of
+   those subscores, never a fresh judgment call
 6. **Persist audit artifacts** -- write all outputs under `{domain}-audit/`
 7. **Report** -- generate prioritized action plan and optional PDF/HTML report
 
@@ -101,14 +106,27 @@ Write `{domain}-audit/audit-data.json` with this shape so `python3 scripts/googl
 
 ## Scoring Weights
 
-| Category | Weight |
-|----------|--------|
-| Technical SEO | 25% |
-| Content Quality | 25% |
-| On-Page SEO | 22% |
-| Schema / Structured Data | 13% |
-| Performance (CWV) | 10% |
-| Images | 5% |
+This table must stay identical to the `## Scoring Methodology` table in
+`skills/seo/SKILL.md` — it is one formula defined in two places, not two
+independent ones.
+
+| Category | Weight | Subscore source |
+|----------|--------|------------------|
+| Technical SEO | 25% | `seo-technical` (categories 1-9, excludes On-Page) |
+| Content Quality | 25% | `seo-content` (Content Quality Score, excludes AEO Citability) |
+| On-Page SEO | 22% | `seo-technical` (category 10 — see that skill's Scoring section) |
+| Schema / Structured Data | 13% | `seo-schema` |
+| Performance (CWV) | 10% | `seo-performance` agent |
+| Images | 5% | `seo-images` |
+
+```
+SEO Health Score = round(sum(category_subscore_i * weight_i for each row above))
+```
+
+Round half up, once, at this final step — do not re-round or adjust an
+individual category subscore during aggregation. See
+`skills/seo/references/scoring-rubric.md` for the full deduction formula
+each subscore must already satisfy before it reaches this step.
 
 **AI Search Readiness / AEO is not in this table.** It was previously
 blended in at 10% weight; as of the AEO fan-out (see below), it is scored

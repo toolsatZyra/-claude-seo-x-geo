@@ -21,6 +21,30 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 3. Score each platform on the 0-100 rubric
 4. Generate GEO-PLATFORM-OPTIMIZATION.md with per-platform scores, gaps, and action items
 
+## Scoring discipline (mandatory — apply to every criterion below)
+
+Every row in the 5 scoring rubrics below is anchored to a countable fact
+(a number of threads/videos/properties found, a date threshold, a binary
+presence check) per `skills/seo/references/scoring-rubric.md` Rule 3 —
+none should be scored from a bare adjective or general impression anymore.
+Apply this discipline when running the rubrics:
+
+1. **Cite the actual evidence per criterion** — the specific search you
+   ran, the count you found, the URL you checked, the date you observed —
+   before picking a point value. If you didn't run the check, say so.
+2. **"No evidence found" scores the criterion's lowest listed value**,
+   never a middle value assumed out of politeness or general impression of
+   brand quality. If a row's top tier requires ">=3 threads found," you
+   must be able to name those 3 threads, not estimate that there are
+   "probably several."
+3. **If you find a row phrased with a bare adjective and no attached
+   count** (this should not happen anymore, but flag it if you find one),
+   treat it as scoring 0 unless you can name specific instances that
+   satisfy it — do not award partial credit for an impression.
+4. **Do not let one platform's score influence another's.** A brand
+   strong on YouTube is not thereby more likely to be strong on Reddit —
+   score each platform from that platform's own evidence only.
+
 ---
 
 ## Platform 1: Google AI Overviews (AIO)
@@ -52,13 +76,13 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 | Ranks in top 10 for target queries | 20 | 20 if yes, 10 if top 20, 0 if beyond |
 | Question-based headings present | 10 | 2 points per question heading, max 10 |
 | Direct answers after headings | 15 | 3 points per direct answer, max 15 |
-| Tables present for comparison data | 10 | 10 if tables used appropriately, 5 if partial, 0 if absent |
-| Lists for processes/features | 10 | 10 if present, 5 if partial |
+| Tables present for comparison data | 10 | 10 if >=1 HTML table covers comparison/pricing/spec data with labeled column headers, 5 if a table exists but lacks labeled headers or covers only some of the comparable data, 0 if no table exists despite comparable data being present in prose |
+| Lists for processes/features | 10 | 10 if step-by-step processes use ordered lists AND feature lists use unordered lists, 5 if only one of those two applicable patterns is followed, 0 if neither is used despite list-worthy content existing |
 | FAQ section with 5+ questions | 10 | 10 if 5+, 5 if 1-4, 0 if none |
 | Statistics with citations | 10 | 2 points per cited stat, max 10 |
 | Publication/updated date visible | 5 | 5 if both dates, 3 if one, 0 if none |
-| Author byline with credentials | 5 | 5 if full byline, 3 if name only, 0 if none |
-| Clean URL + heading hierarchy | 5 | 5 if H1>H2>H3 clean, 3 if minor issues, 0 if broken |
+| Author byline with credentials | 5 | 5 if a named author with a linked bio/credentials page is shown, 3 if a name is shown with no bio/credentials link, 0 if no author is named |
+| Clean URL + heading hierarchy | 5 | 5 if exactly one H1 and zero skipped heading levels, 3 if one skipped level or 2 H1s, 0 if 2+ skipped levels or no discernible heading structure |
 
 ---
 
@@ -90,13 +114,13 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 | Criterion | Points | How to Score |
 |---|---|---|
 | Wikipedia article exists and is accurate | 20 | 20 if exists, 10 if stub, 0 if none |
-| Wikidata entity with 5+ properties | 10 | 10 if complete, 5 if basic, 0 if none |
-| Bing index coverage of key pages | 10 | 10 if full, 5 if partial, 0 if poor |
-| Reddit brand mentions (positive) | 10 | 10 if active discussions, 5 if mentions, 0 if none |
-| YouTube channel with relevant content | 10 | 10 if active, 5 if present but sparse, 0 if none |
+| Wikidata entity with 5+ properties | 10 | 10 if >=5 properties present on the Wikidata item, 5 if 1-4 properties present, 0 if no Wikidata item found |
+| Bing index coverage of key pages | 10 | 10 if a `site:domain.com` Bing search returns all checked key pages, 5 if some but not all are returned, 0 if none are returned or not checked |
+| Reddit brand mentions (positive) | 10 | 10 if >=3 threads found via search with net-positive sentiment, 5 if 1-2 threads found or sentiment is mixed, 0 if none found or not checked |
+| YouTube channel with relevant content | 10 | 10 if a channel exists with a video published in the last 90 days, 5 if a channel exists but the most recent video is 90+ days old, 0 if no channel found |
 | Authoritative backlinks (.edu, .gov, press) | 15 | 3 points per authoritative backlink category, max 15 |
-| Entity consistency across platforms | 10 | 10 if consistent, 5 if minor discrepancies, 0 if major |
-| Content comprehensiveness (2000+ words) | 10 | 10 if thorough, 5 if adequate, 0 if thin |
+| Entity consistency across platforms | 10 | 10 if brand name, founding date, and leadership match exactly across all checked sources (Wikipedia, Crunchbase, LinkedIn, official site), 5 if exactly 1 fact differs across sources, 0 if 2+ facts differ or sources could not be cross-checked |
+| Content comprehensiveness | 10 | 10 if >=2000 words with every subtopic in the target's "People Also Ask"/competitor coverage addressed, 5 if 800-1999 words or missing 1+ major subtopic, 0 if <800 words |
 | Bing Webmaster Tools configured | 5 | 5 if verified, 0 if not |
 
 ---
@@ -128,14 +152,14 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 
 | Criterion | Points | How to Score |
 |---|---|---|
-| Active Reddit presence in relevant subreddits | 20 | 20 if active contributor, 10 if mentioned, 0 if absent |
-| Forum/community mentions (HN, SO, Quora) | 10 | 10 if multiple platforms, 5 if one, 0 if none |
-| Content freshness (updated within 6 months) | 10 | 10 if recent, 5 if within year, 0 if older |
-| Original research/data published | 15 | 15 if original research, 10 if case studies, 5 if some data, 0 if none |
-| YouTube content with transcripts | 10 | 10 if active channel, 5 if some videos, 0 if none |
-| Quotable, standalone paragraphs | 10 | 2 points per well-structured quotable paragraph, max 10 |
-| Multi-source claim validation | 10 | 10 if claims well-sourced, 5 if some sourcing, 0 if none |
-| Discussion-generating content | 10 | 10 if content gets shared/discussed, 5 if some engagement, 0 if none |
+| Active Reddit presence in relevant subreddits | 20 | 20 if the brand/representatives posted or commented in a relevant subreddit within the last 90 days (name the thread), 10 if the brand is mentioned by others with no active participation found, 0 if no mentions found |
+| Forum/community mentions (HN, SO, Quora) | 10 | 10 if mentions found on 2+ of {Hacker News, Stack Overflow, Quora}, 5 if found on exactly 1, 0 if none found |
+| Content freshness (updated within 6 months) | 10 | 10 if the visible last-updated date is within 6 months, 5 if 6-12 months, 0 if >12 months or no date shown |
+| Original research/data published | 15 | 15 if an original survey/benchmark/dataset with stated methodology is published, 10 if named case studies with specific client results are published, 5 if at least one first-party statistic is cited without full methodology, 0 if no first-party data appears |
+| YouTube content with transcripts | 10 | 10 if a channel exists with >=1 video in the last 90 days that has captions/transcript available, 5 if a channel exists with videos but none in the last 90 days or none captioned, 0 if no channel found |
+| Quotable, standalone paragraphs | 10 | 2 points per paragraph that states one specific claim/fact in its first sentence and reads standalone without surrounding context, max 10 |
+| Multi-source claim validation | 10 | 10 if every major factual claim on the page links to or names an external source, 5 if some but not all major claims are sourced, 0 if no claims are sourced |
+| Discussion-generating content | 10 | 10 if >=3 verifiable off-site discussion threads found via search that reference the content, 5 if 1-2 found, 0 if none found or not checked |
 | Wikipedia/Wikidata presence | 5 | 5 if present, 0 if absent |
 
 ---
@@ -167,15 +191,15 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 
 | Criterion | Points | How to Score |
 |---|---|---|
-| Google Knowledge Panel exists | 15 | 15 if complete, 10 if partial, 0 if none |
-| Google Business Profile complete | 10 | 10 if fully optimized, 5 if basic, 0 if none |
-| YouTube channel with topic-relevant content | 20 | 20 if active with chapters, 10 if present, 0 if none |
-| Schema.org structured data implemented | 15 | 15 if comprehensive, 10 if basic, 5 if minimal, 0 if none |
+| Google Knowledge Panel exists | 15 | 15 if a panel appears for a brand-name search with logo, description, and social links all populated, 10 if a panel appears but is missing 1+ of those fields, 0 if no panel appears |
+| Google Business Profile complete | 10 | 10 if GBP exists with hours, services, photos, and a post within the last 90 days all present, 5 if a GBP exists but is missing 1+ of those, 0 if no GBP found |
+| YouTube channel with topic-relevant content | 20 | 20 if a channel exists with a video in the last 90 days using chapters/timestamps, 10 if a channel exists but lacks a recent video or chapters, 0 if no channel found |
+| Schema.org structured data implemented | 15 | 15 if entity schema (Organization/Person) AND a page-type schema (Product/Article/LocalBusiness) are both present with required properties, 10 if only one of those two is present, 5 if only a minimal/incomplete schema block exists, 0 if no schema present |
 | Google ecosystem presence (Scholar, News, Maps) | 10 | 10 if 3+, 5 if 1-2, 0 if none |
-| Image optimization (alt text, filenames) | 10 | 10 if all images optimized, 5 if partial, 0 if none |
-| E-E-A-T signals (author pages, about, editorial) | 10 | 10 if strong, 5 if partial, 0 if weak |
-| Google Merchant Center (if e-commerce) | 5 | 5 if applicable and active, N/A otherwise |
-| Multi-modal content (text + images + video) | 5 | 5 if rich multi-modal, 3 if some, 0 if text-only |
+| Image optimization (alt text, filenames) | 10 | 10 if 100% of checked images have descriptive alt text and non-generic filenames, 5 if 50-99% do, 0 if <50% do |
+| E-E-A-T signals (author pages, about, editorial) | 10 | 10 if all 3 present (author bio page with credentials, About page, stated editorial/review policy), 5 if 1-2 present, 0 if none present |
+| Google Merchant Center (if e-commerce) | 5 | 5 if products are found listed in Google Merchant Center / Shopping results, 0 if e-commerce but no listings found, N/A if not an e-commerce site |
+| Multi-modal content (text + images + video) | 5 | 5 if the page includes text, at least 1 relevant image, and at least 1 embedded/linked video, 3 if it includes text plus only one of image or video, 0 if text-only |
 
 ---
 
@@ -205,16 +229,16 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 
 | Criterion | Points | How to Score |
 |---|---|---|
-| Bing Webmaster Tools verified + sitemap | 15 | 15 if verified, 5 if partial, 0 if not |
-| IndexNow protocol implemented | 15 | 15 if active, 0 if not |
-| Bing index coverage of key pages | 10 | 10 if full, 5 if partial, 0 if poor |
-| LinkedIn company page (complete) | 10 | 10 if complete, 5 if basic, 0 if none |
-| GitHub presence (if applicable) | 5 | 5 if active, N/A if not applicable |
-| Meta descriptions optimized | 10 | 10 if all key pages, 5 if partial, 0 if missing |
-| Social media engagement signals | 10 | 10 if active engagement, 5 if present, 0 if none |
-| Exact-match keywords in titles/headings | 10 | 10 if well-optimized, 5 if partial, 0 if not |
+| Bing Webmaster Tools verified + sitemap | 15 | 15 if the site is verified in Bing Webmaster Tools AND a sitemap is submitted, 5 if only one of the two is confirmed, 0 if neither is confirmed or not checked |
+| IndexNow protocol implemented | 15 | 15 if a key file is found at `/.well-known/indexnow-key.txt` (or equivalent documented location), 0 if not found |
+| Bing index coverage of key pages | 10 | 10 if a `site:domain.com` Bing search returns all checked key pages, 5 if some but not all are returned, 0 if none are returned or not checked |
+| LinkedIn company page (complete) | 10 | 10 if a company page exists with description, logo, and a post within the last 90 days, 5 if a page exists but is missing 1+ of those, 0 if no company page found |
+| GitHub presence (if applicable) | 5 | 5 if a GitHub org/repo exists with a commit within the last 90 days, 0 if a GitHub presence exists but the last commit is 90+ days old, N/A if not applicable (non-technical brand) |
+| Meta descriptions optimized | 10 | 10 if 100% of checked key pages have a unique meta description 150-160 characters, 5 if 50-99% do, 0 if <50% do |
+| Social media engagement signals | 10 | 10 if a company social profile is found with visible posts within the last 30 days, 5 if a profile exists but the most recent post is 30+ days old, 0 if no profile found or not checked |
+| Exact-match keywords in titles/headings | 10 | 10 if the exact target phrase appears in the title tag AND at least one heading, 5 if it appears in only one of the two, 0 if it appears in neither |
 | Page load speed < 2 seconds | 10 | 10 if < 2s, 5 if < 4s, 0 if > 4s |
-| Bing Places configured (if local) | 5 | 5 if complete, N/A if not local |
+| Bing Places configured (if local) | 5 | 5 if a Bing Places listing exists with hours, address, and category all populated, 0 if a listing exists but is missing 1+ of those, N/A if not a local business |
 
 ---
 
