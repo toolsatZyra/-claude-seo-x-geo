@@ -210,13 +210,16 @@ with an actual tool call (e.g. `python3 -c "print(...)"`) using the 5 real
 numbers and show that expression — do not add them in prose.
 
 ### Criteria Breakdown
-| Criterion | Points possible | Points earned | Tier |
-|---|---|---|---|
-| Valid JSON-LD syntax | 25 | XX | ... |
-| Core entity/page-type schema present | 25 | XX | ... |
-| Required properties present | 20 | XX | ... |
-| No deprecated types in use | 15 | XX | ... |
-| Absolute URLs / no placeholders / valid data | 15 | XX | ... |
+Evidence is a mandatory column (Rule 6), not optional — "No evidence
+found" is a complete answer and forces that row's score to 0.
+
+| Criterion | Points possible | Points earned | Tier | Evidence |
+|---|---|---|---|---|
+| Valid JSON-LD syntax | 25 | XX | ... | ... |
+| Core entity/page-type schema present | 25 | XX | ... | ... |
+| Required properties present | 20 | XX | ... | ... |
+| No deprecated types in use | 15 | XX | ... | ... |
+| Absolute URLs / no placeholders / valid data | 15 | XX | ... | ... |
 
 ### Validation Results
 | Schema | Type | Status | Issues |

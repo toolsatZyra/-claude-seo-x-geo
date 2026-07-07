@@ -238,23 +238,27 @@ prose. A live test found reported totals did not match their own itemized
 scores when this step was skipped.
 
 ### Criteria Breakdown
-| Criterion | Points possible | Points earned | Tier |
-|----------|--------|-------|-------|
-| Crawlability | 15 | XX | ... |
-| Indexability | 15 | XX | ... |
-| Security | 10 | XX | ... |
-| URL Structure | 8 | XX | ... |
-| Mobile | 12 | XX | ... |
-| Core Web Vitals | 10 | XX | ... |
-| Structured Data | 10 | XX | ... |
-| JS Rendering | 15 | XX | ... |
-| IndexNow | 5 | XX | ... |
+Evidence is a mandatory column (Rule 6), not optional — "No evidence
+found" is a complete answer and forces that row's score to 0.
+
+| Criterion | Points possible | Points earned | Tier | Evidence |
+|----------|--------|-------|-------|-------|
+| Crawlability | 15 | XX | ... | ... |
+| Indexability | 15 | XX | ... | ... |
+| Security | 10 | XX | ... | ... |
+| URL Structure | 8 | XX | ... | ... |
+| Mobile | 12 | XX | ... | ... |
+| Core Web Vitals | 10 | XX | ... | ... |
+| Structured Data | 10 | XX | ... | ... |
+| JS Rendering | 15 | XX | ... | ... |
+| IndexNow | 5 | XX | ... | ... |
 
 ### On-Page SEO Score: XX/100
 Reported separately (see Scoring section above) — feeds the "On-Page SEO"
 line of the aggregate Health Score, not the Technical Score above. Include
-the same per-criterion breakdown (6 rows, points possible/earned/tier), and
-the same tool-computed sum required above (Rule 4) — not prose addition.
+the same per-criterion breakdown (6 rows, points possible/earned/tier/
+evidence), and the same tool-computed sum required above (Rule 4) — not
+prose addition.
 
 ### Critical Issues (fix immediately)
 ### High Priority (fix within 1 week)

@@ -199,14 +199,19 @@ Per scoring-rubric.md Rule 4, compute the sum with an actual tool call
 expression — do not add them in prose.
 
 ### Criteria Breakdown
-| Criterion | Points possible | Points earned | Affected / Total | Tier |
-|---|---|---|---|---|
-| Alt text | 20 | XX | X/X | ... |
-| File size budget | 20 | XX | X/X | ... |
-| Dimensions set | 20 | XX | X/X | ... |
-| Modern format | 15 | XX | X/X | ... |
-| Lazy-loading correctness | 15 | XX | X/X | ... |
-| LCP priority hint | 10 | XX | — | ... |
+Evidence is a mandatory column (Rule 6), not optional — "No evidence
+found" is a complete answer and forces that row's score to 0. The
+Affected/Total column is the count; the Evidence column is what backs
+that count (e.g. the specific `<img>` tags found without dimensions).
+
+| Criterion | Points possible | Points earned | Affected / Total | Tier | Evidence |
+|---|---|---|---|---|---|
+| Alt text | 20 | XX | X/X | ... | ... |
+| File size budget | 20 | XX | X/X | ... | ... |
+| Dimensions set | 20 | XX | X/X | ... | ... |
+| Modern format | 15 | XX | X/X | ... | ... |
+| Lazy-loading correctness | 15 | XX | X/X | ... | ... |
+| LCP priority hint | 10 | XX | — | ... | ... |
 
 ### Image Audit Summary
 

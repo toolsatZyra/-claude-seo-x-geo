@@ -131,7 +131,14 @@ performed, that criterion is Not Implemented (0%), not assumed-Good.
 
 Provide:
 - Performance score (0-100), computed via the formula above — never eyeballed
-- Criteria breakdown: LCP/INP/CLS each with points possible (34/33/33), measured value, tier, and points earned
+- Criteria breakdown as a table with a mandatory Evidence column (Rule 6)
+  — not folded into surrounding prose:
+
+  | Criterion | Points possible | Measured value | Tier | Points earned | Evidence |
+  |---|---|---|---|---|---|
+  | LCP | 34 | ... | ... | XX | source + value, or "No evidence found" |
+  | INP | 33 | ... | ... | XX | source + value, or "No evidence found" |
+  | CLS | 33 | ... | ... | XX | source + value, or "No evidence found" |
 - Data source used: CrUX field data or Lighthouse lab (median of 3)
 - Core Web Vitals status (pass/fail per metric)
 - Specific bottlenecks identified

@@ -240,15 +240,18 @@ Rule 4, compute the sum with an actual tool call (e.g.
 expression — do not add them in prose.
 
 ### Criteria Breakdown
-| Criterion | Points possible | Points earned | Tier |
-|---|---|---|---|
-| Experience | 20 | XX | ... |
-| Expertise | 20 | XX | ... |
-| Authoritativeness | 15 | XX | ... |
-| Trustworthiness | 15 | XX | ... |
-| Who/How/Why + AI-content quality | 15 | XX | ... |
-| Content depth | 10 | XX | ... |
-| Freshness | 5 | XX | ... |
+Evidence is a mandatory column (Rule 6), not optional — "No evidence
+found" is a complete answer and forces that row's score to 0.
+
+| Criterion | Points possible | Points earned | Tier | Evidence |
+|---|---|---|---|---|
+| Experience | 20 | XX | ... | ... |
+| Expertise | 20 | XX | ... | ... |
+| Authoritativeness | 15 | XX | ... | ... |
+| Trustworthiness | 15 | XX | ... | ... |
+| Who/How/Why + AI-content quality | 15 | XX | ... | ... |
+| Content depth | 10 | XX | ... | ... |
+| Freshness | 5 | XX | ... | ... |
 
 ### AEO Citability Score: XX/100
 Per-block scores plus page-level average from `analyze_page_citability(url)`.

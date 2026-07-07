@@ -310,7 +310,20 @@ renormalized computation (Rule 4) instead of the plain sum.
 Status thresholds: Strong = 70+, Moderate = 40-69, Weak = 0-39
 
 ## Platform Details
-[Per-platform breakdown with score, gaps found, specific actions]
+
+For each platform, the per-criterion breakdown is a table with a
+mandatory Evidence column (Rule 6) — not scores listed in prose with
+evidence folded elsewhere. A controlled two-run test found the run using
+exactly this table shape caught its own unjustified scores (a criterion
+that would otherwise be scored full marks with no stated basis) and
+produced a more accurate total than the run that scored in loose prose:
+
+| Criterion | Points possible | Score | Evidence |
+|---|---|---|---|
+| [criterion name] | XX | XX | [what you found, quoted/cited] or "No evidence found" |
+
+Follow each platform's table with its Rule-4 tool-call computation (see
+Platform Scores above) and a gaps/specific-actions summary.
 
 ## Prioritized Action Plan
 ### Quick Wins (this week)

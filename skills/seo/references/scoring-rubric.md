@@ -98,6 +98,21 @@ For every criterion, before assigning a tier:
    specifically names that evidence, and explicitly state in the report
    which other criterion you deliberately did *not* also dock for the same
    gap, and why.
+6. **The Evidence column is structural, not optional prose.** Every
+   Criteria Breakdown table this project outputs must include an explicit
+   `Evidence` column, one cell per criterion — not evidence folded into
+   surrounding paragraphs, and not omitted for criteria that "obviously"
+   pass or fail. A cell that says "No evidence found" is a complete,
+   valid answer and forces that row's score to 0. A controlled two-run
+   test (identical pages fetched by both runs, so coverage couldn't
+   explain the gap) found the run using this exact tabular format caught
+   its own unjustified scores and landed on materially more accurate
+   totals than the run that scored criteria in loose prose — one criterion
+   scored "15/15" with no stated justification, which a mandatory Evidence
+   cell would have visibly left blank or forced to state what the 15/15
+   was actually based on. Do not merge this column into the Tier/Status
+   column — they answer different questions ("what did you find" vs "what
+   tier does that map to").
 
 ## Rule 4: Compute the final sum with a tool call, not prose arithmetic
 
