@@ -883,6 +883,22 @@ def _build_css(domain: str, brand: Optional[dict] = None) -> str:
   .priority-low {{ background: #94a3b8; }}
   .priority-info {{ background: #6b7280; }}
 
+  /* Confidence tag (Rule 9: CONFIRMED vs. INFERRED) — deliberately NOT the
+     severity color palette, so a reader never conflates "inferred" with
+     "bad". This is a "read carefully" signal, not a severity signal. */
+  .confidence-tag {{
+    display: inline-block;
+    padding: 0.5mm 3mm;
+    border-radius: 3px;
+    font-size: 7.5pt;
+    font-weight: bold;
+    margin-right: 2mm;
+    vertical-align: middle;
+    border: 1px solid;
+  }}
+  .confidence-confirmed {{ background: #f1f5f9; color: #475569; border-color: #cbd5e1; }}
+  .confidence-inferred {{ background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }}
+
   /* ─── Code blocks ─── */
   .code-block {{
     background: #1e293b;
@@ -1104,6 +1120,14 @@ def _finding_description(item):
     return ""
 
 
+def _finding_confidence(item):
+    """CONFIRMED/INFERRED tag per scoring-rubric.md Rule 9. Returns None when
+    absent so older audit-data.json files without this key render unchanged."""
+    if isinstance(item, dict):
+        return item.get("confidence")
+    return None
+
+
 def _build_full_audit_categories(data, section_num=2):
     """Build category sections for audit-data.json style reports."""
     categories = _coerce_items(data.get("categories"))
@@ -1152,8 +1176,13 @@ def _build_full_audit_categories(data, section_num=2):
                     recommendation = escape(str(finding["recommendation"]))
                 badge_class = _severity_badge_class(severity)
                 item_class = _severity_action_item_class(severity)
+                confidence = _finding_confidence(finding)
+                confidence_html = ""
+                if confidence:
+                    conf_class = "confidence-confirmed" if str(confidence).upper() == "CONFIRMED" else "confidence-inferred"
+                    confidence_html = f' <span class="confidence-tag {conf_class}">{escape(str(confidence).upper())}</span>'
                 lines.append(f'  <div class="action-item {item_class}">')
-                lines.append(f'    <h4>{title} <span class="priority-tag {badge_class}">{severity.upper()}</span></h4>')
+                lines.append(f'    <h4>{title} <span class="priority-tag {badge_class}">{severity.upper()}</span>{confidence_html}</h4>')
                 if desc:
                     lines.append(f'    <p>{desc}</p>')
                 if recommendation:

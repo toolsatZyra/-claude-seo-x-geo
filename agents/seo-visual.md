@@ -62,6 +62,11 @@ python3 scripts/render_page.py URL --mode auto --a11y-tree --json
 - Images not scaling properly
 - Broken layout at different widths
 
+Report causal explanations for rendering inconsistencies (e.g. why a hero
+looks different per viewport) as explicitly labeled hypotheses, not settled
+fact — see Rule 9 in `skills/seo/references/scoring-rubric.md` and the
+Evidence vs. Inference Writing Rule in `skills/seo/SKILL.md`.
+
 ## Output Format
 
 Provide:
