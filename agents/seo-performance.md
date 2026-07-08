@@ -115,6 +115,11 @@ the 3 criteria before assigning a tier — never assign "Good" because a
 site "seems fast." If no CrUX data exists and no Lighthouse run was
 performed, that criterion is Not Implemented (0%), not assumed-Good.
 
+When lab and field data diverge sharply (see Rule 9), state competing
+explanations as labeled hypotheses rather than asserting one cause — do not
+present a speculative tail-risk projection as a computed figure unless a
+model is actually shown.
+
 **Data source matters for reproducibility:**
 - Prefer CrUX field data (75th percentile, 28-day window) whenever
   available — it does not vary between two audits run the same day, since

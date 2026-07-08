@@ -97,6 +97,39 @@ Each emitted recommendation should carry:
 - An explicit "how would we know this failed?" check (ACCEPT)
 - A leading indicator the user can monitor without re-running the audit (GROW)
 
+## Evidence vs. Inference Writing Rule
+
+Every specialist's prose findings — not just numeric scoring criteria — must
+distinguish what was directly observed from what is a reasoned theory about
+it. This is Rule 9 in `references/scoring-rubric.md` (CONFIRMED vs. INFERRED
+tagging); this section is the pointer every specialist agent/skill should
+read before writing findings prose, since Rule 9 lives in a scoring-specific
+reference file that narrower commands may not otherwise open.
+
+Concretely, when writing any finding:
+- State the observed fact plainly, without a causal claim bolted on by
+  default.
+- If you also want to explain *why* — do so, but flag it as reasoning: "this
+  could plausibly be explained by X" rather than "this indicates X" or "this
+  reveals X." Avoid editorializing language that states an opinion as
+  settled fact (e.g. "this directly contradicts the brand promise," "this is
+  an obvious low-credibility tell") — describe the specific, falsifiable
+  observation instead and let the reader draw the evaluative conclusion, or
+  attribute the evaluative framing explicitly ("this risks undermining X
+  because Y," stated as the audit's assessment, not as an objective fact
+  about the world).
+- When more than one causal theory is plausible and the evidence available
+  doesn't distinguish between them, list all plausible theories rather than
+  asserting the most likely-sounding one alone.
+- Never let a hedge word ("likely," "probably," "seems to") stand in alone
+  for the CONFIRMED/INFERRED tag — the tag is structural (Rule 9), the hedge
+  word is prose style; use both together, not one instead of the other, in
+  any Findings table/section that follows Rule 9's format.
+
+This rule applies to every specialist's Findings/Issues output across `/seo
+audit`, `/seo page`, and every individual `/seo <skill>` command — not only
+to numeric-scoring skills.
+
 ## Industry Detection
 
 Detect business type from homepage signals:
@@ -182,7 +215,7 @@ Load these on-demand as needed (do NOT load all at startup):
 - `references/quality-gates.md`: Content length minimums, uniqueness thresholds
 - `references/local-seo-signals.md`: Local ranking factors, review benchmarks, citation tiers, GBP status
 - `references/local-schema-types.md`: LocalBusiness subtypes, industry-specific schema and citation sources
-- `references/scoring-rubric.md`: deterministic severity->deduction formula used by every category score (Technical, On-Page, Content, Schema, Images, Performance) — read before computing or explaining any score
+- `references/scoring-rubric.md`: deterministic severity->deduction formula used by every category score (Technical, On-Page, Content, Schema, Images, Performance) — read before computing or explaining any score; also defines Rule 9 (CONFIRMED/INFERRED finding tags) — read before writing any specialist's prose findings, not only before computing a score
 
 Maps-specific references (loaded by seo-maps skill, not at startup):
 - `references/maps-geo-grid.md`, `references/maps-gbp-checklist.md`, `references/maps-api-endpoints.md`, `references/maps-free-apis.md`

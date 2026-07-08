@@ -135,19 +135,23 @@ Compare the target page against SERP expectations across 7 dimensions:
 
 ### Step 6: Persona-Based Scoring
 
-Read `references/persona-scoring.md` for methodology.
+Read `references/persona-scoring.md` for the full methodology — it is the
+single source of truth for how each dimension is scored (fixed
+sub-criteria, mandatory evidence, tool-computed sums, CONFIRMED/INFERRED
+tagging per `skills/seo/references/scoring-rubric.md` Rules 1-9). Do not
+score personas from a holistic "does this feel adequate" impression.
 
 1. Derive 4-7 personas from SERP intent signals:
    - Cluster PAA questions by theme
    - Segment ad copy by target audience
    - Map related searches to journey stages
-2. For each persona, score the target page on 4 dimensions (25 pts each):
-   - **Relevance**: Does the page address this persona's need?
-   - **Clarity**: Can this persona find their answer within 10 seconds?
-   - **Trust**: Are there adequate trust signals for this persona?
-   - **Action**: Is there a clear next step for this persona?
-3. Output persona cards with scores and specific improvement recommendations
-4. Sort recommendations by weakest persona first (biggest opportunity)
+2. For each persona, score the target page on 4 dimensions (25 pts each —
+   Relevance, Clarity, Trust, Action) using `references/persona-scoring.md`'s
+   named sub-criteria per dimension, citing evidence per sub-check.
+3. Output persona cards with the summary table plus each dimension's 4-row
+   sub-check evidence table (not scores alone), and specific improvement
+   recommendations tied to the specific failed sub-checks.
+4. Sort recommendations by weakest persona first (biggest opportunity).
 
 ### Step 7: Wireframe Generation (Optional)
 
@@ -221,7 +225,9 @@ The SXO score is **separate** from the main SEO Health Score.
 [7-dimension breakdown table]
 
 ### 5. Persona Scores
-[4-7 persona cards with 4-dimension scores]
+[4-7 persona cards: summary table (4-dimension totals) plus each
+dimension's 4-row sub-check evidence table per `references/persona-scoring.md`'s
+Output Format — not scores alone]
 
 ### 6. Priority Actions
 [Ranked list: fix mismatch first, then weakest persona gaps]
@@ -248,6 +254,10 @@ Before delivering results, verify:
 - [ ] Page type classification uses taxonomy from references
 - [ ] At least 5 SERP results were analyzed
 - [ ] User stories cite specific SERP signals as evidence
+- [ ] Persona dimension scores each cite evidence per sub-check (not
+      narrative-only justification) — per `references/persona-scoring.md`
+- [ ] Persona scoring uses the named sub-criteria in Step 6 / `references/persona-scoring.md`,
+      not a holistic "adequate"-style judgment
 - [ ] Persona scores include concrete improvement suggestions
 - [ ] SXO score is clearly labeled as separate from SEO Health Score
 - [ ] Limitations section is present and honest

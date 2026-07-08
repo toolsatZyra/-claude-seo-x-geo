@@ -49,6 +49,20 @@ tier_percentage = nearest of {0, 20, 40, 60, 80, 100} to
                    (sub-checks satisfied / total sub-checks) x 100
 ```
 
+**Tie-break rule for exact midpoints:** when the raw percentage is exactly
+equidistant between two adjacent tiers (this happens whenever
+`total sub-checks` produces a percentage ending in exactly `x.5` between two
+tier steps — e.g. 1/4 = 25%, exactly between 20% and 40%), round DOWN to the
+lower tier. This is a deliberate, conservative default: Rule 3 already
+establishes that absence of evidence is scored as absence of the feature,
+not as a coin-flip in the auditor's favor, and this tie-break rule extends
+that same conservative bias to the boundary case rather than leaving it to
+whichever tier "feels closer" to the person scoring. State explicitly in
+the report whenever this tie-break rule was invoked (e.g. "1/4 signals
+present = 25%, exact midpoint between 20%/40% tiers — rounds down to 20%
+per Rule 2 tie-break") so a reader can see the rule was applied
+consistently, not silently.
+
 A criterion with only 4 or 5 sub-checks may never land on every tier
 (e.g. a 4-sub-check criterion can only produce 0/25/50/75/100%, which
 round to 0/20/60/80/100 — Poor is simply unreachable for that criterion).
@@ -264,6 +278,63 @@ avoid, recurring elsewhere because that fix wasn't generalized.
    against this rule — ambiguity of this kind is easy to reintroduce when
    editing a single row without checking the pattern across the whole
    table.
+
+## Rule 9: Tag every finding's evidentiary basis — CONFIRMED vs. INFERRED
+
+Rules 1-8 make the *scoring* deterministic. They do not stop a specialist from
+stating a causal theory ("the hero rotates because of a randomized asset
+picker") with the same declarative confidence as a directly observed fact
+("205/244 images lack width/height attributes"). A live audit of this project
+(thezyra.in, 2026-07-07) found multiple findings files asserting root-cause
+theories as settled fact when only the *symptom* had been directly observed
+and the *cause* was one of several competing, untested hypotheses.
+
+This project already solved an adjacent problem for quoted statistics in
+`skills/seo-geo/references/evidence-registry.md` (Verified / Directionally
+plausible / Removed-could-not-verify — that scale answers "is this specific
+number sourced"). Rule 9 generalizes that same discipline to a different
+question — "is this finding observed or reasoned" — and applies to every
+finding, not only quoted statistics. Every finding in every specialist's
+Findings table/section must be tagged with one of:
+
+| Tag | Meaning | Example |
+|---|---|---|
+| **CONFIRMED** | Directly observed in the evidence snapshot, a tool's output, or a live-verified check — no interpretive leap required to state it. | "205/244 images lack a `width`/`height` HTML attribute" (a parser scan output) |
+| **INFERRED** | A reasoned explanation, root cause, or projection built on top of confirmed evidence, but not itself directly observed. Multiple competing INFERRED explanations may coexist — list them as options, not as the answer. | "The hero's viewport instability is *plausibly* caused by a video/WebGL asset still settling, OR a randomized creative rotation — evidence does not distinguish between these" |
+
+Rules for applying the tag:
+
+1. **Tag at the point of claim**, not once at the top of the document — a
+   single findings section commonly mixes both (e.g. "images lack
+   width/height [CONFIRMED]; this is a CLS risk factor [INFERRED — no CLS
+   field data collected for these specific pages]").
+2. **A CONFIRMED tag requires a cited artifact** — a quote, a measured
+   number, a tool's raw output, a URL, a file path (this is the same bar as
+   Rule 3's "Evidence is mandatory"). If the only support for a claim is
+   "this seems likely given how the page looks," it is INFERRED, never
+   CONFIRMED, no matter how plausible.
+3. **When multiple causal theories are plausible and evidence doesn't
+   distinguish between them, state all of them as a numbered list of
+   hypotheses**, not as a single asserted cause. Do not silently pick the
+   most-likely-sounding one and present it alone — that is exactly the
+   editorializing failure mode this rule exists to close. Use hedged
+   language ("could plausibly be explained by," "one of the following,"
+   "evidence does not distinguish between") rather than "indicates" /
+   "suggests" / "reveals" for anything tagged INFERRED.
+4. **Do not let an INFERRED tag be used to avoid doing the confirming
+   check** — if a cheap, available check would resolve which of several
+   theories is correct (e.g. re-running a direct fetch to check whether
+   content actually renders without JS), run it before publishing the
+   finding, and only fall back to INFERRED/multiple-hypotheses framing when
+   that check genuinely isn't available in this pass.
+5. **Speculative numeric projections require an explicit disclaimer**, not
+   just an INFERRED tag — e.g. "the tail-risk visits could be considerably
+   worse" is a projection with no stated model; either compute it (state the
+   model) or drop the specific implied magnitude and keep only the
+   directionally INFERRED claim.
+6. **This applies to every specialist's prose output**, not just numeric
+   scoring criteria — see the project-wide writing rule this points to in
+   `skills/seo/SKILL.md` (Evidence vs. Inference Writing Rule).
 
 ## Why this replaced the severity-deduction table
 
