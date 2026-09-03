@@ -200,6 +200,30 @@ def check_credentials(service: str) -> dict:
     return result
 
 
+def has_dataforseo_mcp() -> bool:
+    """
+    Detect whether the DataForSEO MCP server is configured for this user.
+
+    DataForSEO supersedes Moz/Bing for backlink data, so a tier report that
+    ignores it tells an operator "Tier 0 -- Basic" while full premium backlink
+    data is in fact available. The MCP tools themselves are only reachable from
+    inside a Claude session, so config presence is the best signal a plain
+    script can read.
+    """
+    for rel in ("~/.claude/settings.json", "~/.claude/settings.local.json"):
+        path = os.path.expanduser(rel)
+        if not os.path.exists(path):
+            continue
+        try:
+            with open(path) as handle:
+                settings = json.load(handle)
+        except (json.JSONDecodeError, OSError):
+            continue
+        if "dataforseo" in settings.get("mcpServers", {}):
+            return True
+    return False
+
+
 def detect_tier() -> dict:
     """
     Detect the backlink credential tier available.
@@ -216,6 +240,42 @@ def detect_tier() -> dict:
 
     has_moz = bool(config.get("moz_api_key"))
     has_bing = bool(config.get("bing_api_key"))
+
+    if has_dataforseo_mcp():
+        extras = []
+        if has_moz:
+            extras.append("Moz DA/PA/Spam Score")
+        if has_bing:
+            extras.append("Bing inbound links (verified sites)")
+        return {
+            "tier": 3,
+            "description": "Premium (DataForSEO MCP + Common Crawl + Verify)",
+            "capabilities": [
+                "DataForSEO backlink summary, anchors, referring domains",
+                "DataForSEO bulk spam score and toxic link detection",
+                "DataForSEO new/lost backlinks over time",
+                "DataForSEO competitor link gap",
+                *extras,
+                "Common Crawl domain-level graph",
+                "Backlink verification crawler",
+            ],
+            "missing": (
+                ""
+                if (has_moz and has_bing)
+                else (
+                    "Optional: add "
+                    + " and ".join(
+                        label
+                        for label, present in (
+                            ("Moz (free DA/PA)", has_moz),
+                            ("Bing Webmaster (free)", has_bing),
+                        )
+                        if not present
+                    )
+                    + " for a free cross-check on DataForSEO figures."
+                )
+            ),
+        }
 
     if has_moz and has_bing:
         return {

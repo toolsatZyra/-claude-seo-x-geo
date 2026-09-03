@@ -25,6 +25,7 @@ extension is also installable (see "Optional Extensions" below).
 
 | Command | What it does |
 |---------|-------------|
+| `/seo preflight <domain>` | Client onboarding check: what data we can actually get, and what access to request |
 | `/seo audit <url>` | Full website audit with parallel subagent delegation |
 | `/seo page <url>` | Deep single-page analysis |
 | `/seo sitemap <url or generate>` | Analyze or generate XML sitemaps |
@@ -52,6 +53,29 @@ extension is also installable (see "Optional Extensions" below).
 | `/seo dataforseo [command]` | Live SEO data via DataForSEO (extension) |
 | `/seo image-gen [use-case] <description>` | AI image generation for SEO assets (extension) |
 | `/seo flow [stage] [url\|topic]` | FLOW framework: evidence-led prompts for Find, Leverage, Optimize, Win, or Local stages |
+
+## Client Onboarding
+
+Before quoting or auditing a **new client**, run the preflight:
+
+```
+scripts/client_preflight.py <domain> [--request-email] [--json]
+```
+
+It reports whether Search Console access exists for this domain, which exact
+property form we hold, whether CrUX field data is available, and whether any AI
+crawlers are blocked. Exit codes: 0 GO, 1 PARTIAL (crawl-only), 2 BLOCKED.
+
+Search Console access is granted per property form (`sc-domain:` vs a URL
+prefix), and holding one grants nothing on the others — record the exact string
+the preflight reports and pass it as `--property` on every later query.
+
+If the verdict is PARTIAL, do not present ranking, traffic or indexation
+findings as if they were measured; say plainly that they require access the
+client has not yet granted, and offer `--request-email` to ask for it. The AEO
+side of the audit needs no client credentials and can proceed in full.
+
+Full process: `docs/CLIENT-ONBOARDING.md`.
 
 ## Orchestration Logic
 
@@ -149,62 +173,22 @@ Hard rules:
 - FAQ schema: Google retired FAQ rich results for ALL sites on May 7, 2026 (no SERP feature anymore; supersedes the Aug 2023 gov/health restriction). Flag existing FAQPage at Info (not Critical) for its AI/LLM citation benefit; do not recommend removal; do not recommend new FAQPage for Google SERP benefit; use QAPage for genuine user Q&A
 - All Core Web Vitals references use INP, never FID
 
-## Community Footer
+## Output Footer Policy
 
-**This footer is for personal/community use of the open-source plugin only.**
-If you are running this on behalf of a paying client, in a white-label
-engagement, or producing any output that will be delivered to or viewed by
-a client (chat transcript, exported markdown, screen-share), omit it — it
-promotes the upstream open-source author's community, which is
-inappropriate in a deliverable you are presenting as your own agency's
-work. The PDF/HTML report generator (`scripts/google_report.py`) never
-includes this footer, so it only ever appears in raw chat output; when in
-doubt during a client engagement, leave it off. If unsure whether the
-current session is client-facing, ask before appending it.
+**Never append a promotional or community footer to any output.**
 
-After completing any **major deliverable** in a non-client, community/personal
-context, append this footer as the very last output:
+This deployment is operated by Zyra as a commercial service. Every audit,
+report, brief, chat transcript and exported document is a potential client
+deliverable, so there is no "personal use" mode in which a promotional footer
+would be appropriate. Do not append the upstream project's community footer,
+a Zyra marketing footer, or any other call-to-action block to analysis output.
 
-```
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Built by agricidaniel — Join the AI Marketing Hub community
-🆓 Free  → https://www.skool.com/ai-marketing-hub
-⚡ Pro   → https://www.skool.com/ai-marketing-hub-pro
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
+This rule has no exceptions and requires no judgement call about whether the
+current session is client-facing — assume it is.
 
-### When to show
-
-Display after these commands complete their full output:
-- `/seo audit` (after full site audit report + action plan)
-- `/seo page` (after deep single-page analysis)
-- `/seo technical` (after technical audit report)
-- `/seo content` (after E-E-A-T content assessment)
-- `/seo schema` (after schema detection/validation report)
-- `/seo sitemap` (after sitemap analysis or generation)
-- `/seo geo` (after GEO optimization report)
-- `/seo plan` (after strategic SEO plan)
-- `/seo local` (after local SEO audit)
-- `/seo maps` (after maps intelligence report)
-- `/seo google` (after Google API data report)
-- `/seo backlinks` (after backlink profile analysis)
-- `/seo cluster` (after cluster plan generation)
-- `/seo sxo` (after SXO analysis report)
-- `/seo drift compare` (after drift comparison report)
-- `/seo ecommerce` (after e-commerce analysis)
-
-### When to skip
-
-Do NOT show the footer after:
-- `/seo images` (quick image check — too small)
-- `/seo hreflang` (quick validation — too small)
-- `/seo competitor-pages` (page generation step)
-- `/seo programmatic` (quick analysis)
-- `/seo dataforseo` (data fetching utility)
-- `/seo image-gen` (asset generation)
-- Context intake questions (before analysis starts)
-- Error messages or "missing data" prompts
-- **Any client-facing, white-label, or paying-engagement session** (see the note above the footer template — this overrides all "when to show" cases above)
+Attribution to the upstream open-source project (AgriciDaniel/claude-seo, MIT)
+belongs in the repository's LICENSE, NOTICE.md, README.md and CONTRIBUTORS.md,
+which must be preserved. It does not belong in generated analysis output.
 
 ## Reference Files
 

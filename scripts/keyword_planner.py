@@ -87,18 +87,31 @@ def _build_ads_client() -> Optional[object]:
         if login_customer_id:
             ads_config["login_customer_id"] = login_customer_id
 
-        # Try to use OAuth token if available
-        token_path = os.path.expanduser("~/.config/claude-seo/oauth-token.json")
-        if os.path.exists(token_path):
-            with open(token_path) as f:
-                token_data = json.load(f)
-            if oauth_client_path:
-                with open(os.path.expanduser(oauth_client_path)) as f:
-                    client_data = json.load(f)
-                client_info = client_data.get("web", client_data.get("installed", {}))
-                ads_config["client_id"] = client_info.get("client_id")
-                ads_config["client_secret"] = client_info.get("client_secret")
-                ads_config["refresh_token"] = token_data.get("refresh_token")
+        # Google Ads frequently lives behind its own OAuth client, separate from
+        # the one used for Search Console / GA4. When explicit ads_* OAuth fields
+        # are present in the config, use them verbatim; otherwise fall back to the
+        # shared oauth_client_path + oauth-token.json pair.
+        ads_client_id = config.get("ads_client_id")
+        ads_client_secret = config.get("ads_client_secret")
+        ads_refresh_token = config.get("ads_refresh_token")
+
+        if ads_client_id and ads_client_secret and ads_refresh_token:
+            ads_config["client_id"] = ads_client_id
+            ads_config["client_secret"] = ads_client_secret
+            ads_config["refresh_token"] = ads_refresh_token
+        else:
+            # Try to use OAuth token if available
+            token_path = os.path.expanduser("~/.config/claude-seo/oauth-token.json")
+            if os.path.exists(token_path):
+                with open(token_path) as f:
+                    token_data = json.load(f)
+                if oauth_client_path:
+                    with open(os.path.expanduser(oauth_client_path)) as f:
+                        client_data = json.load(f)
+                    client_info = client_data.get("web", client_data.get("installed", {}))
+                    ads_config["client_id"] = client_info.get("client_id")
+                    ads_config["client_secret"] = client_info.get("client_secret")
+                    ads_config["refresh_token"] = token_data.get("refresh_token")
 
         client = GoogleAdsClient.load_from_dict(ads_config)
         return client, customer_id
