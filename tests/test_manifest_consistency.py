@@ -450,3 +450,53 @@ def test_reference_files_have_at_least_one_link():
         + "\n\nFix: link the file from its parent SKILL.md, a related "
           "reference doc, or a top-level doc — or delete if obsolete."
     )
+
+
+def test_install_and_support_links_point_at_this_repository():
+    """Installers, project metadata and support links must target this fork.
+
+    Background: after the v3.1.0 release, install.sh and install.ps1 still
+    cloned AgriciDaniel/claude-seo (the upstream base), which has no v3.1.0
+    tag, so the documented one-line install failed. Extension "install it
+    first" hints, SECURITY.md and CONTRIBUTING.md also sent users upstream.
+    Attribution links (LICENSE.txt, NOTICE.md, README credits, ported-test
+    headers) are intentionally left pointing upstream and are not scanned.
+    """
+    repo = json.loads(PLUGIN_JSON.read_text())["repository"]
+
+    sh = re.search(r'REPO_URL="([^"]+)"', (REPO_ROOT / "install.sh").read_text())
+    ps = re.search(r'\$RepoUrl = "([^"]+)"', (REPO_ROOT / "install.ps1").read_text())
+    assert sh and sh.group(1) == repo, f"install.sh REPO_URL must be {repo}"
+    assert ps and ps.group(1) == repo, f"install.ps1 $RepoUrl must be {repo}"
+
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+    for key in ("Homepage", "Repository"):
+        assert f'{key} = "{repo}"' in pyproject, f"pyproject.toml {key} must be {repo}"
+
+    upstream_actions = re.compile(
+        r"raw\.githubusercontent\.com/AgriciDaniel/claude-seo"
+        r"|github\.com/AgriciDaniel/claude-seo(?:\.git|/issues|/discussions|/security)"
+        r"|agricidaniel-claude-seo|marketplace remove AgriciDaniel"
+    )
+    # History and credits legitimately cite upstream issues and releases.
+    attribution = {"CHANGELOG.md", "CONTRIBUTORS.md", "NOTICE.md"}
+    scanned = [
+        *REPO_ROOT.glob("*.sh"), *REPO_ROOT.glob("*.ps1"),
+        *(p for p in REPO_ROOT.glob("*.md") if p.name not in attribution),
+        *(REPO_ROOT / "extensions").rglob("*.sh"),
+        *(REPO_ROOT / "extensions").rglob("*.ps1"),
+        *(REPO_ROOT / "extensions").glob("*/README.md"),
+        *(REPO_ROOT / ".github" / "ISSUE_TEMPLATE").glob("*.yml"),
+        *(p for p in (REPO_ROOT / "docs").glob("*.md")
+          if p.name != "WORKFLOW-public-private.md"),  # documents upstream's own workflow
+    ]
+    offenders = [
+        f"{p.relative_to(REPO_ROOT)}:{n}"
+        for p in scanned
+        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
+        if upstream_actions.search(line)
+    ]
+    assert not offenders, (
+        "Install/support links still point at the upstream repo:\n  "
+        + "\n  ".join(offenders)
+    )

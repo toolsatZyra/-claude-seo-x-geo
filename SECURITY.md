@@ -4,8 +4,8 @@
 
 If you discover a security vulnerability, please report it responsibly. Do **not** open a public issue.
 
-1. Open a private [GitHub Security Advisory](https://github.com/AgriciDaniel/claude-seo/security/advisories/new) on this repository (preferred channel).
-2. As a fallback, email the maintainer at the address listed in [`CITATION.cff`](CITATION.cff).
+1. Open a private [GitHub Security Advisory](https://github.com/toolsatZyra/-claude-seo-x-geo/security/advisories/new) on this repository (preferred channel).
+2. As a fallback, email ZYRA at the address listed for ZYRA in [`CITATION.cff`](CITATION.cff).
 3. Encrypt sensitive disclosures if you can. Request the maintainer's PGP key in the advisory or email — the key fingerprint is published in advisory threads on first request and is rotated yearly.
 
 When reporting, please include:

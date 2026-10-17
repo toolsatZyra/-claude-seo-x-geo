@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased
+
+### Fixed
+
+- **Installer cloned the upstream repo.** `install.sh` and `install.ps1` still
+  cloned `AgriciDaniel/claude-seo`. That repo has no `v3.1.0` tag, so the
+  documented one-line install failed. Both now clone this repository. A new
+  test (`test_install_and_support_links_point_at_this_repository`) fails if an
+  installer, `pyproject.toml` URL or support link points upstream again.
+- **Support and install links.** These links now point to this repository:
+  - the "install it first" hints in the extension installers;
+  - the install commands in `docs/TROUBLESHOOTING.md` and the migration guide;
+  - the clone steps in the extension READMEs (they clone into `claude-seo`, so
+    the existing `cd claude-seo` step keeps working);
+  - `SECURITY.md`, `CODE_OF_CONDUCT.md` and `CONTRIBUTING.md`;
+  - the issue templates.
+- **Uninstall hints.** They named upstream's marketplace. `/plugin marketplace
+  remove` takes the marketplace name (`toolsatzyra-claude-seo-x-geo`), not the
+  repo path, and the uninstall hints and `docs/INSTALLATION.md` now use it.
+- **Issue templates.** GitHub Discussions is disabled on this repository, so
+  the issue templates no longer link to it. Questions go to a blank issue, and
+  the template chooser links the security policy.
+
+Attribution links to the upstream project are unchanged: `LICENSE.txt`,
+`NOTICE.md`, the README credits, `CONTRIBUTORS.md` and the headers of ported
+tests.
+
 ## v3.1.0 — 2026-10-17
 
 **SEO × AEO × GEO hub.** v3.0 was a strong audit toolkit. v3.1 adds the rest
