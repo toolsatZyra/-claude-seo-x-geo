@@ -25,8 +25,16 @@ stored raw answers, so it can be recomputed if a definition changes.
 | Share of voice (SoV) | answers mentioning the client / sum over tracked brands of answers mentioning that brand. Presence-based: repeating a name inside one answer does not add voice |
 | Citation rate | answers citing at least one owned URL (client domain or subdomain) / valid answers |
 | Citation share | owned cited URLs / all cited URLs (URLs de-duplicated within an answer) |
+| Retrieval rate | answers whose own web search returned at least one client URL / valid answers. Says the engine *found* the site, not that it used or credited it; null when the engine reports no search results |
 | Avg first position | among answers that mention the client, its rank by first appearance among tracked brands (1 = named first). Low weight: list order is the least stable property of an answer |
 | Cited-source mix | each cited URL classed own / competitor / social (Reddit, YouTube, LinkedIn, forums ...) / reference (Wikipedia, Wikidata, .gov, .edu, .ac.xx ...) / other; top cited domains counted once per answer |
+
+With the Anthropic engine's default `dynamic` search tool
+(`web_search_20260209`), live answers came back with no structured citations
+(observed 2026-10-17), so citation rate is "not measured" while retrieval rate
+is still measured. Use `--search-tool basic` (`web_search_20250305`) when the
+citation rate itself matters, and never compare windows run with different
+search tools.
 
 Citation metrics are "not measured" (null) for an engine/surface where no
 answer carries any citation, which usually means the capture did not record

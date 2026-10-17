@@ -62,7 +62,7 @@ RESERVED_METRICS: dict[str, str] = {
     "ga4.ai_key_events": "count", "ga4.ai_cvr": "rate",
     "ai.mention_rate": "fraction", "ai.mention_rate_ci_low": "fraction",
     "ai.mention_rate_ci_high": "fraction", "ai.citation_rate": "fraction",
-    "ai.sov": "fraction", "ai.n": "count",
+    "ai.sov": "fraction", "ai.retrieval_rate": "fraction", "ai.n": "count",
     "aeo.score": "score", "aeo.citability": "score", "aeo.brand_authority": "score",
     "aeo.content_eeat": "score", "aeo.crawler_access": "score", "aeo.schema": "score",
     "aeo.platform": "score",

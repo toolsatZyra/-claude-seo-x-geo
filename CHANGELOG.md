@@ -212,6 +212,22 @@ or the module's own test file.
   client look PARTIAL. It also takes the CrUX origin from the reached URL
   and labels an unreachable robots.txt as unreachable, not absent.
 
+### Live pilot fixes
+
+These came from the first real `ai_visibility.py run`, against the live
+Anthropic API.
+
+- **Crash after a billed call.** Raw API responses contain `datetime` values,
+  and the first answer was paid for and then lost when it could not be stored.
+  Raw responses are now captured with `to_dict(mode="json")` and stored with a
+  tolerant encoder.
+- **Missing citations.** The default `web_search_20260209` tool filters search
+  results through code execution, and its final answers carried no
+  structured citations. The citation rate for such batches is now reported
+  as not measured, a new `ai.retrieval_rate` records whether the engine's
+  own search returned the client's site, and `--search-tool basic`
+  (`web_search_20250305`) is available when a cited answer is needed.
+
 ### Not ported (documented follow-ups)
 
 - **From upstream:** the managed runtime launcher, gcloud ADC sign-in, the

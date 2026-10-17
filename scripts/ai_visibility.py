@@ -109,6 +109,11 @@ CREATE INDEX IF NOT EXISTS idx_runs_project_engine ON runs (project, engine, sur
 DEFAULT_MODEL = "claude-opus-5-5"
 MAX_TOKENS = 16000
 WEB_SEARCH_MAX_USES = 5
+# "dynamic" (web_search_20260209) filters results with code execution and, in
+# live runs, wrote final answers WITHOUT structured citations, so citation rate
+# is "not measured" for those batches. "basic" (web_search_20250305) returns
+# cited text blocks. Keep the tool fixed across windows you compare.
+SEARCH_TOOLS = {"dynamic": "web_search_20260209", "basic": "web_search_20250305"}
 MAX_CONTINUATIONS = 3          # pause_turn continuations per prompt run
 MAX_CONSECUTIVE_ERRORS = 3     # circuit breaker for a batch
 RECOMMENDED_RUNS = 5           # k >= 5 runs per prompt per engine
@@ -303,11 +308,28 @@ def _strip_opaque(obj: Any) -> Any:
     return obj
 
 
+def _api_error_message(exc: Any) -> str:
+    """The API's own error message (no credentials ever appear in it), trimmed."""
+    body = getattr(exc, "body", None)
+    msg = None
+    if isinstance(body, dict):
+        err = body.get("error")
+        msg = err.get("message") if isinstance(err, dict) else body.get("message")
+    msg = msg or getattr(exc, "message", None) or exc.__class__.__name__
+    return " ".join(str(msg).split())[:240]
+
+
 def _to_raw(response: Any) -> Any:
     if isinstance(response, dict):
         data = response
     elif hasattr(response, "to_dict"):
-        data = response.to_dict()
+        # mode="json" turns SDK datetimes (e.g. web-search page ages) into
+        # strings; the default python mode returns datetime objects that
+        # json.dumps cannot store. Older SDKs / test doubles lack the kwarg.
+        try:
+            data = response.to_dict(mode="json")
+        except TypeError:
+            data = response.to_dict()
     else:
         data = {"repr": repr(response)}
     return _strip_opaque(data)
@@ -399,7 +421,10 @@ class AnthropicEngine:
     surface = "api"
     default_model = DEFAULT_MODEL
 
-    def __init__(self, client: Any = None, sdk: Any = None):
+    def __init__(self, client: Any = None, sdk: Any = None, search_tool: str = "dynamic"):
+        if search_tool not in SEARCH_TOOLS:
+            raise EngineFatalError(f"--search-tool must be one of {', '.join(SEARCH_TOOLS)}")
+        self.search_tool = search_tool
         self.sdk = sdk or _import_anthropic()
         # Credentials resolve from ANTHROPIC_API_KEY or an `ant auth login`
         # profile; a key is never accepted on the command line.
@@ -413,7 +438,8 @@ class AnthropicEngine:
                 "ANTHROPIC_API_KEY or run `ant auth login`; never pass a key on the command line.") from exc
 
     def request_kwargs(self, model: str, messages: list, country: Optional[str] = None) -> dict:
-        tool: dict = {"type": "web_search_20260209", "name": "web_search", "max_uses": WEB_SEARCH_MAX_USES}
+        tool: dict = {"type": SEARCH_TOOLS[self.search_tool], "name": "web_search",
+                      "max_uses": WEB_SEARCH_MAX_USES}
         if country:
             tool["user_location"] = {"type": "approximate", "country": country}
         return {
@@ -460,9 +486,15 @@ class AnthropicEngine:
         except sdk.NotFoundError as exc:
             raise EngineFatalError(f"model or endpoint not found ({model!r})") from exc
         except sdk.RateLimitError:
-            return self._result("error", "rate limited (after SDK retries)", model, raws, assistant_content)
+            return self._result("error", "rate limited", model, raws, assistant_content)
         except sdk.APIStatusError as exc:
-            return self._result("error", f"API error HTTP {getattr(exc, 'status_code', '?')}",
+            detail = _api_error_message(exc)
+            if "credit balance" in detail.lower():
+                # Out of credits: every further call fails the same way, so stop
+                # now instead of after MAX_CONSECUTIVE_ERRORS wasted attempts.
+                raise EngineFatalError(f"Anthropic credit balance too low ({detail}); add credits "
+                                       "under Plans & Billing, then re-run") from exc
+            return self._result("error", f"API error HTTP {getattr(exc, 'status_code', '?')}: {detail}",
                                 model, raws, assistant_content)
         except sdk.APIConnectionError as exc:
             return self._result("error", f"connection error: {exc.__class__.__name__}",
@@ -514,7 +546,9 @@ def insert_run(conn, row: dict) -> int:
          1 if row.get("branded") else 0, row.get("funnel"), row["engine"], row["surface"],
          row.get("model"), row.get("locale"), row["status"], row.get("error"), row.get("answer"),
          json.dumps(row.get("cited_urls") or []), json.dumps(row.get("searched_urls") or []),
-         json.dumps(row.get("raw")) if row.get("raw") is not None else None))
+         # default=str: a paid answer must never be lost because some field in
+         # the raw response is not JSON-native (datetime, Decimal, ...).
+         json.dumps(row.get("raw"), default=str) if row.get("raw") is not None else None))
     return cur.lastrowid
 
 
@@ -546,8 +580,10 @@ def load_runs(conn, project: str, since: Optional[str] = None, until: Optional[s
 # Metrics (pure)
 # ---------------------------------------------------------------------------
 
-def analyze_answer(answer: str, cited_urls: list, entities: list[dict]) -> dict:
-    """Per-answer facts: which tracked brands appear, where, and what is cited."""
+def analyze_answer(answer: str, cited_urls: list, entities: list[dict],
+                   searched_urls: Optional[list] = None) -> dict:
+    """Per-answer facts: which tracked brands appear, where, what is cited, and
+    whether the engine's own search retrieved the client's site."""
     folded = fold(answer or "")
     positions = {}
     for e in entities:
@@ -565,7 +601,14 @@ def analyze_answer(answer: str, cited_urls: list, entities: list[dict]) -> dict:
         if u and u not in urls:
             urls.append(u)
     classes = [classify_source(u, own, comp_domains) for u in urls]
+    searched = []
+    for s in searched_urls or []:
+        u = s.get("url") if isinstance(s, dict) else s
+        if u and u not in searched:
+            searched.append(u)
     return {
+        "searched_total": len(searched),
+        "retrieved_own": bool(own) and any(host_matches(u, own) for u in searched),
         "mentioned": set(positions),
         "order": order,                      # tracked brands by first mention
         "brand_mentioned": "brand" in positions,
@@ -595,6 +638,8 @@ def summarize(analyses: list[dict], entities: list[dict]) -> dict:
     citing_own = sum(1 for a in analyses if a["owned_citations"] > 0)
     ranks = [a["brand_rank"] for a in analyses if a["brand_rank"] is not None]
     captured = with_cites > 0
+    searched = sum(1 for a in analyses if a.get("searched_total", 0) > 0)
+    retrieving_own = sum(1 for a in analyses if a.get("retrieved_own"))
     return {
         "n": n,
         "mentions": mentions,
@@ -610,6 +655,11 @@ def summarize(analyses: list[dict], entities: list[dict]) -> dict:
         "owned_citations": owned,
         "total_citations": total_cit,
         "citations_captured": captured,
+        # Retrieval: share of answers whose own web search returned a client
+        # URL. Measured only when the engine reported its search results.
+        "retrieval_rate": _rate(retrieving_own, n) if searched else None,
+        "answers_retrieving_own": retrieving_own,
+        "answers_with_search_results": searched,
         "avg_first_position": round(statistics.mean(ranks), 2) if ranks else None,
         "n_positioned": len(ranks),
     }
@@ -652,7 +702,8 @@ def _citation_sources(analyses: list[dict]) -> dict:
 def _analyze_rows(rows: list[dict], entities: list[dict]) -> list[dict]:
     out = []
     for row in rows:
-        a = analyze_answer(row.get("answer") or "", row.get("cited_urls") or [], entities)
+        a = analyze_answer(row.get("answer") or "", row.get("cited_urls") or [], entities,
+                           row.get("searched_urls") or [])
         a["_id"] = row.get("id")
         a["_row"] = row
         out.append(a)
@@ -721,7 +772,8 @@ def build_report(rows: list[dict], profile: dict, since: Optional[str] = None,
         headline = {"engine": best["engine"], "surface": best["surface"], "models": best["models"],
                     "basis": "unbranded prompts only (prompts naming the client are excluded)",
                     **{k: u[k] for k in ("n", "mentions", "mention_rate", "ci_low", "ci_high", "thin",
-                                         "sov", "citation_rate", "citation_share", "avg_first_position")},
+                                         "sov", "citation_rate", "citation_share", "retrieval_rate",
+                                         "avg_first_position")},
                     "last_run_date": best["last_run_date"]}
     return {
         "project": normalize_domain(profile.get("domain", "")),
@@ -912,7 +964,8 @@ def _line(m: dict) -> str:
     ci = f"[{_pct(m['ci_low'])}, {_pct(m['ci_high'])}]" if m["n"] else ""
     return (f"n={m['n']}{' THIN' if m['thin'] else ''} mention {_pct(m['mention_rate'])} {ci} "
             f"SoV {_pct(m['sov'])} cite-rate {_pct(m['citation_rate'])} "
-            f"cite-share {_pct(m['citation_share'])} avg-pos {m['avg_first_position'] or 'n/a'}")
+            f"cite-share {_pct(m['citation_share'])} retrieved {_pct(m.get('retrieval_rate'))} "
+            f"avg-pos {m['avg_first_position'] or 'n/a'}")
 
 
 def _print_report(rep: dict) -> None:
@@ -923,7 +976,9 @@ def _print_report(rep: dict) -> None:
         print(f"Headline [{h['basis']}]\n  {h['engine']}/{h['surface']}  mention {_pct(h['mention_rate'])} "
               f"(95% CI {_pct(h['ci_low'])}-{_pct(h['ci_high'])}), n={h['n']}"
               f"{' THIN (n<20)' if h['thin'] else ''}, SoV {_pct(h['sov'])}, "
-              f"citation rate {_pct(h['citation_rate'])}")
+              f"retrieval rate {_pct(h.get('retrieval_rate'))}, citation rate "
+              + (_pct(h['citation_rate']) if h['citation_rate'] is not None else
+                 "not measured (no structured citations returned; try --search-tool basic)"))
     for e in rep["engines"]:
         c = e["counts"]
         print(f"\n{e['engine']}/{e['surface']}  models: {', '.join(e['models'])}  "
@@ -1068,7 +1123,7 @@ def cmd_run(args) -> int:
             return 2
 
     try:
-        engine = ENGINES[args.engine]["factory"]()
+        engine = ENGINES[args.engine]["factory"](search_tool=args.search_tool)
     except EngineFatalError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
@@ -1213,6 +1268,7 @@ def cmd_report(args) -> int:
             write_kpi_envelope(args.emit_kpis, rep["project"], {
                 "ai.mention_rate": h["mention_rate"], "ai.mention_rate_ci_low": h["ci_low"],
                 "ai.mention_rate_ci_high": h["ci_high"], "ai.citation_rate": h["citation_rate"],
+                "ai.retrieval_rate": h["retrieval_rate"],
                 "ai.sov": h["sov"], "ai.n": h["n"]},
                 day=args.date or h["last_run_date"], meta={
                     "engine": h["engine"], "surface": h["surface"], "models": h["models"],
@@ -1283,6 +1339,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--group")
     p.add_argument("--prompts-file")
     p.add_argument("--country", help="Optional 2-letter country for web_search user_location")
+    p.add_argument("--search-tool", choices=sorted(SEARCH_TOOLS), default="dynamic",
+                   help="dynamic = web_search_20260209 (default; answers may carry no structured "
+                        "citations); basic = web_search_20250305 (cited answers, for citation rate)")
     p.add_argument("--dry-run", action="store_true", help="Print the plan; make no calls")
 
     p = sub.add_parser("ingest", parents=[common], help="Store captured answers from another engine/surface")
