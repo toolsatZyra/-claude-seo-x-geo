@@ -14,3 +14,9 @@ Every skill folder grafted or derived from geo-seo-claude carries its own
 `LICENSE.txt` noting its origin. See `CONTRIBUTORS.md` for full attribution.
 
 Neither original copyright notice has been removed or rewritten.
+
+v3.1.0 additionally ports code from later upstream claude-seo releases
+(v2.2.1–v2.4.2, MIT, same copyright holder) and from geo-seo-claude (MIT).
+Ideas from aaron-he-zhu/seo-geo-claude-skills (Apache-2.0) were
+re-implemented independently; no text or code from that repository is
+included, so its license terms do not attach to files in this fork.

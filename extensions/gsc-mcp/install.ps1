@@ -1,4 +1,4 @@
-# Claude SEO x GEO — optional Google Search Console MCP extension installer (Windows).
+# Claude SEO x GEO - optional Google Search Console MCP extension installer (Windows).
 $ErrorActionPreference = "Stop"
 
 $SkillDir = "$env:USERPROFILE\.claude\skills"
@@ -27,7 +27,10 @@ if ([string]::IsNullOrEmpty($GscMcpPackage)) {
     exit 1
 }
 
-claude mcp add gsc-mcp -- npx -y $GscMcpPackage
+# `claude mcp add` writes ~/.claude.json, the file Claude Code reads MCP
+# servers from. --scope user makes the server available in every project.
+claude mcp add --scope user gsc-mcp -- npx -y $GscMcpPackage
+if ($LASTEXITCODE -ne 0) { throw "claude mcp add failed (exit $LASTEXITCODE); nothing else was installed." }
 
 New-Item -ItemType Directory -Force -Path "$SkillDir\seo-gsc-mcp" | Out-Null
 Copy-Item "$SourceDir\skills\seo-gsc-mcp\SKILL.md" "$SkillDir\seo-gsc-mcp\SKILL.md"

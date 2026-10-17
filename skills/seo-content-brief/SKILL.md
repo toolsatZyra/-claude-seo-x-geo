@@ -6,7 +6,7 @@ description: >
   Supports both new page briefs and improve-existing-page briefs.
   Use when user says "content brief", "write a brief", "content outline",
   "blog brief", "service page brief", "brief for", "writing brief",
-  "content plan", or "outline for".
+  or "outline for".
 user-invocable: true
 argument-hint: "[url-or-keyword] [page-type]"
 license: MIT
@@ -55,6 +55,8 @@ Generate research-backed content briefs that help writers produce pages capable 
 - Calculate gap priority: `Impact x Competitive Advantage / Effort`
 
 ### 4. Classify Search Intent
+
+> No target keyword yet, or need intent/funnel labels consistent with the rest of the plugin? Pick and score it with `seo-keywords` (`scripts/keyword_research.py score`); comparison keywords route to `seo-competitor-pages`.
 
 - **Informational:** user wants to learn (guides, how-tos, definitions)
 - **Commercial:** user is researching before buying (comparisons, reviews, "best X")
@@ -230,7 +232,7 @@ When the user asks for "just an outline" or "content outline" instead of a full 
 
 ## DataForSEO Integration (Optional)
 
-If DataForSEO MCP tools are available, use `serp_google_organic_live_advanced` for real SERP data and competitor analysis, `kw_data_google_ads_search_volume` for keyword volume, `dataforseo_labs_bulk_keyword_difficulty` for difficulty scores, `dataforseo_labs_search_intent` for intent classification, and `on_page_content_parsing_live` for competitor content extraction.
+If DataForSEO MCP tools are available, use `serp_organic_live_advanced` for real SERP data and competitor analysis, `kw_data_google_ads_search_volume` for keyword volume, `dataforseo_labs_bulk_keyword_difficulty` for difficulty scores, `dataforseo_labs_search_intent` for intent classification, and `on_page_content_parsing` for competitor content extraction.
 
 ## Ahrefs Integration (Optional)
 

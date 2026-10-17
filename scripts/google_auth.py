@@ -237,10 +237,12 @@ def _save_oauth_token(token_data: dict):
     # open time (in which case os.open's mode arg is ignored by the OS).
     # os.fdopen takes ownership of fd — it closes the fd whether the
     # write succeeds or raises, so there is no fd-leak path here.
-    try:
-        os.fchmod(fd, 0o600)
-    except OSError:
-        pass  # FS may not support fchmod (e.g. some Windows filesystems)
+    fchmod = getattr(os, "fchmod", None)  # absent on Windows before Python 3.13
+    if fchmod is not None:
+        try:
+            fchmod(fd, 0o600)
+        except OSError:
+            pass  # FS may not support fchmod (e.g. some Windows filesystems)
     with os.fdopen(fd, "w") as f:
         json.dump(token_data, f, indent=2)
 

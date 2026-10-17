@@ -38,40 +38,56 @@ if _SCRIPTS_DIR not in sys.path:
 UA = "Mozilla/5.0 (compatible; ZyraSEO-Preflight/1.0)"
 TIMEOUT = 20
 
-# AI crawlers worth reporting on separately from ordinary search bots: these
-# decide whether the client can appear in AI answers at all, and clients very
-# often block them by accident via a blanket rule or a security plugin.
-AI_CRAWLERS = [
-    ("GPTBot", "ChatGPT training + browsing"),
-    ("OAI-SearchBot", "ChatGPT search index"),
-    ("ClaudeBot", "Claude"),
-    ("PerplexityBot", "Perplexity"),
-    ("Google-Extended", "Gemini / AI Overviews grounding"),
-    ("CCBot", "Common Crawl (feeds many models)"),
-    ("Bingbot", "Bing index -> Microsoft Copilot"),
-]
+# AI crawler access is evaluated by aeo_score.py (RFC 9309 group matching,
+# current vendor facts, Cloudflare managed-robots detection) so the preflight
+# and the AEO score can never disagree about which bots a site blocks. Only
+# answer-surface agents (OAI-SearchBot, Claude-SearchBot, PerplexityBot,
+# Googlebot, Bingbot, ...) decide whether the client can appear in AI answers;
+# training crawlers (GPTBot, ClaudeBot, Google-Extended, CCBot) are reported as
+# a licensing choice, not a visibility problem.
+MAX_BODY_BYTES = 512_000
 
 
 def _get(url: str, method: str = "GET"):
-    """Fetch a URL, returning (status, final_url, body_text). Never raises."""
-    req = urllib.request.Request(url, headers={"User-Agent": UA}, method=method)
+    """Fetch a public URL through url_safety, returning (status, final_url, body).
+
+    Never raises: SSRF refusals, timeouts and transport errors return
+    (None, url, ""). The body is capped at MAX_BODY_BYTES.
+    """
+    import requests
+    from url_safety import URLSafetyError, decode_body, safe_requests_get, safe_requests_head
+
     try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            body = resp.read(512_000)
-            charset = resp.headers.get_content_charset() or "utf-8"
-            return resp.status, resp.geturl(), body.decode(charset, errors="replace")
-    except urllib.error.HTTPError as exc:
-        return exc.code, url, ""
-    except Exception:
+        if method == "HEAD":
+            resp = safe_requests_head(url, timeout=TIMEOUT, headers={"User-Agent": UA},
+                                      allow_redirects=True)
+            return resp.status_code, resp.url, ""
+        resp = safe_requests_get(url, timeout=TIMEOUT, headers={"User-Agent": UA},
+                                 allow_redirects=True, stream=True)
+    except (URLSafetyError, requests.RequestException, ValueError):
         return None, url, ""
+    try:
+        raw = resp.raw.read(MAX_BODY_BYTES, decode_content=True) if resp.raw else b""
+        body = decode_body(raw or b"", resp.headers.get("Content-Type", ""))
+        return resp.status_code, resp.url, body
+    except Exception:  # noqa: BLE001 - a broken body still tells us the status
+        return resp.status_code, resp.url, ""
+    finally:
+        resp.close()
 
 
 def normalize(domain: str) -> str:
-    """Reduce user input to a bare registrable host."""
+    """Reduce user input to a bare host without a leading ``www.``.
+
+    The documented usage passes ``https://www.example.com``; keeping the
+    ``www.`` would probe ``www.www.example.com`` and look for the GSC property
+    ``sc-domain:www.example.com`` instead of ``sc-domain:example.com``.
+    """
     d = domain.strip()
     if "://" in d:
         d = urllib.parse.urlsplit(d).netloc
-    return d.split("/")[0].lstrip(".").lower()
+    d = d.split("/")[0].split("@")[-1].split(":")[0].strip(".").lower()
+    return d[4:] if d.startswith("www.") else d
 
 
 def check_reachable(host: str) -> dict:
@@ -83,50 +99,38 @@ def check_reachable(host: str) -> dict:
     return {"ok": False, "tried": f"https://{host}", "final_url": None, "status": None}
 
 
-def check_robots(base: str) -> dict:
-    """Read robots.txt and resolve each AI crawler to allowed / blocked."""
-    root = f"{urllib.parse.urlsplit(base).scheme}://{urllib.parse.urlsplit(base).netloc}"
-    status, _, body = _get(f"{root}/robots.txt")
+def check_robots(base: str, analysis: dict | None = None) -> dict:
+    """Resolve AI crawler access via aeo_score.check_crawlers (one evaluator).
+
+    ``analysis`` lets tests inject an aeo_score.analyze_robots() result.
+    """
+    if analysis is None:
+        from aeo_score import check_crawlers
+        analysis = check_crawlers(base)
     result = {
-        "present": bool(status == 200 and body.strip()),
-        "status": status,
-        "sitemaps": [],
+        "present": analysis["robots_status"] == "ok",
+        "status": analysis.get("http_status"),
+        "robots_status": analysis["robots_status"],  # ok | missing | unavailable
+        "sitemaps": analysis.get("sitemaps", []),
+        "crawler_access_score": analysis.get("score"),  # AEO crawler_access component
+        "cloudflare_managed": analysis.get("cloudflare_managed", False),
         "ai_crawlers": {},
         "blanket_disallow": False,
+        "notes": analysis.get("notes", []),
     }
-    if not result["present"]:
-        # No robots.txt means everything is permitted by default.
-        result["ai_crawlers"] = {name: "allowed (no robots.txt)" for name, _ in AI_CRAWLERS}
-        return result
-
-    # Parse robots.txt into { user-agent: [directives] } groups.
-    groups, current = {}, []
-    for raw in body.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if not line or ":" not in line:
-            continue
-        field, value = (p.strip() for p in line.split(":", 1))
-        field = field.lower()
-        if field == "user-agent":
-            current = groups.setdefault(value.lower(), [])
-        elif field == "sitemap":
-            result["sitemaps"].append(value)
-        elif field in ("disallow", "allow") and current is not None:
-            current.append((field, value))
-
-    for agent, purpose in AI_CRAWLERS:
-        rules = groups.get(agent.lower(), groups.get("*", []))
-        blocked = any(f == "disallow" and v == "/" for f, v in rules)
-        specific = agent.lower() in groups
-        result["ai_crawlers"][agent] = {
-            "purpose": purpose,
-            "status": "BLOCKED" if blocked else "allowed",
-            "matched": "own rule" if specific else "wildcard (*)",
-        }
-
-    result["blanket_disallow"] = any(
-        f == "disallow" and v == "/" for f, v in groups.get("*", [])
-    )
+    for scored, entries in ((True, analysis.get("answer_surface", [])),
+                            (False, analysis.get("training", []))):
+        for a in entries:
+            result["ai_crawlers"][a["agent"]] = {
+                "purpose": a["purpose"],
+                "status": "allowed" if a["status"] == "allowed" else "BLOCKED",
+                "matched": a.get("matched_group") or "no rule (allowed by default)",
+                "answer_surface": scored,
+                "cloudflare_injected": a.get("cloudflare_injected", False),
+            }
+    googlebot = result["ai_crawlers"].get("Googlebot")
+    result["blanket_disallow"] = bool(googlebot and googlebot["status"] == "BLOCKED"
+                                      and googlebot["matched"] == "*")
     return result
 
 
@@ -179,11 +183,11 @@ def check_gsc(host: str) -> dict:
     return out
 
 
-def check_crux(host: str) -> dict:
+def check_crux(host: str, origin: str | None = None) -> dict:
     """Does the client have enough real traffic for CrUX field data?"""
     out = {"has_field_data": False, "error": None}
     try:
-        from google_auth import get_api_key
+        from google_auth import get_api_key, google_api_key_headers, redact_google_api_key
     except ImportError as exc:
         out["error"] = str(exc)
         return out
@@ -191,11 +195,16 @@ def check_crux(host: str) -> dict:
     if not key:
         out["error"] = "No Google API key configured."
         return out
-    payload = json.dumps({"origin": f"https://www.{host}"}).encode()
+    # CrUX keys data by origin; use the canonical one the reachability check
+    # landed on (apex or www, https) rather than assuming www.
+    payload = json.dumps({"origin": origin or f"https://{host}"}).encode()
+    # The key travels in the X-Goog-Api-Key header, never the URL, so it cannot
+    # end up in proxy logs, shell history or an error message.
     req = urllib.request.Request(
-        f"https://chromeuxreport.googleapis.com/v1/records:queryRecord?key={key}",
+        "https://chromeuxreport.googleapis.com/v1/records:queryRecord",
         data=payload,
-        headers={"Content-Type": "application/json", "User-Agent": UA},
+        headers={"Content-Type": "application/json", "User-Agent": UA,
+                 **google_api_key_headers(key)},
     )
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
@@ -206,7 +215,7 @@ def check_crux(host: str) -> dict:
         out["has_field_data"] = False
         out["error"] = "Insufficient real-user traffic for field data" if exc.code == 404 else f"HTTP {exc.code}"
     except Exception as exc:  # noqa: BLE001
-        out["error"] = str(exc)
+        out["error"] = redact_google_api_key(exc)
     return out
 
 
@@ -251,7 +260,8 @@ def run(host: str) -> dict:
     report["sitemap"] = check_asset(base, "/sitemap.xml")
     report["llms_txt"] = check_asset(base, "/llms.txt")
     report["gsc"] = check_gsc(host)
-    report["crux"] = check_crux(host)
+    final = urllib.parse.urlsplit(reach["final_url"])
+    report["crux"] = check_crux(host, origin=f"{final.scheme}://{final.netloc}")
 
     if report["gsc"]["available"]:
         report["verdict"] = "GO"
@@ -277,14 +287,29 @@ def render(report: dict, operator_hint: str, email_follows: bool = False) -> Non
     print(f"  [OK] Reachable -> {reach['final_url']}")
 
     robots = report["robots"]
-    print(f"  [{'OK' if robots['present'] else '--'}] robots.txt "
-          f"({'found' if robots['present'] else 'absent — all crawlers allowed'})")
-    blocked = [n for n, v in robots["ai_crawlers"].items()
-               if isinstance(v, dict) and v["status"] == "BLOCKED"]
-    if blocked:
-        print(f"       [!] AI crawlers BLOCKED: {', '.join(blocked)}")
-    else:
-        print("       All tracked AI crawlers allowed")
+    robots_state = robots.get("robots_status") or ("ok" if robots["present"] else "missing")
+    label = {"ok": ("OK", "found"),
+             "missing": ("--", "absent — all crawlers allowed"),
+             "unavailable": ("!!", "unreachable (5xx/timeout)")}.get(robots_state, ("--", robots_state))
+    print(f"  [{label[0]}] robots.txt ({label[1]})")
+    if robots.get("robots_status") == "unavailable":
+        print("       [!] robots.txt unreachable (5xx/timeout): AI crawler access NOT MEASURED;"
+              " compliant crawlers treat this as a full disallow")
+    answer_blocked = [n for n, v in robots["ai_crawlers"].items()
+                      if v["answer_surface"] and v["status"] == "BLOCKED"]
+    training_blocked = [n for n, v in robots["ai_crawlers"].items()
+                        if not v["answer_surface"] and v["status"] == "BLOCKED"]
+    if answer_blocked:
+        print(f"       [!] AI answer crawlers BLOCKED: {', '.join(answer_blocked)}"
+              " (these decide whether the client can appear in AI answers)")
+    elif robots.get("robots_status") != "unavailable":
+        print("       All AI answer-surface crawlers allowed")
+    if training_blocked:
+        print(f"       [i] Training-only crawlers blocked: {', '.join(training_blocked)}"
+              " (licensing choice; no effect on AI answer visibility)")
+    if robots.get("cloudflare_managed"):
+        print("       [i] Cloudflare managed robots.txt detected: some blocks may be injected"
+              " at the edge, not written by the site owner")
 
     sm, lt = report["sitemap"], report["llms_txt"]
     print(f"  [{'OK' if sm['present'] else '--'}] sitemap.xml"

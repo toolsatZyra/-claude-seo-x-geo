@@ -10,7 +10,7 @@ banana Creative Director pipeline.
 > for SEO-specific use cases. Install the standalone skill for general-purpose image generation.
 
 - **Claude SEO** installed (`~/.claude/skills/seo/`)
-- **Node.js 18+** with npx
+- **Node.js 20+** with npx (the installer enforces this)
 - **Google AI API key** (free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
 - **ImageMagick** (optional, for post-processing)
 
@@ -24,7 +24,7 @@ The installer will:
 1. Verify Claude SEO is installed
 2. Prompt for your Google AI API key (if nanobanana-mcp not already configured)
 3. Install the `seo-image-gen` skill and agent
-4. Configure the MCP server in `~/.claude/settings.json`
+4. Configure the MCP server in `~/.claude.json`
 
 ## Commands
 
@@ -39,14 +39,20 @@ The installer will:
 
 ## Use Case Defaults
 
-| Use Case | Aspect Ratio | Resolution | Domain Mode | Cost |
-|----------|-------------|------------|-------------|------|
-| OG/Social Preview | 16:9 | 1K | Product/UI | ~$0.04 |
-| Blog Hero | 16:9 | 2K | Cinema/Editorial | ~$0.08 |
-| Product Photo | 4:3 | 2K | Product | ~$0.08 |
-| Infographic | 2:3 | 4K | Infographic | ~$0.16 |
-| Social Square | 1:1 | 1K | UI/Web | ~$0.04 |
-| Favicon/Icon | 1:1 | 512 | Logo | ~$0.02 |
+| Use Case | Aspect Ratio | Resolution | Domain Mode |
+|----------|-------------|------------|-------------|
+| OG/Social Preview | 16:9 | 1K | Product/UI |
+| Blog Hero | 16:9 | 2K | Cinema/Editorial |
+| Product Photo | 4:3 | 2K | Product |
+| Infographic | 2:3 | 4K | Infographic |
+| Social Square | 1:1 | 1K | UI/Web |
+| Favicon/Icon | 1:1 | 512 | Logo |
+
+Per-image prices change with the model and resolution, so none are hard-coded
+here. `cost_tracker.py` reads them from a dated `~/.banana/pricing.json` you
+maintain from Google's current Gemini API pricing page, and refuses to estimate
+without one. Set the model with `NANOBANANA_MODEL` (the `-preview` IDs and
+`gemini-2.5-flash-image` are shut down).
 
 ## How It Works
 

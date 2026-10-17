@@ -14,7 +14,7 @@ argument-hint: "[command] [url|property]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -134,7 +134,8 @@ URL Inspection: real indexation status from Google.
 **Script:** `python3 scripts/gsc_inspect.py <url> --json`
 
 Returns: verdict (PASS/FAIL), coverage state, robots.txt status, indexing state,
-page fetch state, canonical selection, mobile usability, rich results.
+page fetch state, canonical selection, rich results. (`mobileUsabilityResult` is deprecated
+in the API; do not report it as a mobile-usability check.)
 
 ### `/seo google inspect-batch <file>`
 
@@ -317,6 +318,7 @@ Generate a professional PDF report with charts and analytics.
 - **seo-sitemap**: GSC sitemap status shows submitted counts, errors, and warnings; use URL Inspection for indexation truth
 - **seo-content**: GSC query data informs keyword targeting
 - **seo-geo**: GSC search appearance data includes AI Overview references
+- **seo-track**: stores GSC/GA4 history (rank tracking, KPI snapshots, AI referrals) for trends over time; these commands are point-in-time pulls
 
 ## Output Format
 

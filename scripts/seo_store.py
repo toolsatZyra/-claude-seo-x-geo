@@ -73,6 +73,10 @@ def connect(store: str, schema: str, data_dir: Optional[str] = None) -> sqlite3.
     except OSError:
         pass
     conn = sqlite3.connect(str(path))
+    try:
+        os.chmod(path, 0o600)  # client data: owner-only, like the directory
+    except OSError:
+        pass
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(schema)
@@ -103,7 +107,10 @@ def normalize_domain(value: str) -> str:
         value = value[len("sc-domain:"):]
     if "://" not in value:
         value = "https://" + value
-    host = urlparse(value).hostname or ""
+    try:
+        host = urlparse(value).hostname or ""
+    except ValueError:  # e.g. "exa[mple.com": not a host at all
+        return ""
     if host.startswith("www."):
         host = host[4:]
     return host.rstrip(".")

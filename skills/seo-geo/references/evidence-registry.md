@@ -45,6 +45,26 @@ that mechanism. When you add or requote a stat, add or update its row here.
 | Crawler settings are independent (blocking one bot doesn't block another) | — | Verified | Same source | 2026-07-06 |
 | OAI-AdsBot exists (4th OpenAI crawler, added 2026) | — | Verified | Same source; also covered by Search Engine Journal reporting | 2026-07-06 |
 | Originality.ai 2025: 35%+ of top 1,000 sites block ≥1 AI crawler, 5-10% block all | 35%, 5-10% | Directionally plausible, unverified magnitude | Named source (Originality.ai) but not independently re-confirmed this session | 2026-07-06 |
+| ClaudeBot = Anthropic training; Claude-SearchBot = Claude search citability; Claude-User = user-initiated fetches; all three honour robots.txt | — | Verified | [Anthropic crawler support article](https://support.anthropic.com/en/articles/8896518-does-anthropic-crawl-data-from-the-web-and-how-can-site-owners-block-the-crawler); upstream claude-seo vendor matrix (checked 2026-09-23) | 2026-10-17 |
+| `anthropic-ai` is not a current Anthropic crawler token | — | Verified (absence) | Anthropic's crawler article lists only ClaudeBot, Claude-SearchBot, Claude-User | 2026-10-17 |
+| Google-Extended controls Gemini/Vertex training and Gemini Apps grounding; does not affect Google Search inclusion, ranking, AI Overviews or AI Mode | — | Verified | [Google crawlers overview](https://developers.google.com/search/docs/crawling-indexing/overview-google-crawlers) | 2026-10-17 |
+| Applebot-Extended is a training opt-out; Applebot follows Googlebot rules when not named | — | Verified | [Apple: About Applebot](https://support.apple.com/en-us/119829) | 2026-10-17 |
+| PerplexityBot is not used for foundation-model training; Perplexity-User generally ignores robots.txt; OpenAI: robots.txt "may not apply" to ChatGPT-User | — | Verified | [Perplexity bots](https://docs.perplexity.ai/guides/bots), [OpenAI bots](https://developers.openai.com/api/docs/bots) | 2026-10-17 |
+| Cloudflare managed robots.txt prepends Disallow rules for training crawlers at the edge (marker `# BEGIN Cloudflare Managed content`) | — | Verified (behaviour), vendor list may change | zubair-trabzada/geo-seo-claude detection logic and tests; Cloudflare managed robots.txt docs | 2026-10-17 |
+
+## AEO Readiness Score (scripts/aeo_score.py)
+
+| Claim | Value | Confidence | Source | Retrieved |
+|---|---|---|---|---|
+| Composite weights: citability 25, brand 20, content E-E-A-T 20, technical/crawler 15, schema 10, platform 10 | weights | Internal design choice adopted from a named source, not an empirically fitted model | zubair-trabzada/geo-seo-claude (MIT), skills/geo-audit "Composite GEO Score Calculation" | 2026-10-17 |
+| Rating bands 90/75/60/40 | bands | Internal convention from the same source | Same | 2026-10-17 |
+
+## AI share of voice (skills/geo-share-of-voice, scripts/ai_visibility.py)
+
+| Claim | Value | Confidence | Source | Retrieved |
+|---|---|---|---|---|
+| Run each prompt k ≥ 5 times; mention frequency is steadier than list position | k ≥ 5 | Directionally plausible (methodology consensus, not a single study's number) | Open trackers (geo-score, Elmo, Limelit) and the SparkToro/Gumshoe answer-consistency study, as summarized in the v3.1 hub spec | 2026-10-17 |
+| Gemini API grounded results may not be cached or analysed | — | Verified (terms) | Google's Grounding with Google Search terms | 2026-10-17 |
 
 ## Brand mentions (skills/geo-brand-mentions, scripts/brand_scanner.py)
 

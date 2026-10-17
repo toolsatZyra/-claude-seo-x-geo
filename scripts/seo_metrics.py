@@ -142,14 +142,16 @@ def expected_ctr(position: Optional[float], curve: Optional[dict] = None) -> flo
     return merged[lo] + (merged[hi] - merged[lo]) * frac
 
 
-def calibrate_ctr_curve(rows: Iterable[dict], min_impressions: int = 50) -> dict:
+def calibrate_ctr_curve(rows: Iterable[dict], min_impressions: int = 50,
+                        min_rows: int = 5) -> dict:
     """Build a site-specific CTR curve from GSC query rows.
 
     Each row needs ``position``, ``clicks`` and ``impressions``. Rows are
     bucketed by rounded position (1-10); a bucket's CTR is total clicks /
     total impressions (impression-weighted, so one tiny query cannot skew it).
-    Buckets with fewer than ``min_impressions`` impressions are omitted and
-    fall back to the default curve when used.
+    Buckets with fewer than ``min_impressions`` impressions or fewer than
+    ``min_rows`` query rows are omitted (a one-query bucket only reproduces
+    that query's own CTR) and fall back to the default curve when used.
 
     Returns {"curve": {pos: ctr}, "buckets": {pos: {...}}, "source": str}.
     """
@@ -173,7 +175,7 @@ def calibrate_ctr_curve(rows: Iterable[dict], min_impressions: int = 50) -> dict
     curve = {
         p: round(b["clicks"] / b["impressions"], 4)
         for p, b in sorted(buckets.items())
-        if b["impressions"] >= min_impressions
+        if b["impressions"] >= min_impressions and b["rows"] >= min_rows
     }
     return {
         "curve": curve,
@@ -268,7 +270,12 @@ def classify_intent(keyword: str, brand_terms: Iterable[str] = (),
     competitor = [c for c in competitors if _has_term(text, c)]
     local = bool([t for t in _LOCAL if _has_term(text, t)]) or bool(_ZIP_RE.search(text))
 
-    if own_brand and (hits["navigational"] or len(text.split()) <= len(own_brand[0].split()) + 1):
+    # "acme" / "acme login" are navigational; "acme pricing" or "acme
+    # alternatives" carry a buying modifier and keep their commercial or
+    # transactional intent (the length shortcut only applies without one).
+    short_brand = len(text.split()) <= len(own_brand[0].split()) + 1 if own_brand else False
+    buying = bool(hits["transactional"] or hits["commercial"])
+    if own_brand and (hits["navigational"] or (short_brand and not buying)):
         intent = "navigational"
     elif hits["transactional"]:
         intent = "transactional"
@@ -335,10 +342,14 @@ def _position_factor(position: Optional[float]) -> Optional[float]:
     return 0.4
 
 
+UNKNOWN_COMPONENT_PRIOR = 0.5
+
+
 def opportunity_score(volume: Optional[float] = None, difficulty: Optional[float] = None,
                       position: Optional[float] = None, lead_value: Optional[float] = None,
-                      relevance: float = 1.0, weights: Optional[dict] = None) -> dict:
-    """0-100 keyword opportunity score with N/A components renormalized.
+                      relevance: float = 1.0, weights: Optional[dict] = None,
+                      missing: str = "neutral") -> dict:
+    """0-100 keyword opportunity score.
 
     Components (each 0-1):
         demand      log10(volume+1) / log10(VOLUME_CAP+1), capped at 1
@@ -346,12 +357,21 @@ def opportunity_score(volume: Optional[float] = None, difficulty: Optional[float
         lead_value  from classify_intent() (BOFU 1.0, MOFU 0.6, TOFU 0.25)
         position    upside from the current ranking (see _position_factor)
 
-    A component with no data is dropped and the remaining weights are
-    renormalized (scoring-rubric Rule 5), and ``completeness`` reports the
-    share of weight that had data so a reader can discount thin scores.
-    ``relevance`` (0-1) is the business-fit multiplier — the operator's or
-    client's judgement of whether ranking would matter to the business.
+    Missing data (``missing``):
+        "neutral"     (default) an unknown component counts as 0.5. Unknown is
+                      not the same as "not applicable": dropping it would let
+                      a keyword with one favourable known component outrank a
+                      fully measured one (a bare BOFU guess scoring 100).
+        "renormalize" drop unknown components and renormalize the remaining
+                      weights (scoring-rubric Rule 5 semantics) — only for
+                      components that genuinely do not apply.
+    ``completeness`` always reports the share of weight backed by data, so a
+    reader can discount thin scores. ``relevance`` (0-1) is the business-fit
+    multiplier — the operator's or client's judgement of whether ranking
+    would matter to the business.
     """
+    if missing not in ("neutral", "renormalize"):
+        raise ValueError("missing must be 'neutral' or 'renormalize'")
     w = dict(OPPORTUNITY_WEIGHTS)
     if weights:
         w.update(weights)
@@ -363,17 +383,21 @@ def opportunity_score(volume: Optional[float] = None, difficulty: Optional[float
         "position": _position_factor(position),
     }
     avail = {k: v for k, v in comps.items() if v is not None}
-    total_w = sum(w[k] for k in avail)
-    if total_w <= 0:
+    known_w = sum(w[k] for k in avail)
+    if missing == "neutral":
+        raw = sum(w[k] * (v if v is not None else UNKNOWN_COMPONENT_PRIOR)
+                  for k, v in comps.items()) / sum(w.values())
+    elif known_w <= 0:
         raw = 0.0
     else:
-        raw = sum(w[k] * v for k, v in avail.items()) / total_w
+        raw = sum(w[k] * v for k, v in avail.items()) / known_w
     rel = max(0.0, min(1.0, float(relevance)))
     score = round(100 * raw * rel, 1)
     return {
         "score": score,
         "components": {k: (round(v, 3) if v is not None else None) for k, v in comps.items()},
-        "completeness": round(total_w / sum(w.values()), 2),
+        "completeness": round(known_w / sum(w.values()), 2),
+        "missing_policy": missing,
         "relevance": rel,
     }
 
@@ -504,9 +528,10 @@ def detect_cannibalization(rows: Iterable[dict], brand_terms: Iterable[str] = ()
     Each row needs query, page, clicks, impressions.
     """
     brands = [b.lower() for b in brand_terms if b]
-    by_query: dict[str, list[dict]] = {}
-    page_clicks: dict[str, float] = {}
-    page_imps: dict[str, float] = {}
+    # Rows may repeat a (query, page) pair across extra dimensions (device,
+    # country, date). Aggregate first, impression-weighting the position, or
+    # one page would be counted as two competing pages.
+    pairs: dict[tuple[str, str], dict] = {}
     for r in rows:
         q = (r.get("query") or "").strip().lower()
         page = r.get("page") or ""
@@ -516,10 +541,27 @@ def detect_cannibalization(rows: Iterable[dict], brand_terms: Iterable[str] = ()
             continue
         clicks = float(r.get("clicks") or 0)
         imps = float(r.get("impressions") or 0)
-        by_query.setdefault(q, []).append({"page": page, "clicks": clicks, "impressions": imps,
-                                           "position": r.get("position")})
-        page_clicks[page] = page_clicks.get(page, 0.0) + clicks
-        page_imps[page] = page_imps.get(page, 0.0) + imps
+        agg = pairs.setdefault((q, page), {"clicks": 0.0, "impressions": 0.0, "pos_w": 0.0, "pos_n": 0.0})
+        agg["clicks"] += clicks
+        agg["impressions"] += imps
+        try:
+            pos = float(r.get("position"))
+        except (TypeError, ValueError):
+            pos = None
+        if pos is not None and pos > 0:
+            weight = imps if imps > 0 else 1.0
+            agg["pos_w"] += pos * weight
+            agg["pos_n"] += weight
+
+    by_query: dict[str, list[dict]] = {}
+    page_clicks: dict[str, float] = {}
+    page_imps: dict[str, float] = {}
+    for (q, page), agg in pairs.items():
+        position = round(agg["pos_w"] / agg["pos_n"], 1) if agg["pos_n"] else None
+        by_query.setdefault(q, []).append({"page": page, "clicks": agg["clicks"],
+                                           "impressions": agg["impressions"], "position": position})
+        page_clicks[page] = page_clicks.get(page, 0.0) + agg["clicks"]
+        page_imps[page] = page_imps.get(page, 0.0) + agg["impressions"]
 
     out = []
     for q, pages in by_query.items():

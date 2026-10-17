@@ -8,7 +8,10 @@ main() {
     SKILL_DIR="${HOME}/.claude/skills/seo-dataforseo"
     AGENT_DIR="${HOME}/.claude/agents"
     SEO_SKILL_DIR="${HOME}/.claude/skills/seo"
-    SETTINGS_FILE="${HOME}/.claude/settings.json"
+    # MCP servers live in ~/.claude.json (the file `claude mcp add` writes).
+    # NOT ~/.claude/settings.json - `mcpServers` is not a key Claude Code reads
+    # there, so entries written to settings.json silently never load.
+    MCP_CONFIG_FILE="${HOME}/.claude.json"
 
     echo "════════════════════════════════════════"
     echo "║   DataForSEO Extension - Installer   ║"
@@ -105,23 +108,25 @@ main() {
     echo "→ Installing field config..."
     cp "${SOURCE_DIR}/field-config.json" "${SEO_SKILL_DIR}/dataforseo-field-config.json"
 
-    # Merge MCP config into settings.json
+    # Merge MCP config into ~/.claude.json
     echo "→ Configuring MCP server..."
     FIELD_CONFIG_PATH="${SEO_SKILL_DIR}/dataforseo-field-config.json"
 
-    # Credentials are passed as argv (never interpolated into the source string)
+    # Credentials travel in the environment (never argv, never interpolated into the source string)
     # and the settings file is written atomically with 0600 permissions.
-    python3 - "${SETTINGS_FILE}" "${DFSE_USERNAME}" "${DFSE_PASSWORD}" "${FIELD_CONFIG_PATH}" <<'PY'
+    CLAUDE_SEO_USERNAME="${DFSE_USERNAME}" CLAUDE_SEO_SECRET="${DFSE_PASSWORD}" python3 - "${MCP_CONFIG_FILE}" "${FIELD_CONFIG_PATH}" <<'PY'
 import json, os, sys, tempfile
 
-settings_path, username, password, field_config = sys.argv[1:5]
+settings_path, field_config = sys.argv[1:3]
+username = os.environ["CLAUDE_SEO_USERNAME"]
+password = os.environ["CLAUDE_SEO_SECRET"]
 
 if os.path.exists(settings_path):
     try:
         with open(settings_path) as f:
             settings = json.load(f)
     except json.JSONDecodeError:
-        settings = {}
+        sys.exit(f"✗ {settings_path} is not valid JSON. Nothing was changed; fix it and rerun.")
 else:
     settings = {}
 
@@ -148,13 +153,20 @@ except Exception:
         os.unlink(tmp)
     raise
 
-print('  ✓ MCP server configured in settings.json')
+print('  ✓ MCP server configured in ~/.claude.json')
 PY
     if [ $? -ne 0 ]; then
         echo "  ⚠  Could not auto-configure MCP server."
-        echo "  Add the dataforseo server manually to ~/.claude/settings.json"
+        echo "  Add the dataforseo server manually to ~/.claude.json"
         echo "  See: extensions/dataforseo/docs/DATAFORSEO-SETUP.md"
     fi
+
+    # Older releases wrote this server, with its credential, to
+    # ~/.claude/settings.json, which Claude Code never reads for MCP servers.
+    # Remove that stale copy now that ~/.claude.json holds the live entry.
+    # The helper never rewrites a settings file that does not parse.
+    LEGACY_CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
+    [ -f "${LEGACY_CLEANUP}" ] && python3 "${LEGACY_CLEANUP}" dataforseo || true
 
     # Pre-warm npm package without starting the MCP server binary.
     echo "→ Pre-downloading dataforseo-mcp-server..."
@@ -171,7 +183,7 @@ PY
     echo "     /seo dataforseo backlinks example.com"
     echo "     /seo dataforseo ai-mentions your brand"
     echo ""
-    echo "All 22 commands: see extensions/dataforseo/README.md"
+    echo "All 23 commands: see extensions/dataforseo/README.md"
     echo "To uninstall: ./extensions/dataforseo/uninstall.sh"
 }
 

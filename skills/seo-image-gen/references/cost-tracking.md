@@ -6,16 +6,10 @@
 
 | Model | Resolution | Cost/Image | Notes |
 |-------|-----------|-----------|-------|
-| 3.1 Flash | 512 | $0.020 | Quick drafts |
-| 3.1 Flash | 1K | $0.039 | Standard (default) |
-| 3.1 Flash | 2K | $0.078 | Quality assets |
-| 3.1 Flash | 4K | $0.156 | Print/hero images |
-| 2.5 Flash | 512 | $0.020 | Draft fallback |
-| 2.5 Flash | 1K | $0.039 | Standard fallback |
-| Batch API | Any | 50% of above | Asynchronous, higher latency |
+| Installed MCP model | Any | Verify before use | Check https://ai.google.dev/gemini-api/docs/pricing and installed MCP config |
+| Batch API | Any | Verify before use | Confirm availability and discount before quoting |
 
-Pricing is approximate, based on ~1,290 output tokens per image.
-Research suggests actual costs may be ~$0.067/img. Verify at https://ai.google.dev/gemini-api/docs/pricing
+Do not quote fixed package prices unless they have been verified at https://ai.google.dev/gemini-api/docs/pricing.
 
 ## Free Tier Limits
 
@@ -25,9 +19,14 @@ Research suggests actual costs may be ~$0.067/img. Verify at https://ai.google.d
 
 ## Cost Tracker Commands
 
+These commands belong to the installed Banana extension
+(`./extensions/banana/install.sh`); the core plugin does not ship
+`cost_tracker.py`. The extension's tracker refuses to log or estimate until a
+dated `~/.banana/pricing.json` with checked per-model prices exists.
+
 ```bash
 # Log a generation
-cost_tracker.py log --model gemini-3.1-flash-image-preview --resolution 1K --prompt "coffee shop hero"
+cost_tracker.py log --model gemini-3.1-flash-image --resolution 1K --prompt "coffee shop hero"
 
 # View summary (total + last 7 days)
 cost_tracker.py summary
@@ -36,7 +35,7 @@ cost_tracker.py summary
 cost_tracker.py today
 
 # Estimate before batch
-cost_tracker.py estimate --model gemini-3.1-flash-image-preview --resolution 1K --count 10
+cost_tracker.py estimate --model gemini-3.1-flash-image --resolution 1K --count 10
 
 # Reset ledger
 cost_tracker.py reset --confirm

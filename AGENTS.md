@@ -52,9 +52,12 @@ in case a recipe needs a specific call.
 
 ## Overview
 
-Claude SEO is a Tier 4 SEO analysis skill with 32 sub-skills (28 core + 1 orchestrator +
-1 framework integration + 2 extension mirrors), 20 sub-agents, and 50 Python execution
-scripts.
+Claude SEO is a Tier 4 SEO + AEO + GEO hub with 39 sub-skills (35 core + 1 orchestrator +
+1 framework integration + 2 extension mirrors), 21 sub-agents, and 75 Python execution
+scripts. It covers the full organic-growth loop: research (keywords, competitors),
+create/optimize (content engine, refresh, technical fixes) and measure (rank and KPI
+history, AI share of voice). Client data lives under `$CLAUDE_SEO_DATA_DIR`
+(default `~/.cache/claude-seo/`), never in the repo.
 
 ## Quick Reference
 
@@ -87,6 +90,14 @@ scripts.
 | `/seo dataforseo [cmd]` | Live SEO data via DataForSEO (extension) |
 | `/seo image-gen [use-case]` | AI image generation for SEO assets (extension) |
 | `/seo firecrawl [cmd] <url>` | Full-site crawling and site mapping (extension) |
+| `/seo project init <domain>` | Client profile read by every skill |
+| `/seo keywords <seed\|domain>` | Keyword research, opportunity and lead priority |
+| `/seo competitors <domain>` | Keyword, content, backlink and AI-citation gaps |
+| `/seo content-engine <domain>` | Calendar, briefs, drafts, gates, human review, draft export |
+| `/seo refresh <domain>` | Content decay and improvement candidates |
+| `/seo track <domain>` / `/seo rank <domain>` | KPI history and rank tracking |
+| `/seo ai-visibility <domain>` | AI share of voice with confidence intervals |
+| `/seo agentic <url>` | AI agent readiness |
 
 ## Using with Cursor / Cursor Cloud
 
@@ -129,7 +140,7 @@ bash install.sh
 ## Architecture
 
 ```
-skills/                    # 32 sub-skills (auto-discovered)
+skills/                    # 39 sub-skills (auto-discovered)
   seo/SKILL.md            # Main orchestrator + routing
   seo-cluster/            # Semantic clustering (v1.9.0)
   seo-sxo/                # Search Experience Optimization (v1.9.0)
@@ -153,8 +164,19 @@ skills/                    # 32 sub-skills (auto-discovered)
   seo-competitor-pages/   # Competitor pages
   seo-dataforseo/         # DataForSEO (extension)
   seo-image-gen/          # AI images (extension)
-agents/                    # 20 subagents
-scripts/                   # 50 Python scripts
+  seo-keywords/           # Keyword research hub (v3.1)
+  seo-competitors/        # Competitor gap analysis (v3.1)
+  seo-content-engine/     # Content calendar -> draft -> review -> export (v3.1)
+  seo-refresh/            # Content decay + improvement loop (v3.1)
+  seo-track/              # Rank, KPI and AI-referral tracking (v3.1)
+  seo-agentic/            # Agent readiness (v3.1, upstream port)
+  seo-flow/               # FLOW framework prompts
+  seo-content-brief/      # Content briefs
+  geo-*/                  # AEO cluster: citability, platform, brand, crawlers, compare,
+                          #   prospect, proposal, share-of-voice (v3.1)
+agents/                    # 21 subagents
+scripts/                   # 75 Python scripts (shared core: seo_metrics, seo_store,
+                           #   seo_project, seo_kpi)
 schema/                    # JSON-LD templates
 extensions/                # Optional add-ons (DataForSEO, Firecrawl, Banana, ASO)
 ```

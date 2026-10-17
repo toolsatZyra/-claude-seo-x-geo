@@ -6,7 +6,7 @@ description: >
   extensions/geo-dashboard/install.sh. No core claude-seo skill depends on
   this extension or imports flask/rich.
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted, extension-only)
 ---
 

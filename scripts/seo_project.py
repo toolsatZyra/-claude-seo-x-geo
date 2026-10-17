@@ -8,8 +8,9 @@ Search Console property string, the GA4 property ID, money pages, conversion
 events, brand-voice samples and the AI-visibility prompt panel. Skills read it
 with ``load_profile()``; operators edit it with this CLI or by hand.
 
-Files live at ``<data root>/projects/<slug>.json`` (see seo_store.py for the
-root). They contain client data, so they are written with 0600 permissions and
+Files live at ``<data root>/projects/<host>.json`` (see seo_store.py for the
+root), named by the normalized host itself so two clients can never share a
+file (``my-site.com`` and ``my.site.com`` stay distinct). They contain client data, so they are written with 0600 permissions and
 never belong in the repository.
 
 Usage:
@@ -74,22 +75,29 @@ DEFAULT_PROFILE: dict[str, Any] = {
 }
 
 
+_HOST_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$")
+
+
 def slugify(domain: str) -> str:
-    """Stable filename slug for a domain: example.com -> example-com."""
+    """Collision-free filename key for a domain: the normalized host itself.
+
+    Hostnames only contain [a-z0-9.-], which are safe in filenames, so no
+    lossy transformation is needed (an earlier dash-joined scheme mapped
+    my-site.com and my.site.com to the same file).
+    """
     host = normalize_domain(domain)
-    if not host:
-        raise ValueError(f"cannot derive a domain from {domain!r}")
-    return re.sub(r"[^a-z0-9]+", "-", host).strip("-")
+    if not host or not _HOST_RE.match(host):
+        raise ValueError(f"not a domain: {domain!r}")
+    return host
 
 
 def projects_dir(data_dir: Optional[str] = None) -> Path:
     return data_root(data_dir) / "projects"
 
 
-def profile_path(domain_or_slug: str, data_dir: Optional[str] = None) -> Path:
-    value = domain_or_slug.strip().lower()
-    slug = value if re.fullmatch(r"[a-z0-9-]+", value) and "." not in value else slugify(value)
-    return projects_dir(data_dir) / f"{slug}.json"
+def profile_path(domain: str, data_dir: Optional[str] = None) -> Path:
+    """Path of a domain's profile file. Raises ValueError for non-domains."""
+    return projects_dir(data_dir) / f"{slugify(domain)}.json"
 
 
 def _merge_defaults(profile: dict) -> dict:
@@ -102,13 +110,21 @@ def _merge_defaults(profile: dict) -> dict:
     return merged
 
 
-def load_profile(domain_or_slug: str, data_dir: Optional[str] = None) -> Optional[dict]:
-    """Return the profile dict (defaults filled in) or None if none exists."""
-    path = profile_path(domain_or_slug, data_dir)
+def load_profile(domain: str, data_dir: Optional[str] = None) -> Optional[dict]:
+    """Return the profile dict (defaults filled in) or None if none exists.
+
+    Raises ValueError for a non-domain argument, or when the file on disk
+    belongs to a different domain (a hand-renamed file): one client's
+    properties must never be returned for another.
+    """
+    path = profile_path(domain, data_dir)
     if not path.is_file():
         return None
     with open(path, encoding="utf-8") as fh:
-        return _merge_defaults(json.load(fh))
+        profile = _merge_defaults(json.load(fh))
+    if normalize_domain(profile.get("domain", "")) != slugify(domain):
+        raise ValueError(f"{path} belongs to {profile.get('domain')!r}, not {domain!r}")
+    return profile
 
 
 def save_profile(profile: dict, data_dir: Optional[str] = None) -> Path:
@@ -161,7 +177,11 @@ def validate_profile(profile: dict) -> list[dict]:
     if not profile.get("brand_terms"):
         out.append({"level": "warning",
                     "message": "no brand_terms: navigational intent and AI mention detection will be weak"})
-    if profile.get("content", {}).get("default_status") not in ("draft", "pending", "publish"):
+    for key, default in DEFAULT_PROFILE.items():
+        if key in profile and isinstance(default, (dict, list)) and not isinstance(profile[key], type(default)):
+            out.append({"level": "error", "message": f"{key} must be a {type(default).__name__}"})
+    content = profile.get("content") if isinstance(profile.get("content"), dict) else {}
+    if content.get("default_status") not in ("draft", "pending", "publish"):
         out.append({"level": "error", "message": "content.default_status must be draft|pending|publish"})
     return out
 
@@ -174,7 +194,7 @@ def new_profile(domain: str, name: str = "", brand_terms: Optional[list] = None,
         "slug": slugify(host),
         "domain": host,
         "name": name or host,
-        "brand_terms": brand_terms or [host.split(".")[0]],
+        "brand_terms": brand_terms or [t for t in [registrable_label(host)] if t],
         "competitors": [],
         "created_at": utc_now(),
     })
@@ -190,10 +210,22 @@ def add_competitor(profile: dict, domain: str, name: str = "", aliases: Optional
     host = normalize_domain(domain)
     if host and host == normalize_domain(profile.get("domain", "")):
         raise ValueError("a competitor cannot be the client's own domain")
-    existing = {normalize_domain(c["domain"]) for c in profile.get("competitors", [])}
-    if host and host not in existing:
-        profile.setdefault("competitors", []).append(
-            {"name": name or host.split(".")[0], "domain": host, "aliases": aliases or []})
+    if not host:
+        return profile
+    for comp in profile.setdefault("competitors", []):
+        if normalize_domain(comp.get("domain", "")) == host:
+            # Already listed: merge new aliases (case-insensitively) and fill a
+            # missing name instead of silently dropping what the caller passed.
+            known = {a.lower() for a in comp.setdefault("aliases", [])}
+            for alias in aliases or []:
+                if alias and alias.lower() not in known:
+                    comp["aliases"].append(alias)
+                    known.add(alias.lower())
+            if name and not comp.get("name"):
+                comp["name"] = name
+            return profile
+    profile["competitors"].append(
+        {"name": name or registrable_label(host) or host, "domain": host, "aliases": list(aliases or [])})
     return profile
 
 
@@ -221,6 +253,9 @@ def set_field(profile: dict, dotted_key: str, raw_value: str) -> dict:
     parts = dotted_key.split(".")
     if parts[0] not in DEFAULT_PROFILE or parts[0] in ("slug", "schema_version", "created_at"):
         raise KeyError(f"unknown or read-only field: {parts[0]}")
+    default = DEFAULT_PROFILE[parts[0]]
+    if len(parts) == 1 and isinstance(default, (dict, list)) and not isinstance(value, type(default)):
+        raise ValueError(f"{parts[0]} must be a JSON {type(default).__name__}, got {type(value).__name__}")
     node = profile
     for part in parts[:-1]:
         node = node.setdefault(part, {})
@@ -232,10 +267,35 @@ def set_field(profile: dict, dotted_key: str, raw_value: str) -> dict:
     return profile
 
 
+# Second-level labels that sit under a country code (example.co.uk).
+_TWO_PART_SUFFIX_SLD = frozenset({"co", "com", "net", "org", "gov", "ac", "edu", "ne", "or", "ltd", "plc"})
+# Subdomain-ish labels that are ordinary words: never derive a brand term
+# from them ("shop.globex.com" must not turn every "shop" into a mention).
+GENERIC_LABELS = frozenset({"www", "app", "apps", "shop", "store", "blog", "get", "try", "go", "my",
+                            "web", "mail", "help", "docs", "info", "home", "news", "about", "en"})
+
+
+def registrable_label(domain: str) -> str:
+    """The brand-bearing label of a host: globex for shop.globex.com or globex.co.uk.
+
+    Approximates the public-suffix rule without a dependency: the label left
+    of the TLD, or left of a two-part country suffix (co.uk, com.au, ...).
+    Returns "" when that label is a generic word.
+    """
+    labels = [x for x in normalize_domain(domain).split(".") if x]
+    if len(labels) < 2:
+        label = labels[0] if labels else ""
+    elif len(labels) >= 3 and len(labels[-1]) == 2 and labels[-2] in _TWO_PART_SUFFIX_SLD:
+        label = labels[-3]
+    else:
+        label = labels[-2]
+    return "" if label in GENERIC_LABELS else label
+
+
 def all_brand_terms(profile: dict) -> list[str]:
-    """Brand terms plus the bare domain label, deduplicated, lowercase."""
+    """Brand terms plus the registrable domain label, deduplicated, lowercase."""
     terms = [t.lower() for t in profile.get("brand_terms", []) if t]
-    label = (profile.get("domain") or "").split(".")[0]
+    label = registrable_label(profile.get("domain") or "")
     if label and label not in terms:
         terms.append(label)
     return terms
@@ -244,7 +304,7 @@ def all_brand_terms(profile: dict) -> list[str]:
 def competitor_terms(profile: dict) -> list[str]:
     out: list[str] = []
     for c in profile.get("competitors", []):
-        for t in [c.get("name", ""), c.get("domain", "").split(".")[0], *c.get("aliases", [])]:
+        for t in [c.get("name", ""), registrable_label(c.get("domain", "")), *c.get("aliases", [])]:
             t = (t or "").lower().strip()
             if t and t not in out:
                 out.append(t)
@@ -334,12 +394,17 @@ def main() -> int:
         rows = list_profiles(args.data_dir)
         print(json.dumps(rows, indent=2))
         return 0
-    if args.cmd == "path":
-        print(profile_path(args.domain, args.data_dir))
-        return 0
+    try:
+        if args.cmd == "path":
+            print(profile_path(args.domain, args.data_dir))
+            return 0
+        existing = load_profile(args.domain, args.data_dir)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
 
     if args.cmd == "init":
-        if load_profile(args.domain, args.data_dir) and not args.force:
+        if existing and not args.force:
             print(f"Profile already exists: {profile_path(args.domain, args.data_dir)} (use --force)",
                   file=sys.stderr)
             return 1
@@ -358,7 +423,7 @@ def main() -> int:
         print(f"Saved {path}")
         return 0
 
-    profile = load_profile(args.domain, args.data_dir)
+    profile = existing
     if profile is None:
         print(f"No profile for {args.domain}. Create one: seo_project.py init {args.domain}",
               file=sys.stderr)

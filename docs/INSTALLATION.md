@@ -16,21 +16,21 @@ Optional:
 The recommended path. Inside Claude Code:
 
 ```
-/plugin marketplace add AgriciDaniel/claude-seo
-/plugin install claude-seo@agricidaniel-claude-seo
+/plugin marketplace add toolsatZyra/-claude-seo-x-geo
+/plugin install claude-seo@toolsatzyra-claude-seo-x-geo
 ```
 
 ### Manual Install (Unix, macOS, Linux)
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/claude-seo.git
-bash claude-seo/install.sh
+git clone --depth 1 https://github.com/toolsatZyra/-claude-seo-x-geo.git
+bash -claude-seo-x-geo/install.sh
 ```
 
 Review-then-run alternative:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-seo/main/install.sh > install.sh
+curl -fsSL https://raw.githubusercontent.com/toolsatZyra/-claude-seo-x-geo/main/install.sh > install.sh
 cat install.sh        # review
 bash install.sh       # run when satisfied
 rm install.sh
@@ -39,8 +39,8 @@ rm install.sh
 ### Manual Install (Windows, PowerShell)
 
 ```powershell
-git clone --depth 1 https://github.com/AgriciDaniel/claude-seo.git
-powershell -ExecutionPolicy Bypass -File claude-seo\install.ps1
+git clone --depth 1 https://github.com/toolsatZyra/-claude-seo-x-geo.git
+powershell -ExecutionPolicy Bypass -File "-claude-seo-x-geo\install.ps1"
 ```
 
 The Windows path uses `git clone` rather than `irm | iex` because Claude Code's own security guardrails flag piped remote-script execution. Inspect `install.ps1` before running.
@@ -50,8 +50,8 @@ The Windows path uses `git clone` rather than `irm | iex` because Claude Code's 
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/AgriciDaniel/claude-seo.git
-cd claude-seo
+git clone https://github.com/toolsatZyra/-claude-seo-x-geo.git
+cd -- -claude-seo-x-geo
 ```
 
 2. **Run the installer**
@@ -112,18 +112,20 @@ You should see a help message or prompt for a URL.
 If installed as a plugin:
 
 ```
-/plugin uninstall claude-seo@agricidaniel-claude-seo
-/plugin marketplace remove AgriciDaniel/claude-seo
+/plugin uninstall claude-seo@toolsatzyra-claude-seo-x-geo
+/plugin marketplace remove toolsatZyra/-claude-seo-x-geo
 ```
 
 If installed manually, run the uninstaller from a fresh clone:
 
 ```bash
-git clone --depth 1 https://github.com/AgriciDaniel/claude-seo.git
-bash claude-seo/uninstall.sh
+git clone --depth 1 https://github.com/toolsatZyra/-claude-seo-x-geo.git
+bash -claude-seo-x-geo/uninstall.sh
 ```
 
-`uninstall.sh` removes all installed sub-skills, sub-agents, and the plugin's MCP entries from `~/.claude/settings.json`. Do not maintain a hand-coded `rm` list. The shipped uninstaller is the canonical source.
+`uninstall.sh` removes all installed sub-skills and sub-agents. Extension MCP servers are removed by each extension's own uninstaller (`extensions/<name>/uninstall.sh`), which edits `~/.claude.json` and also clears any stale entry older releases left in `~/.claude/settings.json`. Do not maintain a hand-coded `rm` list; the shipped uninstallers are the canonical source.
+
+Client data (project profiles, rank/KPI/AI-visibility history) lives under `$CLAUDE_SEO_DATA_DIR` (default `~/.cache/claude-seo/`) and is never removed by the uninstaller; delete it yourself when an engagement ends.
 
 ## Upgrading
 
@@ -133,10 +135,10 @@ Caution: Prefer downloading, inspecting, then running remote scripts; the pipe-t
 
 ```bash
 # Uninstall current version
-curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-seo/main/uninstall.sh | bash
+curl -fsSL https://raw.githubusercontent.com/toolsatZyra/-claude-seo-x-geo/main/uninstall.sh | bash
 
 # Install new version
-curl -fsSL https://raw.githubusercontent.com/AgriciDaniel/claude-seo/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/toolsatZyra/-claude-seo-x-geo/main/install.sh | bash
 ```
 
 ## Troubleshooting

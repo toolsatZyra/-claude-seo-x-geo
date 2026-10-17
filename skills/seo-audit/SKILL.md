@@ -6,7 +6,7 @@ argument-hint: "[url]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -34,7 +34,7 @@ metadata:
    - `seo-sitemap` -- structure analysis, quality gates, missing pages
    - `seo-performance` -- LCP, INP, CLS measurements
    - `seo-visual` -- screenshots, mobile testing, above-fold analysis
-   - `seo-geo` -- AEO router; no longer scores AI search readiness itself (see `## AEO fan-out` below, which calls the `geo-*` cluster directly for the scored track)
+   - `seo-geo` -- AEO findings (AI crawler access, citability, llms.txt, entity and platform notes) written to `findings/geo.md`; it does not produce its own AEO number (the AEO score is computed once, in `## AEO fan-out` below, by `scripts/aeo_score.py compute`)
    - `seo-local` -- GBP signals, NAP consistency, reviews, local schema, industry-specific local factors (spawn when Local Service industry detected: brick-and-mortar, SAB, or hybrid business type)
    - `seo-maps` -- Geo-grid rank tracking, GBP audit, review intelligence, competitor radius mapping (spawn when Local Service detected AND DataForSEO MCP available)
    - `seo-google` -- CWV field data (CrUX), URL indexation (GSC), organic traffic (GA4) (spawn when Google API credentials detected via `python3 scripts/google_auth.py --check`)
@@ -201,19 +201,44 @@ runs and `### Final report structure (mandatory)` for the exact shape.
 
 A full `seo-audit` run additionally fans out to the AEO cluster as a
 **separate, parallel scored track** — never blended into the SEO score
-computed above. Specifically:
+computed above. First compute each AEO component score, then combine them
+with `scripts/aeo_score.py compute`, the single AEO score definition (see
+`skills/seo-geo/SKILL.md`, "The AEO Readiness Score"):
 
-1. Run `scripts/citability_scorer.py::analyze_page_citability(url)` for the
-   deterministic 0-100 citability figure.
-2. Run `geo-platform-optimizer` for per-platform readiness notes (Google
-   AIO, ChatGPT, Perplexity, Gemini, Bing Copilot).
-3. Run `geo-crawlers` for AI-crawler-access findings (GPTBot, ClaudeBot,
-   PerplexityBot, Google-Extended, Bingbot/Copilot).
-4. Run `scripts/brand_scanner.py::generate_brand_report(brand, domain)` for
-   brand/AI-visibility findings, if a brand name is available.
-5. Audit llms.txt via `scripts/llmstxt_generator.py::validate_llmstxt(url)`,
+1. `citability`: run `scripts/citability_scorer.py::analyze_page_citability(url)`
+   and take `average_citability_score` (deterministic 0-100). Citability
+   stays a component; it is no longer the whole AEO score.
+2. `crawler_access`: run `python3 scripts/aeo_score.py crawlers <url> --json`
+   during evidence collection and store its JSON (it records the HTTP status
+   and quotes the deciding robots.txt line per agent) in the evidence
+   snapshot; re-score a saved robots.txt with `--robots-file` rather than
+   re-fetching (Rule 7). Answer-surface agents are scored, training crawlers
+   reported but never scored, Cloudflare managed robots.txt flagged. Run
+   `geo-crawlers` for the page-level checks (meta robots, X-Robots-Tag,
+   rendering) that robots.txt cannot show.
+3. `brand_authority`: if a brand name is available, run
+   `scripts/brand_scanner.py::generate_brand_report(brand, domain)` and score
+   the Brand Authority Score per `geo-brand-mentions`; otherwise leave it
+   unmeasured.
+4. `platform`: run `geo-platform-optimizer` for per-platform readiness
+   (Google AIO, ChatGPT, Perplexity, Gemini, Bing Copilot) and take its
+   Platform Readiness Score.
+5. `content_eeat` and `schema`: reuse the `seo-content` and `seo-schema`
+   subscores already computed for the SEO track (the same evidence feeds two
+   separately reported scores; it is not re-scored).
+6. Combine: `python3 scripts/aeo_score.py compute --citability N
+   --crawler-access N [--brand-authority N] [--content-eeat N] [--schema N]
+   [--platform N] --json`. Omit any component that was not measured; the
+   script renormalizes and reports `completeness`. Never estimate one.
+7. Audit llms.txt via `scripts/llmstxt_generator.py::validate_llmstxt(url)`,
    respecting the current `aeo.llmstxt_mode` (see `skills/seo-geo/SKILL.md`)
-   — generate only if mode is `generate` and the user explicitly asks.
+   — generate only if mode is `generate` and the user explicitly asks. It
+   carries no weight in the AEO score.
+
+AI share of voice (`geo-share-of-voice`) is an outcome metric that needs a
+prompt panel and paid API calls; an audit does not run it implicitly. If the
+client already tracks it, quote the latest `ai.*` figures beside the AEO
+score, never inside it.
 
 ### Final report structure (mandatory)
 
@@ -223,9 +248,18 @@ The audit report must present:
 ## SEO Score: <0-100>
 <existing SEO category breakdown, unchanged>
 
-## AEO Score: <0-100 citability figure from citability_scorer.py>
+## AEO Score: <score from aeo_score.py compute>/100 (<rating>, completeness <0.xx>)
+| Component | Score | Weight | Status |
+|---|---|---|---|
+| citability | NN | 25 | measured |
+| brand_authority | NN or N/A | 20 | measured / not measured |
+| content_eeat | NN or N/A | 20 | ... |
+| crawler_access | NN or N/A | 15 | ... |
+| schema | NN or N/A | 10 | ... |
+| platform | NN or N/A | 10 | ... |
+Computation: `python3 -c "print(<expression from aeo_score.py>)"` -> NN
 - Per-platform notes: AIO / ChatGPT / Perplexity / Gemini / Bing Copilot
-- AI-crawler-access findings: GPTBot / ClaudeBot / PerplexityBot / Google-Extended / Bingbot-Copilot
+- AI-crawler access: answer surfaces (OAI-SearchBot, ChatGPT-User, Claude-SearchBot, Claude-User, PerplexityBot, Perplexity-User, Googlebot, Bingbot, Applebot); training crawlers (GPTBot, ClaudeBot, Google-Extended, Applebot-Extended, CCBot ...) listed separately, unscored; Cloudflare managed robots.txt flag
 - Brand/AI-visibility findings (if brand name available)
 - llms.txt status (forward-looking, low-confidence — see policy)
 ```
@@ -257,3 +291,4 @@ If Google API credentials are configured (`python3 scripts/google_auth.py --chec
 | robots.txt blocks crawling | Report which paths are blocked. Analyze only accessible pages and note the limitation in the report. |
 | Rate limiting (429 responses) | Back off and reduce concurrent requests. Report partial results with a note on which sections could not be completed. |
 | Timeout on large sites (500+ pages) | Cap the crawl at the timeout limit. Report findings for pages crawled and estimate total site scope. |
+| Subagent hits its `maxTurns` budget on a large site | Findings are not lost: every audit subagent writes a partial `output_dir/findings/*.md` after its first analysis pass and overwrites it with the complete findings before finishing. Read whatever findings file exists and merge it into the report, noting it may be partial. |

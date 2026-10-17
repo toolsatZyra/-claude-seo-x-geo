@@ -9,11 +9,13 @@ allowed-tools:
   - WebFetch
   - Write
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted)
 ---
 
 # AI Citability Scoring Skill
+
+**AEO score component:** the page-level citability score from `scripts/citability_scorer.py` (`average_citability_score`) is the `citability` component (weight 25) of the one AEO Readiness Score computed by `scripts/aeo_score.py compute`; it is not the AEO score by itself.
 
 ## Core Insight
 

@@ -8,7 +8,10 @@ main() {
     SKILL_DIR="${HOME}/.claude/skills/seo-image-gen"
     AGENT_DIR="${HOME}/.claude/agents"
     SEO_SKILL_DIR="${HOME}/.claude/skills/seo"
-    SETTINGS_FILE="${HOME}/.claude/settings.json"
+    # MCP servers live in ~/.claude.json (the file `claude mcp add` writes).
+    # NOT ~/.claude/settings.json - `mcpServers` is not a key Claude Code reads
+    # there, so entries written to settings.json silently never load.
+    MCP_CONFIG_FILE="${HOME}/.claude.json"
 
     echo "════════════════════════════════════════"
     echo "║  Banana Image Gen - SEO Extension    ║"
@@ -60,8 +63,8 @@ main() {
 
     # Check if nanobanana-mcp is already configured
     MCP_CONFIGURED=false
-    if [ -f "${SETTINGS_FILE}" ]; then
-        if python3 - "${SETTINGS_FILE}" <<'PY' 2>/dev/null; then
+    if [ -f "${MCP_CONFIG_FILE}" ]; then
+        if python3 - "${MCP_CONFIG_FILE}" <<'PY' 2>/dev/null; then
 import json, sys
 settings_path = sys.argv[1]
 with open(settings_path, 'r') as f:
@@ -72,7 +75,7 @@ else:
     sys.exit(1)
 PY
             MCP_CONFIGURED=true
-            echo "✓ nanobanana-mcp already configured in settings.json"
+            echo "✓ nanobanana-mcp already configured in ~/.claude.json"
         fi
     fi
 
@@ -92,19 +95,19 @@ PY
 
         # Configure MCP server
         echo "→ Configuring nanobanana-mcp server..."
-        # Credentials are passed as argv (never interpolated into the source string)
+        # Credentials travel in the environment (never argv, never interpolated into the source string)
         # and the settings file is written atomically with 0600 permissions.
-        python3 - "${SETTINGS_FILE}" "${GOOGLE_AI_API_KEY}" <<'PY'
+        CLAUDE_SEO_SECRET="${GOOGLE_AI_API_KEY}" python3 - "${MCP_CONFIG_FILE}" <<'PY'
 import json, os, sys, tempfile
 
-settings_path, api_key = sys.argv[1:3]
+settings_path, api_key = sys.argv[1], os.environ["CLAUDE_SEO_SECRET"]
 
 if os.path.exists(settings_path):
     try:
         with open(settings_path) as f:
             settings = json.load(f)
     except json.JSONDecodeError:
-        settings = {}
+        sys.exit(f"✗ {settings_path} is not valid JSON. Nothing was changed; fix it and rerun.")
 else:
     settings = {}
 
@@ -128,7 +131,7 @@ except Exception:
         os.unlink(tmp)
     raise
 
-print('  ✓ nanobanana-mcp configured in settings.json')
+print('  ✓ nanobanana-mcp configured in ~/.claude.json')
 PY
         if [ $? -ne 0 ]; then
             echo "✗ Could not auto-configure MCP server."
@@ -136,6 +139,13 @@ PY
             exit 1
         fi
     fi
+
+    # Older releases wrote this server, with its credential, to
+    # ~/.claude/settings.json, which Claude Code never reads for MCP servers.
+    # Remove that stale copy now that ~/.claude.json holds the live entry.
+    # The helper never rewrites a settings file that does not parse.
+    LEGACY_CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
+    [ -f "${LEGACY_CLEANUP}" ] && python3 "${LEGACY_CLEANUP}" nanobanana-mcp || true
 
     # Install skill
     echo ""

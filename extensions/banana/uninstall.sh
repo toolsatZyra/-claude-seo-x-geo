@@ -11,29 +11,22 @@ main() {
     rm -f "${HOME}/.claude/agents/seo-image-gen.md"
 
     # Ask before removing MCP server (user may use standalone banana skill)
-    SETTINGS_FILE="${HOME}/.claude/settings.json"
-    if [ -f "${SETTINGS_FILE}" ]; then
-        # Check if standalone banana skill still exists
-        if [ -d "${HOME}/.claude/skills/banana" ]; then
-            echo "  ℹ  Standalone banana skill detected at ~/.claude/skills/banana/"
-            echo "  ℹ  Keeping nanobanana-mcp in settings.json (used by standalone skill)"
+    MCP_CONFIG_FILE="${HOME}/.claude.json"
+    if [ -d "${HOME}/.claude/skills/banana" ]; then
+        echo "  ℹ  Standalone banana skill detected at ~/.claude/skills/banana/"
+        echo "  ℹ  Keeping nanobanana-mcp in ~/.claude.json (used by standalone skill)"
+    else
+        # No standalone skill, safe to remove MCP: from ~/.claude.json (where
+        # Claude Code reads MCP servers) and the stale copy older releases
+        # wrote to ~/.claude/settings.json. The helper rewrites a file
+        # atomically and never touches one that does not parse.
+        CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
+        if [ -f "${CLEANUP}" ]; then
+            python3 "${CLEANUP}" nanobanana-mcp --file "${MCP_CONFIG_FILE}" \
+                || echo "  ⚠  Could not auto-remove MCP config. Remove 'nanobanana-mcp' from ~/.claude.json manually."
+            python3 "${CLEANUP}" nanobanana-mcp || true
         else
-            # No standalone skill, safe to remove MCP
-            python3 - "${SETTINGS_FILE}" <<'PY' 2>/dev/null || echo "  ⚠  Could not auto-remove MCP config. Remove 'nanobanana-mcp' from ~/.claude/settings.json manually."
-import json, os, sys
-settings_path = sys.argv[1]
-with open(settings_path, 'r') as f:
-    settings = json.load(f)
-if 'mcpServers' in settings and 'nanobanana-mcp' in settings['mcpServers']:
-    del settings['mcpServers']['nanobanana-mcp']
-    if not settings['mcpServers']:
-        del settings['mcpServers']
-    with open(settings_path, 'w') as f:
-        json.dump(settings, f, indent=2)
-    print('  ✓ Removed nanobanana-mcp from settings.json')
-else:
-    print('  ✓ No nanobanana-mcp entry in settings.json')
-PY
+            echo "  ⚠  Remove 'nanobanana-mcp' from mcpServers in ~/.claude.json manually."
         fi
     fi
 

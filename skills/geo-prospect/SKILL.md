@@ -1,7 +1,7 @@
 ---
 name: geo-prospect
 description: >
-  CRM-lite for managing GEO agency prospects and clients. Track leads through
+  CRM-lite for managing AEO/GEO agency prospects and clients (AEO Score from scripts/aeo_score.py). Track leads through
   the full sales pipeline: Lead → Qualified → Proposal Sent → Won → Lost.
   Store audit history, notes, deal values, and generate pipeline summaries.
   Use when user says "prospect", "lead", "client", "pipeline", "crm", "nuovo prospect",
@@ -9,7 +9,7 @@ description: >
 tags: [geo, business, crm, prospect, pipeline, sales]
 allowed-tools: Read, Write, Bash, Glob
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted)
 ---
 
@@ -30,7 +30,7 @@ All data is stored in `~/.geo-prospects/prospects.json` (persistent across sessi
 | `/geo prospect list` | Show all prospects with pipeline status |
 | `/geo prospect list <status>` | Filter: lead, qualified, proposal, won, lost |
 | `/geo prospect show <id-or-domain>` | Full prospect detail with history |
-| `/geo prospect audit <id-or-domain>` | Run quick GEO audit and save to prospect record |
+| `/geo prospect audit <id-or-domain>` | Run an AEO audit (`/seo geo` + `aeo_score.py compute`) and save the AEO Score to the prospect record |
 | `/geo prospect note <id-or-domain> "<text>"` | Add interaction note with timestamp |
 | `/geo prospect status <id-or-domain> <new-status>` | Move through pipeline |
 | `/geo prospect won <id-or-domain> <monthly-value>` | Mark as won, set contract value |
@@ -53,7 +53,9 @@ Each prospect is stored as a JSON record:
   "industry": "Educational Equipment Manufacturing",
   "country": "Italy",
   "status": "qualified",
-  "geo_score": 32,
+  "aeo_score": 38,
+  "aeo_completeness": 0.75,
+  "aeo_rating": "Critical",
   "audit_date": "2026-03-12",
   "audit_file": "~/.geo-prospects/audits/electron-srl.com-2026-03-12.md",
   "proposal_file": "~/.geo-prospects/proposals/electron-srl.com-proposal.md",
@@ -63,7 +65,7 @@ Each prospect is stored as a JSON record:
   "notes": [
     {
       "date": "2026-03-12",
-      "text": "Initial GEO quick scan. Score 32/100 - Critical tier. Strong candidate for GEO services."
+      "text": "Initial AEO audit. AEO Score 38/100 (Critical, completeness 0.75). Strong candidate for AEO services."
     }
   ],
   "created_at": "2026-03-12",
@@ -96,9 +98,9 @@ Read `~/.geo-prospects/prospects.json` and render a summary table:
 GEO Prospect Pipeline — March 2026
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-ID       Domain                  Company           Status      Score  Value
-───────  ──────────────────────  ────────────────  ──────────  ─────  ──────
-PRO-001  electron-srl.com        Electron Srl      Qualified   32/100  €4.5K
+ID       Domain                  Company           Status      AEO     Value
+───────  ──────────────────────  ────────────────  ──────────  ──────  ──────
+PRO-001  electron-srl.com        Electron Srl      Qualified   38/100  €4.5K
 PRO-002  acme.com                ACME Corp         Lead        —       —
 PRO-003  bigshop.it              BigShop           Won         41/100  €6.0K
 
@@ -109,12 +111,22 @@ Committed MRR: €6,000 | Pipeline Value: €4,500
 
 ### `/geo prospect audit <id-or-domain>`
 
-1. Run `/geo quick <domain>` to get GEO snapshot score
-2. Save score to prospect record: `geo_score`, `audit_date`
-3. Save audit output to `~/.geo-prospects/audits/<domain>-<date>.md`
+1. Run `/seo geo <url>` to measure the AEO components (citability, crawler
+   access, brand authority, platform readiness, plus content E-E-A-T and
+   schema when available), then
+   `python3 scripts/aeo_score.py compute ... --json` for the one AEO Score.
+2. Save to the prospect record: `aeo_score`, `aeo_completeness`,
+   `aeo_rating`, `audit_date`. Never fill a missing component by estimate.
+3. Save audit output to `~/.geo-prospects/audits/<domain>-<date>.md`, with
+   the line `AEO Score: NN/100` so `geo-compare` can read it as a legacy
+   baseline if needed.
 4. Update `audit_file` path in prospect record
-5. Add auto-note: "Quick audit run. GEO Score: XX/100."
-6. If score < 55: suggest "Score indicates strong sales opportunity. Run `/geo proposal <domain>` to generate proposal."
+5. Add auto-note: "AEO audit run. AEO Score: XX/100 (rating, completeness C)."
+6. If score < 55 and completeness >= 0.6: suggest "Score indicates strong sales opportunity. Run `/geo proposal <domain>` to generate proposal."
+
+Older records may carry `geo_score` from the retired pre-v3.1 formula. Show
+it as "legacy, not comparable" and re-audit before quoting a score to the
+prospect.
 
 ### `/geo prospect note <id-or-domain> "<text>"`
 
@@ -153,7 +165,7 @@ PIPELINE (qualified+): €10,500
 TOTAL POTENTIAL:      €29,000/mo → €348,000/yr
 
 Next actions:
-→ PRO-003 (acme.com): Send proposal — score 38/100 (strong case)
+→ PRO-003 (acme.com): Send proposal — AEO score 38/100 (strong case)
 → PRO-007 (shop.it): Follow up — proposal sent 8 days ago
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -166,7 +178,7 @@ All data stored in `~/.geo-prospects/`:
 ```
 ~/.geo-prospects/
 ├── prospects.json          # Main CRM database
-├── audits/                 # Quick audit snapshots
+├── audits/                 # AEO audit snapshots
 │   └── electron-srl.com-2026-03-12.md
 └── proposals/              # Generated proposals
     └── electron-srl.com-proposal.md
@@ -180,7 +192,7 @@ Create directory if it does not exist: `mkdir -p ~/.geo-prospects/audits ~/.geo-
 
 | Status | Meaning | Typical Next Action |
 |--------|---------|---------------------|
-| `lead` | Discovered, not yet contacted | Run quick audit, assess opportunity |
+| `lead` | Discovered, not yet contacted | Run an AEO audit, assess opportunity |
 | `qualified` | Audit done, confirmed pain points | Generate proposal |
 | `proposal` | Proposal sent, awaiting decision | Follow up, answer questions |
 | `won` | Contract signed, active client | Run full audit, start onboarding |

@@ -95,9 +95,10 @@ def test_expected_ctr_monotonic_and_interpolates():
 
 
 def test_calibrated_curve_overrides_default():
-    rows = [{"position": 1.2, "clicks": 50, "impressions": 1000},
-            {"position": 0.9, "clicks": 50, "impressions": 1000},
-            {"position": 7, "clicks": 1, "impressions": 10}]  # below min_impressions
+    rows = [{"position": 1.2, "clicks": 25, "impressions": 500} for _ in range(4)]
+    rows += [{"position": 0.9, "clicks": 25, "impressions": 500},
+             {"position": 7, "clicks": 1, "impressions": 10},       # below min_impressions
+             {"position": 3, "clicks": 90, "impressions": 1000}]    # one row: below min_rows
     cal = m.calibrate_ctr_curve(rows, min_impressions=50)
     assert cal["curve"] == {1: 0.05}
     assert cal["source"].startswith("site-calibrated")
@@ -115,15 +116,26 @@ def test_position_bands_and_striking_distance():
     assert not m.is_striking_distance(3.9) and not m.is_striking_distance(20.1)
 
 
-def test_opportunity_score_bounds_and_renormalization():
+def test_opportunity_score_bounds_and_missing_data():
     full = m.opportunity_score(volume=2400, difficulty=35, position=8, lead_value=1.0)
     assert 0 <= full["score"] <= 100 and full["completeness"] == 1.0
+    # only lead_value known: unknowns count as neutral 0.5, not dropped
     partial = m.opportunity_score(lead_value=1.0)
-    # only lead_value known -> renormalized to 100 * 1.0
-    assert partial["score"] == 100.0
+    assert partial["score"] == pytest.approx(100 * (0.30 + 0.70 * 0.5))
     assert partial["completeness"] == pytest.approx(0.3)
-    none = m.opportunity_score()
-    assert none["score"] == 0.0
+    assert m.opportunity_score()["score"] == 50.0
+    # legacy renormalize policy is still available for genuinely N/A components
+    assert m.opportunity_score(lead_value=1.0, missing="renormalize")["score"] == 100.0
+    assert m.opportunity_score(missing="renormalize")["score"] == 0.0
+    with pytest.raises(ValueError):
+        m.opportunity_score(missing="guess")
+
+
+def test_thin_data_cannot_outrank_measured_keyword():
+    """Regression: a bare BOFU guess must not beat a measured BOFU keyword."""
+    guess = m.opportunity_score(lead_value=1.0)
+    measured = m.opportunity_score(volume=2400, difficulty=35, position=8, lead_value=1.0)
+    assert measured["score"] > guess["score"]
 
 
 def test_opportunity_relevance_multiplier_and_ordering():
@@ -237,6 +249,7 @@ def test_store_connect_creates_private_db(tmp_path):
     assert path.is_file()
     if os.name == "posix":
         assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+        assert stat.S_IMODE(path.stat().st_mode) == 0o600
     # idempotent schema
     store.connect("rankings", "CREATE TABLE IF NOT EXISTS t (x INTEGER);", str(tmp_path))
     assert store.list_stores(str(tmp_path))[0]["store"] == "rankings"
@@ -275,14 +288,46 @@ def test_profile_roundtrip_and_permissions(tmp_path):
                          competitors=["rival.com", "https://www.other.io/"],
                          gsc_property="sc-domain:example.com")
     path = proj.save_profile(p, str(tmp_path))
-    assert path.name == "example-com.json"
+    assert path.name == "example.com.json"
     if os.name == "posix":
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
-    loaded = proj.load_profile("example.com", str(tmp_path))
+    loaded = proj.load_profile("https://www.example.com/x", str(tmp_path))
     assert loaded["domain"] == "example.com"
     assert [c["domain"] for c in loaded["competitors"]] == ["rival.com", "other.io"]
-    assert proj.load_profile("example-com", str(tmp_path))["slug"] == "example-com"
     assert proj.load_profile("missing.com", str(tmp_path)) is None
+
+
+def test_profiles_never_collide_across_clients(tmp_path):
+    """Regression: a dash-joined slug mapped my-site.com and my.site.com to one file."""
+    a = proj.new_profile("my-site.com", ga4_property="111")
+    b = proj.new_profile("my.site.com", ga4_property="222")
+    proj.save_profile(a, str(tmp_path))
+    proj.save_profile(b, str(tmp_path))
+    assert proj.load_profile("my-site.com", str(tmp_path))["ga4_property"] == "111"
+    assert proj.load_profile("my.site.com", str(tmp_path))["ga4_property"] == "222"
+
+
+def test_profile_file_for_another_domain_is_refused(tmp_path):
+    proj.save_profile(proj.new_profile("a.com"), str(tmp_path))
+    src = tmp_path / "projects" / "a.com.json"
+    src.rename(tmp_path / "projects" / "b.com.json")   # hand-renamed file
+    with pytest.raises(ValueError):
+        proj.load_profile("b.com", str(tmp_path))
+
+
+@pytest.mark.parametrize("bad", ["..", "exa[mple.com", "", "-bad-.com"])
+def test_non_domains_are_rejected_cleanly(tmp_path, bad):
+    with pytest.raises(ValueError):
+        proj.profile_path(bad, str(tmp_path))
+
+
+def test_set_field_rejects_wrong_container_types():
+    p = proj.new_profile("example.com")
+    with pytest.raises(ValueError):
+        proj.set_field(p, "content", '"x"')
+    with pytest.raises(ValueError):
+        proj.set_field(p, "money_pages", '"/pricing"')
+    assert proj.validate_profile({**p, "content": "x"})  # reports, never crashes
 
 
 def test_profile_validation(tmp_path):
@@ -340,3 +385,94 @@ def test_project_cli_init_and_show(tmp_path):
     r = subprocess.run([py, script, "--data-dir", str(tmp_path), "init", "example.com"],
                        capture_output=True, text=True)
     assert r.returncode == 1  # refuses to overwrite without --force
+
+
+def test_add_competitor_merges_aliases_for_existing_domain():
+    p = proj.new_profile("acme.io", competitors=["rival.com"])
+    p["competitors"][0]["name"] = ""
+    proj.add_competitor(p, "https://www.rival.com/", name="Rival", aliases=["Rival CRM", "rival crm"])
+    proj.add_competitor(p, "rival.com", aliases=["RivalHQ"])
+    assert len(p["competitors"]) == 1
+    assert p["competitors"][0]["name"] == "Rival"
+    assert p["competitors"][0]["aliases"] == ["Rival CRM", "RivalHQ"]
+
+
+# ---------------------------------------------------------------------------
+# KPI envelope contract (scripts/seo_kpi.py)
+# ---------------------------------------------------------------------------
+
+import seo_kpi  # noqa: E402
+
+
+def test_kpi_write_validates_at_the_source(tmp_path):
+    out = tmp_path / "k.json"
+    env = seo_kpi.write_envelope(str(out), "https://www.Example.com", "test.py",
+                                 {"ai.mention_rate": 0.32, "ai.sov": None}, day="2026-10-17")
+    assert env["project"] == "example.com"
+    assert json.loads(out.read_text())["metrics"]["ai.sov"] is None  # null = not measured
+    with pytest.raises(seo_kpi.EnvelopeError):  # a percent where a fraction belongs
+        seo_kpi.write_envelope(str(tmp_path / "bad.json"), "example.com", "t.py",
+                               {"ai.mention_rate": 32})
+    assert not (tmp_path / "bad.json").exists()
+
+
+@pytest.mark.parametrize("metrics,fragment", [
+    ({"aeo.score": 140}, "0-100 score"),
+    ({"gsc.position": 0}, "positive average position"),
+    ({"gsc.clicks": -1}, ">= 0"),
+    ({"gsc.clicks": True}, "must be a number"),
+    ({"Bad Name": 1}, "invalid metric name"),
+])
+def test_kpi_validate_rejects_contract_violations(metrics, fragment):
+    res = seo_kpi.validate_envelope({"kpi_envelope": 1, "project": "example.com",
+                                     "date": "2026-10-17", "source": "t", "metrics": metrics})
+    assert not res["ok"] and any(fragment in e for e in res["errors"]), res["errors"]
+
+
+def test_kpi_typo_under_reserved_prefix_warns():
+    res = seo_kpi.validate_envelope({"kpi_envelope": 1, "project": "example.com",
+                                     "date": "2026-10-17", "source": "t",
+                                     "metrics": {"ai.mention_rat": 0.2}})
+    assert res["ok"] and res["warnings"]
+
+
+def test_kpi_contract_is_shared_not_copied():
+    """performance_tracker re-exports seo_kpi; producers must not carry copies."""
+    import performance_tracker
+    assert performance_tracker.validate_envelope is seo_kpi.validate_envelope
+    for name in ("aeo_score.py", "ai_visibility.py", "rank_tracker.py", "ai_referrals.py"):
+        text = (REPO_ROOT / "scripts" / name).read_text(encoding="utf-8")
+        assert '"kpi_envelope": 1' not in text, f"{name} builds envelopes by hand"
+
+
+def test_brand_regex_escapes_re2_metacharacters():
+    assert seo_kpi.brand_regex(["acme.io", "Acme (US)"]) == r"(?i)(acme \(us\)|acme\.io)"
+    assert seo_kpi.brand_regex([]) == ""
+
+
+@pytest.mark.parametrize("kw,intent", [
+    ("acme", "navigational"), ("acme login", "navigational"),
+    ("acme pricing", "transactional"), ("acme alternatives", "commercial"),
+    ("acme reviews", "commercial"),
+])
+def test_brand_plus_buying_modifier_keeps_buying_intent(kw, intent):
+    assert m.classify_intent(kw, brand_terms=["acme"])["intent"] == intent
+
+
+def test_cannibalization_aggregates_repeated_query_page_rows():
+    """Regression: device/country dimensions repeat (query, page); one page is not two."""
+    rows = [{"query": "crm pricing", "page": "/pricing", "clicks": 30, "impressions": 500, "position": 4},
+            {"query": "crm pricing", "page": "/pricing", "clicks": 20, "impressions": 300, "position": 6}]
+    assert m.detect_cannibalization(rows) == []
+    rows.append({"query": "crm pricing", "page": "/blog/cost", "clicks": 40, "impressions": 600, "position": 5})
+    rows.append({"query": "crm cost", "page": "/blog/cost", "clicks": 5, "impressions": 90, "position": 7})
+    out = m.detect_cannibalization(rows)
+    assert len(out) == 1 and sorted(p["page"] for p in out[0]["pages"]) == ["/blog/cost", "/pricing"]
+    pricing = next(p for p in out[0]["pages"] if p["page"] == "/pricing")
+    assert pricing["clicks"] == 50 and pricing["position"] == pytest.approx((4 * 500 + 6 * 300) / 800, abs=0.05)
+
+
+def test_normalize_domain_never_raises():
+    assert store.normalize_domain("exa[mple.com") == ""
+    assert seo_kpi.validate_envelope({"kpi_envelope": 1, "project": "exa[mple.com", "date": "2026-10-17",
+                                      "source": "t", "metrics": {"gsc.clicks": 1}})["ok"] is False

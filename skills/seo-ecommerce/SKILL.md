@@ -14,7 +14,7 @@ compatibility: "Enhanced with DataForSEO Merchant API (optional)"
 metadata:
   author: AgriciDaniel
   original_author: "Matej Marjanovic (Pro Hub Challenge)"
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -198,8 +198,10 @@ Identify mismatches between organic and Shopping visibility.
 
 1. Fetch organic rankings via seo-dataforseo:
    `dataforseo_labs_google_ranked_keywords` for domain
-2. Fetch Google Shopping presence via Merchant API:
-   `merchant_google_products_search` for top organic keywords
+2. Fetch Google Shopping presence through the Merchant REST script (not an
+   MCP tool; the cost-ledger key is `merchant_google_products_search`):
+   `python3 scripts/dataforseo_merchant.py search "<keyword>" --marketplace google`
+   for the top organic keywords
 3. Cross-reference results
 
 ### Gap Types

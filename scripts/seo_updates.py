@@ -6,18 +6,25 @@ Reads ``data/google-updates.json`` and surfaces filtered views of the
 confirmed Google ranking / spam / QRG / product / schema updates
 since March 2024. Every entry cites a Google-owned URL.
 
-The companion file lists *unverified* third-party claims separately
-(e.g. the gap-analysis-flagged "March 2026 core update"). Those entries
-are explicitly NOT used to drive recommendations until they are
+The companion file lists *unverified* third-party claims separately. Those
+entries are explicitly NOT used to drive recommendations until they are
 confirmed against ``status.search.google.com``.
 
 Usage::
 
-    python scripts/seo_updates.py                  # latest 10
-    python scripts/seo_updates.py --since 2025-06  # ISO yyyy or yyyy-mm filter
-    python scripts/seo_updates.py --kind core
-    python scripts/seo_updates.py --json
-    python scripts/seo_updates.py --unverified     # show 3rd-party claims awaiting check
+    python3 scripts/seo_updates.py                  # latest 10
+    python3 scripts/seo_updates.py --since 2025-06  # ISO yyyy or yyyy-mm filter
+    python3 scripts/seo_updates.py --kind core      # includes core+spam rollouts
+    python3 scripts/seo_updates.py --json
+    python3 scripts/seo_updates.py --unverified     # show 3rd-party claims awaiting check
+
+JSON output carries ``freshness`` (age in days, ``stale`` after 30 days). Text
+output prints a warning to stderr when the ledger is stale.
+
+Ported from AgriciDaniel/claude-seo (MIT) ``scripts/seo_updates.py`` at v2.4.1
+(freshness flag, ``KNOWN_KINDS``, core/spam filter fix). Fork additions: the
+ledger is read as UTF-8 explicitly, and ``--unverified --json`` also carries
+``freshness``.
 """
 
 from __future__ import annotations
@@ -29,12 +36,40 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable
 
-
 _DATA_FILE = Path(__file__).resolve().parents[1] / "data" / "google-updates.json"
 
 
+# Every kind the ledger schema accepts. tests/test_content_quality.py asserts the
+# ledger only uses these, and the CLI --kind filter accepts exactly the same set.
+KNOWN_KINDS = (
+    "core", "spam", "core+spam", "policy", "qrg", "product", "schema", "cwv",
+    "discover", "documentation",
+)
+
+
+STALE_AFTER_DAYS = 30
+_STATUS_URL = "https://status.search.google.com/"
+
+
+def freshness(last_verified: str | None, today: date | None = None,
+              max_age: int = STALE_AFTER_DAYS) -> dict:
+    """Return the ledger age and whether it is too old to trust for recent updates."""
+    today = today or date.today()
+    try:
+        verified = date.fromisoformat(str(last_verified))
+    except ValueError:
+        return {"age_days": None, "stale": True,
+                "warning": "last_verified is missing or not an ISO date."}
+    age = (today - verified).days
+    stale = age > max_age
+    warning = (f"Ledger last verified {age} days ago. Updates released since "
+               f"{verified.isoformat()} are missing; check {_STATUS_URL} before "
+               "attributing recent traffic changes.") if stale else None
+    return {"age_days": age, "stale": stale, "warning": warning}
+
+
 def _load() -> dict:
-    with _DATA_FILE.open() as fh:
+    with _DATA_FILE.open(encoding="utf-8") as fh:
         return json.load(fh)
 
 
@@ -56,7 +91,12 @@ def _filter(
             since_date = date.fromisoformat(since)
         out = [u for u in out if date.fromisoformat(u["date"]) >= since_date]
     if kinds:
-        out = [u for u in out if u.get("kind") in kinds]
+        # A combined "core+spam" rollout is both a core and a spam update, so
+        # asking for either one must include it (e.g. March 2024).
+        wanted = set(kinds)
+        if wanted & {"core", "spam"}:
+            wanted.add("core+spam")
+        out = [u for u in out if u.get("kind") in wanted]
     out.sort(key=lambda u: u["date"], reverse=True)
     return out
 
@@ -72,7 +112,7 @@ def main() -> int:
     parser.add_argument(
         "--kind",
         action="append",
-        choices=("core", "spam", "core+spam", "policy", "qrg", "product", "schema", "cwv"),
+        choices=KNOWN_KINDS,
         help="Filter to one or more kinds (repeatable).",
     )
     parser.add_argument(
@@ -89,11 +129,15 @@ def main() -> int:
     args = parser.parse_args()
 
     data = _load()
+    fresh = freshness(data.get("last_verified"))
+    if fresh["stale"] and not args.json:
+        print(f"WARNING: {fresh['warning']}", file=sys.stderr)
 
     if args.unverified:
         result = {
             "last_verified": data.get("last_verified"),
             "source_of_truth": data.get("source_of_truth"),
+            "freshness": fresh,
             "unverified": data.get("unverified", []),
         }
         if args.json:
@@ -122,6 +166,7 @@ def main() -> int:
             {
                 "source_of_truth": data["source_of_truth"],
                 "last_verified": data["last_verified"],
+                "freshness": fresh,
                 "filter": {"since": args.since, "kinds": list(kinds or [])},
                 "count": len(filtered),
                 "updates": filtered,

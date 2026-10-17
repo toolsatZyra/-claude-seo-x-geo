@@ -9,7 +9,7 @@ argument-hint: "[url]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -50,10 +50,11 @@ geo-seo-claude's `geo-schema` module:
 - **Person** (author) — pairs with E-E-A-T signals. AI systems weigh
   byline authorship more heavily than classic SERPs do, particularly for
   YMYL content.
-- **FAQPage-as-entity-signal** — not for "FAQ rich snippet" purposes (Google
-  has scaled back FAQ rich results), but because a well-formed FAQPage block
-  gives an AI answer engine a pre-structured, self-contained Q&A pair it can
-  extract directly. Use sparingly — only for genuine, non-duplicative FAQs.
+- **FAQ content, not FAQ markup** — Google retired FAQ rich results, and any
+  AI-citation benefit of FAQPage *markup* is unconfirmed. What AI answer
+  engines extract is the visible question-and-answer text, so keep genuine,
+  non-duplicative FAQs as question headings with self-contained answers;
+  existing FAQPage markup is harmless and can stay.
 
 These are additive to classic SEO schema requirements below, not a
 replacement — see the deprecation table above/below for what Google has
@@ -75,10 +76,10 @@ BroadcastEvent, Clip, SeekToAction, SoftwareSourceCode
 
 See `schema/templates.json` for ready-to-use JSON-LD templates for these types.
 
-> **JSON-LD and JavaScript rendering:** Per Google's December 2025 JS SEO guidance, structured data injected via JavaScript may face delayed processing. For time-sensitive markup (especially Product, Offer), include JSON-LD in the initial server-rendered HTML.
+> **JSON-LD and JavaScript rendering:** Google supports structured data generated with JavaScript, but its "Generate structured data with JavaScript" guide (last updated 2025-12-10) warns that dynamically generated Product markup can make Shopping crawls less frequent and less reliable for fast-changing price and availability. For time-sensitive markup (especially Product, Offer), include JSON-LD in the initial server-rendered HTML.
 
-### NO RICH RESULTS — KEEP FOR AI:
-- **FAQPage**: Google retired FAQ rich results for ALL sites on May 7, 2026 (supersedes the Aug 2023 gov/health restriction). No SERP feature anymore — but flag existing FAQPage at Info (not Critical), since the markup still aids AI Mode / AI Overviews entity resolution. For genuine user Q&A pages, use **QAPage**.
+### NO RICH RESULTS — KEEP IF PRESENT:
+- **FAQPage**: Google retired FAQ rich results for ALL sites on May 7, 2026 (supersedes the Aug 2023 gov/health restriction). No SERP feature anymore. Flag existing FAQPage at Info (not Critical) and do not recommend removal; any AI-citation benefit of the markup is unconfirmed, so do not recommend adding it for that reason. For genuine user Q&A pages, use **QAPage**.
 
 ### DEPRECATED (never recommend):
 - **HowTo**: Rich results removed September 2023

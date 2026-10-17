@@ -4,10 +4,12 @@
 
 This repository contains **Claude SEO**, a Tier 4 Claude Code skill for comprehensive
 SEO analysis across all industries. It follows the Agent Skills open standard and the
-3-layer architecture (directive, orchestration, execution). 32 sub-skills (28 core +
-1 orchestrator + 1 framework integration + 2 extension mirrors), 20 sub-agents, and
-an extensible reference
-system cover technical SEO, content quality,
+3-layer architecture (directive, orchestration, execution). 39 sub-skills (35 core +
+1 orchestrator + 1 framework integration + 2 extension mirrors), 21 sub-agents, and
+an extensible reference system make it a central SEO + AEO + GEO hub: keyword
+research, rank and KPI tracking, competitor gap analysis, an Outrank-style content
+engine with human review gates, content-decay refresh, AI share-of-voice tracking,
+plus technical SEO, content quality,
 schema markup, image optimization, sitemap architecture, first-class AEO/GEO
 (deterministic citability scoring, per-platform optimization, AI crawler access,
 brand-mention tracking),
@@ -23,12 +25,12 @@ claude-seo/
   CONTRIBUTORS.md                    # Community credits (Pro Hub Challenge)
   AGENTS.md                          # Multi-platform agent instructions (Cursor, Antigravity)
   .claude-plugin/
-    plugin.json                    # Plugin manifest (v3.0.0)
+    plugin.json                    # Plugin manifest (v3.1.0)
     marketplace.json               # Marketplace catalog for distribution
-  skills/                            # 32 sub-skills (auto-discovered)
+  skills/                            # 39 sub-skills (auto-discovered)
     seo/                           # Main orchestrator skill
       SKILL.md                     # Entry point, routing table, core rules
-      references/                  # On-demand knowledge files (12 files)
+      references/                  # On-demand knowledge files (15 files)
     seo-audit/SKILL.md            # Full site audit with parallel agents
     seo-page/SKILL.md            # Deep single-page analysis
     seo-technical/SKILL.md       # Technical SEO (9 categories)
@@ -63,8 +65,16 @@ claude-seo/
     seo-dataforseo/SKILL.md     # Live SEO data via DataForSEO MCP (extension mirror)
     seo-image-gen/              # AI image generation for SEO assets (extension mirror)
       SKILL.md
-      references/                # Image gen reference files (7 files)
-  agents/                          # 20 subagents (auto-discovered)
+      references/                # Image gen reference files
+    seo-keywords/                # Keyword research hub: discovery tiers, intent, opportunity, lead priority (v3.1)
+    seo-competitors/             # Competitor analysis hub: keyword gap, content/format gap (v3.1)
+    seo-content-engine/          # Calendar -> brief -> draft -> gates -> review -> draft export (v3.1)
+    seo-refresh/                 # Content decay + GSC improvement loop, AIO recovery (v3.1)
+    seo-track/                   # Rank tracking, KPI history, AI referrals, holdout tests (v3.1)
+    seo-agentic/                 # Agent readiness (ported from upstream v2.4)
+    geo-citability/ geo-platform-optimizer/ geo-brand-mentions/ geo-crawlers/
+    geo-compare/ geo-prospect/ geo-proposal/ geo-share-of-voice/   # AEO cluster (routed by seo-geo)
+  agents/                          # 21 subagents (auto-discovered)
     seo-technical.md             # Crawlability, indexability, security
     seo-content.md               # E-E-A-T, readability, thin content
     seo-schema.md                # Structured data validation
@@ -82,9 +92,39 @@ claude-seo/
     seo-sxo.md                   # Search experience optimization
     seo-drift.md                 # SEO drift monitoring
     seo-ecommerce.md             # E-commerce SEO analysis
+    seo-agentic.md               # Agent readiness checks
+    geo-ai-visibility.md, geo-platform-analysis.md   # AEO specialists
   hooks/                           # Quality gate hooks
     hooks.json                   # PostToolUse schema validation
-  scripts/                         # Python execution scripts (50 tracked + dev-only helpers)
+  scripts/                         # Python execution scripts (75)
+    # --- v3.1 hub core (shared, deterministic; import, don't copy) ---
+    seo_metrics.py               # Intent/funnel/lead value, CTR curve, opportunity score, stats, cannibalization
+    seo_store.py                 # Storage root ($CLAUDE_SEO_DATA_DIR) + SQLite access (0700/0600)
+    seo_project.py               # Client profile (brand terms, competitors, GSC/GA4 property, prompts)
+    seo_kpi.py                   # KPI envelope contract (validated at write and ingest)
+    # --- v3.1 research / create / measure ---
+    keyword_research.py          # Autocomplete expansion, GSC striking distance, multi-source scoring
+    competitor_gap.py            # 4-way keyword gap, sitemap content/format gap
+    rank_tracker.py              # GSC rank history + SERP imports, movers, visibility, holdout experiments
+    performance_tracker.py       # KPI snapshots, trend report, --fail-on-drop, export
+    ai_referrals.py              # GA4 AI-assistant sessions/key events vs organic
+    content_decay.py             # Decay tiers, cause diagnosis, refresh actions, improvement candidates
+    content_optimizer.py         # Term/heading/question coverage vs competitor pages
+    content_export.py            # Draft-first export: HTML bundle, HMAC webhook, WordPress draft, calendar checks
+    ai_visibility.py             # AI share of voice: prompt panels, Anthropic engine, ingest, CI, paired compare
+    aeo_score.py                 # The single AEO Readiness Score + AI crawler access sub-score
+    # --- AEO / GEO (v3.0) ---
+    citability_scorer.py         # Deterministic passage citability (0-100)
+    brand_scanner.py             # Brand presence on AI-cited platforms
+    llmstxt_generator.py         # llms.txt audit/generation (policy in seo-geo)
+    brand_config.py              # White-label report branding
+    client_preflight.py          # Client onboarding access check (GO/PARTIAL/BLOCKED)
+    # --- upstream ports (v3.1) ---
+    agentic_check.py, agentic_fix.py, lighthouse_agentic.py   # Agent readiness (seo-agentic)
+    metadata_template.py         # Templated-metadata detector
+    sitemap_discovery.py         # SSRF-safe sitemap discovery
+    consistency_check.py         # Dead-reference / routing CI check
+    ga4_report.py                # GA4 organic traffic reports
     google_auth.py               # Credential management (OAuth, SA, API key, 4-tier detection)
     backlinks_auth.py            # Backlink API credential management (Moz, Bing)
     moz_api.py                   # Moz Link Explorer API (DA/PA, spam, domains, anchors)
@@ -135,7 +175,6 @@ claude-seo/
     portability_check.py         # Cross-platform portability lint for SKILL.md files
     release_sign.py              # SHA-256 manifest generator for release signing
     verify_release.py            # Verify checkout integrity against a release manifest
-    mobile_analysis.py           # Mobile rendering analysis (gitignored, dev-only)
   schema/                          # Schema.org JSON-LD templates
   extensions/                      # Optional add-on install helpers
     dataforseo/                  # DataForSEO MCP install scripts
@@ -177,6 +216,18 @@ claude-seo/
 | `/seo firecrawl [command] <url>` | Full-site crawling and site mapping (extension) |
 | `/seo dataforseo [command]` | Live SEO data via DataForSEO MCP (extension) |
 | `/seo image-gen [use-case] <desc>` | AI image generation for SEO assets (extension) |
+| `/seo preflight <domain>` | Client onboarding: data access check + access-request email |
+| `/seo project init <domain>` | Client profile read by every research/content/tracking skill |
+| `/seo growth <domain>` | Guided research -> create -> measure loop with checkpoints |
+| `/seo keywords <seed\|domain>` | Keyword research: discovery, intent/funnel, opportunity, lead priority |
+| `/seo competitors <domain>` | Keyword gap, content/format gap, backlink + AI-citation gap, battlecards |
+| `/seo content-engine <domain>` | Content calendar -> brief -> draft -> gates -> human review -> draft export |
+| `/seo content optimize <url> <kw>` | Coverage vs ranking pages (correlational) |
+| `/seo refresh <domain>` | Content decay + improvement candidates, AI-Overview recovery |
+| `/seo track <domain>` | KPI history: GSC, GA4 organic/AI, rank visibility, AEO, AI SoV, leads |
+| `/seo rank <domain>` | Rank tracking from GSC history + SERP imports |
+| `/seo ai-visibility <domain>` | AI share of voice with confidence intervals |
+| `/seo agentic <url>` | AI agent readiness |
 
 ## Development Rules
 
@@ -283,6 +334,12 @@ Scoring weights (grounded in Princeton's 2024 GEO study and 2026 citation data):
 
 Determinism: citability is scored by scripts/citability_scorer.py (0-100), not by
 free-form judgment. Brand/AI visibility is scored by scripts/brand_scanner.py.
+The AEO score itself is computed ONLY by scripts/aeo_score.py (weighted composite:
+citability 25, brand authority 20, content E-E-A-T 20, AI crawler access 15,
+schema 10, platform readiness 10; missing components renormalized and reported
+as completeness). AI share of voice (scripts/ai_visibility.py) is an OUTCOME
+metric and is never blended into the AEO readiness score; neither is ever
+blended into the SEO Health Score.
 
 llms.txt: audited and optionally generated, reported as forward-looking and
 low-confidence, never as a ranking lever. See seo-geo/references/llmstxt-evidence.md

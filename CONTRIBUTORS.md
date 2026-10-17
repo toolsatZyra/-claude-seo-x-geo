@@ -86,6 +86,32 @@ Responsible disclosures incorporated into v2.2.0. Thank you for reporting privat
 - GrowthZyra — merge integration (grafting, rewiring onto claude-seo's
   SSRF-hardened fetcher, deduplication, test coverage).
 
+## SEO × AEO × GEO hub (v3.1.0)
+
+- GrowthZyra — hub design and integration: shared metrics core, keyword
+  research, competitor gap, rank/KPI/AI-referral tracking, content engine,
+  content refresh, AI share-of-voice tracking, single AEO score.
+- Upstream ports from [AgriciDaniel/claude-seo](https://github.com/AgriciDaniel/claude-seo)
+  v2.2.1–v2.4.2 (MIT): security and bug fixes, `seo-agentic`, and community
+  work credited upstream — `metadata_template.py` (Suleman Khan),
+  invisible-watermark stripping in `content_humanize.py` (Gina).
+- From [zubair-trabzada/geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude)
+  (MIT): the composite AEO weights behind `aeo_score.py`; Cloudflare managed
+  robots.txt detection (iamjeeth); the report-template sample-data fix (steve).
+- Ideas, not code or text: [aaron-he-zhu/seo-geo-claude-skills](https://github.com/aaron-he-zhu/seo-geo-claude-skills)
+  (Apache-2.0) — striking-distance-first keyword workflow, 4-way gap
+  segmentation, content-decay scoring, AI-Overview recovery playbook,
+  AI-referral analytics and the holdout measurement protocol were
+  re-implemented from scratch with our own wording and weights.
+- Methods from the open-source community, re-implemented: cannibalization
+  rule after J.C. Chouinard; AI-visibility statistics after geo-score,
+  Elmo and Limelit; decay tiers after claude-blog; sitemap inventory after
+  advertools.
+- Functional benchmark: [outrank.so](https://www.outrank.so) workflows
+  (profile → calendar → write → publish → improve) informed
+  `seo-content-engine` and `seo-refresh`. No Outrank code or content was
+  used, and its link-exchange features were deliberately not replicated.
+
 ## How to Contribute
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on submitting pull requests,

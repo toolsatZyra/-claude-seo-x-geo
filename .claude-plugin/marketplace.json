@@ -5,13 +5,13 @@
     "name": "ZYRA"
   },
   "metadata": {
-    "description": "Comprehensive SEO analysis plugin for Claude Code. 32 sub-skills and 20 sub-agents, plus 8 optional MCP extensions (DataForSEO, Firecrawl, Banana, Ahrefs, SE Ranking, Profound, Bing Webmaster, Unlighthouse). v3 adds first-class AEO/GEO (deterministic citability scoring, per-platform optimization, AI crawler access, brand-mention tracking) as a separately-scored dimension, on top of v2's shared headless rendering, QRG-aligned content quality gates, LCP subparts via CrUX, IndexNow, four Schema.org generators, AI Share-of-Voice tracking, parasite-SEO risk scanning, multi-platform portability, and a hardened SSRF + DNS-rebinding safety layer."
+    "description": "Central SEO + AEO + GEO hub for Claude Code. 39 sub-skills and 21 sub-agents, plus 8 optional MCP extensions (DataForSEO, Firecrawl, Banana, Ahrefs, SE Ranking, Profound, Bing Webmaster, Unlighthouse). v3.1 adds a research-create-measure loop: keyword research with lead-priority scoring, competitor keyword/content gaps, rank and KPI history, an Outrank-style content engine with human review gates and draft-first CMS export, content-decay refresh, AI share of voice with confidence intervals, a single deterministic AEO score, and agent readiness, on top of v3's first-class AEO/GEO layer and v2's hardened SSRF + DNS-rebinding safety layer."
   },
   "plugins": [
     {
       "name": "claude-seo",
       "source": "./",
-      "description": "Comprehensive SEO analysis plugin for Claude Code. 32 sub-skills (28 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 20 sub-agents cover technical SEO, content quality, schema, sitemaps, Core Web Vitals, local SEO, backlinks, first-class AEO/GEO (deterministic citability scoring, per-platform optimization, AI crawler access, brand-mention tracking), ecommerce, hreflang, SXO, clustering, drift monitoring, and Google APIs, plus 8 optional MCP extensions. v2 adds shared headless rendering across every fetching agent, QRG-aligned content quality gates, LCP subparts via CrUX, IndexNow submission, four Schema.org generators (Reservation / OrderAction / DiscussionForumPosting / ProfilePage), AI Share-of-Voice tracking, parasite-SEO risk scanning, and multi-platform portability.",
+      "description": "Central SEO + AEO + GEO hub for Claude Code. 39 sub-skills (35 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 21 sub-agents: keyword research, rank and KPI tracking, technical audits, content engine and decay refresh, competitor gaps, programmatic SEO, schema, local, Core Web Vitals, and first-class AEO (one AEO score, AI crawler access, AI share of voice, agent readiness). Deterministic scoring, SSRF-safe fetchers, draft-first CMS export. Plus 8 optional MCP extensions. Research: keyword discovery (autocomplete, Search Console striking distance, Keyword Planner, DataForSEO), intent/funnel/lead-value scoring, 4-way competitor keyword gap, sitemap content gap. Create: content calendar with cannibalization pre-check, quality gates, mandatory human review, WordPress/webhook draft export. Measure: GSC rank history, KPI envelopes, GA4 AI-referral analytics, holdout verdicts.",
       "author": {
         "name": "ZYRA",
         "email": "hello@growthzyra.com",
@@ -65,7 +65,21 @@
         "chatgpt-search",
         "gemini",
         "ai-crawlers",
-        "brand-mentions"
+        "brand-mentions",
+        "keyword-research",
+        "rank-tracking",
+        "kpi-tracking",
+        "content-calendar",
+        "content-decay",
+        "content-optimization",
+        "competitor-analysis",
+        "keyword-gap",
+        "ai-share-of-voice",
+        "ai-referrals",
+        "aeo-score",
+        "agent-readiness",
+        "lead-generation",
+        "cms-export"
       ]
     }
   ]

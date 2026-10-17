@@ -174,7 +174,10 @@ def test_extension_skillmd_has_required_frontmatter(
     # Version pin tracks plugin.json's canonical version (bumped 2.2.0 -> 3.0.0
     # in the v3.0.0 AEO/GEO merge; test_manifest_consistency.py's
     # test_skill_metadata_versions_match_plugin_json enforces this repo-wide).
-    assert 'version: "3.0.0"' in head, f"{name}: SKILL.md must declare version 3.0.0"
+    import json as _json
+    version = _json.loads((Path(__file__).resolve().parents[1] / ".claude-plugin" / "plugin.json")
+                          .read_text())["version"]
+    assert f'version: "{version}"' in head, f"{name}: SKILL.md must declare version {version}"
 
 
 # ---------------------------------------------------------------------------

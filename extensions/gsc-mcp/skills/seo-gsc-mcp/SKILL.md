@@ -7,7 +7,7 @@ description: >
   (scripts/gsc_query.py, scripts/gsc_inspect.py) remains the primary,
   test-covered GSC integration for this plugin.
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: GrowthZyra (new, extension-only)
 ---
 
