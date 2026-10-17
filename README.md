@@ -2,18 +2,19 @@
 
 # Claude SEO × GEO — SEO + AEO Plugin for Claude Code
 
-**A ZYRA-maintained distribution of an SEO analysis plugin for [Claude Code](https://claude.ai/claude-code), extended with a first-class Answer Engine Optimization (AEO/GEO) layer.** It runs 32 sub-skills and 20 specialist agents in parallel across technical SEO, content quality (E-E-A-T), Schema.org markup, AI crawler access, deterministic citability scoring, per-platform AI search optimization, and brand-mention tracking. Every audit produces a prioritized action plan with falsifiable recommendations, and SEO and AEO are always reported as **two separate scores** — never blended into one number.
+**A ZYRA-maintained distribution of an SEO analysis plugin for [Claude Code](https://claude.ai/claude-code), extended with a first-class Answer Engine Optimization (AEO/GEO) layer.** It is a central SEO + AEO + GEO hub: 39 sub-skills and 21 specialist agents cover the whole organic-growth loop. **Research** covers keyword research with lead-priority scoring and competitor keyword/content gaps. **Create and optimize** covers an Outrank-style content engine with human review gates, content-decay refresh, and technical, schema and E-E-A-T audits. **Measure** covers rank and KPI history, GA4 AI-referral analytics, and AI share of voice in ChatGPT, Claude, Perplexity and AI Overviews, plus deterministic citability, AI crawler access and agent readiness. Every audit produces a prioritized action plan with falsifiable recommendations, and SEO and AEO are always reported as **two separate scores** — never blended into one number.
 
 [![CI](https://github.com/toolsatZyra/-claude-seo-x-geo/actions/workflows/ci.yml/badge.svg)](https://github.com/toolsatZyra/-claude-seo-x-geo/actions/workflows/ci.yml)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-339%20passing-brightgreen)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1816%20passing-brightgreen)](tests/)
 [![Maintained by ZYRA](https://img.shields.io/badge/maintained%20by-ZYRA-0e7a6b)](https://growthzyra.com)
 
 > **Provenance.** This plugin is a fork of [`AgriciDaniel/claude-seo`](https://github.com/AgriciDaniel/claude-seo) (MIT), grafted with the AEO/GEO modules from [`zubair-trabzada/geo-seo-claude`](https://github.com/zubair-trabzada/geo-seo-claude) (MIT). ZYRA maintains this distribution: we did the merge/integration work joining the two projects, then ran a dedicated accuracy-hardening pass over the AEO/GEO layer — correcting sourcing, fixing a live factual error in AI-crawler guidance, and removing unverifiable statistics (see [What's new in this fork](#whats-new-in-this-fork)). Full attribution: [NOTICE.md](NOTICE.md) and [CONTRIBUTORS.md](CONTRIBUTORS.md). Both original MIT licenses are preserved unmodified.
 
 ### Why this fork exists
 
+- **One hub for research → create → measure (v3.1).** Keyword research, competitor gaps, a content calendar with draft-first CMS export, content-decay refresh, rank and KPI history, and AI share of voice now live alongside the audits. They share one client profile and one set of scoring definitions, and every tracked number lands in one KPI history.
 - **AEO/GEO as a first-class, separately-scored dimension**, not a relabeling of SEO. A full audit reports SEO and AEO scores side by side, never blended.
 - **Evidence discipline applied to the AEO layer itself.** Every precise AEO/GEO statistic in this fork traces to a named, checkable source in [`skills/seo-geo/references/evidence-registry.md`](skills/seo-geo/references/evidence-registry.md) — claim, source, retrieval date, and confidence level. Numbers we couldn't verify were removed rather than left uncorrected.
 - **AI-search first.** Aligned with [Google's AI Optimization Guide](https://developers.google.com/search/docs/fundamentals/ai-optimization-guide) and verified against OpenAI's, live crawler documentation. Question-based citability scoring, primary-source evidence on llms.txt, agent-friendly page checks per [web.dev](https://web.dev/).
@@ -128,7 +129,26 @@ claude
 
 ![Claude SEO sub-skill ecosystem: 25 modules grouped into 8 categories (audit, content, schema, technical, AI search, local + maps, commerce + intl, extensions) around the central orchestrator](assets/sub-skills.svg)
 
-25 user-invocable `/seo` commands across the orchestrator and its sub-skills. Full reference in [docs/COMMANDS.md](docs/COMMANDS.md).
+36 top-level `/seo` commands across the orchestrator and its sub-skills (many with subcommands), grouped by job in the hub (`skills/seo/SKILL.md`). Full reference in [docs/COMMANDS.md](docs/COMMANDS.md).
+
+**New in v3.1: the growth loop**
+
+| Command | Description |
+|---------|-------------|
+| `/seo preflight <domain>` | Client onboarding: which data we can get, plus a send-ready access request |
+| `/seo project init <domain>` | Client profile (brand terms, competitors, GSC/GA4 property strings, money pages, conversions, AI prompt panel) |
+| `/seo growth <domain>` | Guided research → create → measure loop with a checkpoint at every stage |
+| `/seo keywords <seed\|domain>` | Keyword research: autocomplete + Search Console striking distance + paid tiers; intent, funnel, opportunity, lead priority |
+| `/seo competitors <domain>` | Keyword gap (moat/battleground/gap/pioneer), content and format gap, backlink and AI-citation gap, battlecards |
+| `/seo content-engine <domain>` | Calendar with cannibalization pre-check → brief → draft → quality gates → human review → draft export (WordPress, signed webhook, HTML) |
+| `/seo content optimize <url> <kw>` | Term, heading and question coverage against pages that rank |
+| `/seo refresh <domain>` | Content decay (YoY), cause diagnosis, improvement candidates, AI-Overview recovery |
+| `/seo track <domain>` | KPI history: clicks (total and non-brand), rank visibility, organic and AI-referral conversions, AEO score, AI share of voice, leads |
+| `/seo rank <domain>` | Rank tracking from Search Console history + SERP imports: movers, visibility, cannibalization, holdout verdicts |
+| `/seo ai-visibility <domain>` | AI share of voice with confidence intervals; unbranded headline; treatment/control groups |
+| `/seo agentic <url>` | AI agent readiness (agent access, Markdown delivery, discovery files) |
+
+**Audit and specialist commands**
 
 | Command | Description |
 |---------|-------------|
@@ -274,7 +294,7 @@ Other audit outputs follow the same shape: `FULL-AUDIT-REPORT.md` (umbrella audi
 
 ## Architecture
 
-![Claude SEO audit signal flow: /seo audit enters the orchestrator, fans out to 32 sub-skills and 6 parallel audit agents, and converges through the scoring engine into a prioritized report](assets/signal-flow.svg)
+![Claude SEO audit signal flow: /seo audit enters the orchestrator, fans out to 39 sub-skills and 6 parallel audit agents, and converges through the scoring engine into a prioritized report](assets/signal-flow.svg)
 
 The plugin follows the [Agent Skills standard](https://docs.claude.com/en/docs/claude-code/skills) with a 3-layer architecture (directive, orchestration, execution). Skills and agents are auto-discovered from `skills/` and `agents/`. The orchestrator (`skills/seo/SKILL.md`) handles industry detection (SaaS, local, ecommerce, publisher, agency), parallel sub-agent dispatch up to 15 simultaneously, and synthesis through the [10-principle framework](#methodology) before emitting the action plan. The AEO/GEO layer is architecturally separate: `seo-geo` routes to the `geo-*` cluster as a distinct scored track, per `skills/seo-audit/SKILL.md`'s AEO fan-out. Full architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -295,6 +315,28 @@ Full methodology: [skills/seo/references/thinking-framework.md](skills/seo/refer
 
 ## What's new in this fork
 
+### v3.1.0: SEO × AEO × GEO hub (2026-10-17)
+
+v3.1 started with an audit of v3.0 against a target capability list: keyword research, rank tracking, content optimization, competitor analysis, AI visibility, performance tracking and lead generation. It also drew on research into [outrank.so](https://www.outrank.so), the upstream projects, [aaron-he-zhu/seo-geo-claude-skills](https://github.com/aaron-he-zhu/seo-geo-claude-skills) and the wider open-source landscape. Design and plan: [`docs/superpowers/specs/2026-10-17-seo-aeo-geo-hub-design.md`](docs/superpowers/specs/2026-10-17-seo-aeo-geo-hub-design.md).
+
+- **Seven new skills.** `seo-keywords`, `seo-competitors`, `seo-content-engine`, `seo-refresh`, `seo-track` and `geo-share-of-voice`, plus `seo-agentic` ported from upstream. A content optimize mode was added to `seo-content`.
+- **Shared, deterministic core.** One definition each of intent, funnel stage, lead value, CTR curve, opportunity score, cannibalization and the statistics (`seo_metrics.py`). One client profile (`seo_project.py`). One KPI envelope validated at write and at ingest (`seo_kpi.py`). One storage root for client data (`seo_store.py`).
+- **Lead-generation focus.** Keywords and gaps are prioritized by funnel stage and conversion value (BOFU first). GA4 key events are tracked for organic and AI-assistant traffic. Money pages sort first in decay reports.
+- **One AEO score.** Before v3.1, four skills computed "the GEO score" four different ways, and the monthly report fell back to estimating missing numbers from prose. Now `aeo_score.py` is the only definition, and missing metrics are reported as "not measured".
+- **What we took from Outrank, and what we refused.** We kept the product profile, the keyword-to-calendar pipeline, the GSC improvements loop and the CMS output adapters. We changed them to be draft-first with mandatory human review, claim verification and signed webhooks. We did not replicate link exchanges or paid links, which Google's spam policies prohibit.
+- **Upstream sync.** We ported security and bug fixes from claude-seo v2.2.1 through v2.4.2:
+  - SSRF hardening
+  - extension installers that register MCP servers where Claude Code reads them and keep secrets off the command line
+  - schema-hook fixes and CVE dependency floors
+  - corrected AI-crawler facts: GPTBot and ClaudeBot are training-only, and OAI-SearchBot, Claude-SearchBot and PerplexityBot decide AI-answer visibility
+  - Cloudflare managed-robots detection
+  - the Google updates ledger, plus `metadata_template`, `sitemap_discovery` and `consistency_check`
+- **Consolidation.** Dead `/geo` commands were rewired, agent-readiness criteria live in one place, overlapping trigger phrases now have a single owner, and the FAQPage stance is consistent everywhere (AI benefit of the markup unconfirmed). Install docs now point at this fork. A repo-wide consistency check runs in the test suite.
+
+Full detail: [CHANGELOG.md](CHANGELOG.md).
+
+### v3.0.0: AEO/GEO merge
+
 This fork joins two upstream MIT projects and then hardens the combined AEO/GEO layer for accuracy:
 
 - **Merge**: grafted `geo-seo-claude`'s 7 AEO/GEO skills (`geo-citability`, `geo-platform-optimizer`, `geo-brand-mentions`, `geo-crawlers`, `geo-compare`, `geo-prospect`, `geo-proposal`) into `claude-seo`'s base, rewired their scorers onto `claude-seo`'s SSRF-hardened fetcher, and de-duplicated 8 overlapping skills into their `seo-*` equivalents rather than shipping 40 overlapping modules. Full spec: [MERGE_SPEC](https://github.com/toolsatZyra/-claude-seo-x-geo) commit history.
@@ -309,7 +351,25 @@ This fork joins two upstream MIT projects and then hardens the combined AEO/GEO 
 
 ## Limitations
 
-Two real boundaries worth being upfront about.
+The boundaries worth being upfront about, starting with the v3.1 hub features.
+
+**Data you do not have cannot be inferred.**
+- Free-tier keyword research has no search volume. Google autocomplete is unofficial and rate-limited; People Also Ask and SERP features come only from the DataForSEO extension, because Google's robots.txt and terms prohibit scraping results pages.
+- A true competitor keyword gap needs ranking exports (DataForSEO, Ahrefs, Semrush). The free path is a sitemap-based content-gap approximation, tagged INFERRED.
+
+**Search Console numbers are not rank-tracker numbers.** Position is an impression-weighted average, not a SERP rank. About 46% of clicks come from anonymized queries, so per-query and non-brand totals undercount. Data lags 2-3 days, and rank reports exclude the newest 3 days. CTR curves are population averages; the scripts prefer a curve calibrated on the site's own non-branded queries and say which one they used.
+
+**AI answers are non-deterministic.**
+- Share of voice is reported with sample size, a 95% interval and a "thin" flag, and period comparisons use paired tests. Even so, API answers differ from consumer apps and models change silently.
+- Only Anthropic's API is called natively. ChatGPT, Perplexity and AI Overviews come in through DataForSEO or manual capture. Gemini grounding is excluded because its terms forbid analyzing grounded results.
+
+**Correlational, not causal.** The content-optimizer score measures coverage of what ranking pages discuss, not a ranking guarantee. Decay causes are diagnosed from patterns and tagged INFERRED. Holdout verdicts need at least 6 paired items, and 10 or more per group is recommended.
+
+**Publishing stays human.** The content engine drafts. It never publishes without `--status publish`, passing review gates (including a named reviewer) and `--confirm`. The WordPress adapter sends the excerpt but no featured image, tags or SEO-plugin fields. The webhook envelope mirrors Outrank's documented fields; verify it against your receiver.
+
+**Not yet ported.** Upstream's managed runtime launcher (`${CLAUDE_PLUGIN_ROOT}`-anchored script paths), gcloud sign-in, the seo-cockpit companion and the Matomo extension are not included. Skills still invoke scripts relative to the plugin root.
+
+The two longstanding boundaries:
 
 **Heavy client-side hydration timing.** The headless renderer handles most SPAs out of the box (`--render auto` detects empty `<div id="root">` shells and switches to Playwright). Edge cases that still produce noisy findings: pages with hydration tied to scroll position past the fold, pages that fetch critical content after user interaction, race-condition-prone third-party widget mounts. For these, manually triggering the `seo-visual` subagent and comparing its Playwright snapshot to the raw-HTML subagents' findings is the recommended workflow.
 
@@ -398,7 +458,11 @@ This plugin builds on the upstream `claude-seo` / `geo-seo-claude` ecosystem:
 
 ### What is this plugin?
 
-An SEO + AEO analysis plugin for Claude Code, maintained by ZYRA as a fork of `claude-seo` and `geo-seo-claude`. It runs 32 sub-skills and 20 specialist agents in parallel across technical SEO, content quality, Schema.org markup, and a first-class AEO/GEO layer, producing a prioritized action plan where each recommendation carries the observation it rests on, its dependencies, a falsifiability check, and a leading indicator. MIT-licensed, ships zero proprietary tracking, works fully offline if you skip the optional Google API and MCP-extension enrichments.
+An SEO + AEO analysis plugin for Claude Code, maintained by ZYRA as a fork of `claude-seo` and `geo-seo-claude`. It runs 39 sub-skills and 21 specialist agents across keyword research, competitor analysis, content creation and refresh, technical SEO, content quality, Schema.org markup, rank and KPI tracking, and a first-class AEO/GEO layer, producing a prioritized action plan where each recommendation carries the observation it rests on, its dependencies, a falsifiability check, and a leading indicator. MIT-licensed, ships zero proprietary tracking, works fully offline if you skip the optional Google API and MCP-extension enrichments.
+
+### How does this compare to Outrank or other AI SEO autopilots?
+
+Outrank-style tools automate keyword → calendar → article → auto-publish, and some add link exchanges. `/seo content-engine` and `/seo refresh` implement the same pipeline as local, inspectable steps. The differences are deliberate: drafts by default, a named human reviewer before anything is published, claim verification and citability scoring as quality gates, schema generation, and signed webhooks. There are no link exchanges, which Google's link-spam policy names explicitly. The plugin also measures what those tools say they do not: AI share of voice with confidence intervals, and Search Console-based rank and KPI history.
 
 ### How is this different from Screaming Frog or Ahrefs Site Audit?
 
@@ -410,7 +474,7 @@ Yes, via a shared headless renderer (Playwright Chromium). `--render auto` (the 
 
 ### Is this free?
 
-Yes. MIT licensed, fully open source, no per-domain pricing, no telemetry. The core plugin and all 32 sub-skills work without any paid service. Some optional MCP extensions wrap paid services (DataForSEO, Ahrefs, Profound, SE Ranking) where you bring your own account credentials.
+Yes. MIT licensed, fully open source, no per-domain pricing, no telemetry. The core plugin and all 39 sub-skills work without any paid service (some capabilities deepen with Search Console/GA4 access or paid data; see the data-tier matrix in `skills/seo/SKILL.md`). Some optional MCP extensions wrap paid services (DataForSEO, Ahrefs, Profound, SE Ranking) where you bring your own account credentials.
 
 ### How is AEO/GEO scoring different from just relabeled SEO?
 

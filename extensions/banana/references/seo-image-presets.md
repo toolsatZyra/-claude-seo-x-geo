@@ -121,9 +121,11 @@ preset format (see `references/presets.md` for schema details).
 
 ## Creating Custom Presets
 
-Users can create their own presets:
+Users can create their own presets (`${CLAUDE_SKILL_DIR}` is the installed
+seo-image-gen skill directory, `~/.claude/skills/seo-image-gen` after
+`./extensions/banana/install.sh`):
 ```bash
-python3 ~/.claude/skills/seo-image-gen/scripts/presets.py create my-brand
+python3 "${CLAUDE_SKILL_DIR}/scripts/presets.py" create my-brand
 ```
 
 This creates `~/.banana/presets/my-brand.json` with the full schema.

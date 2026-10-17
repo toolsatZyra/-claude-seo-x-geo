@@ -497,7 +497,7 @@ Full-site crawling and URL discovery via Firecrawl MCP (extension).
 
 ### `/seo dataforseo [command]`
 
-Live SEO data via DataForSEO MCP server (extension). 22 commands across 9 API modules.
+Live SEO data via DataForSEO MCP server (extension). 23 commands across 9 API modules.
 
 **Prerequisites:** DataForSEO extension installed (`./extensions/dataforseo/install.sh`)
 
@@ -549,11 +549,193 @@ Live SEO data via DataForSEO MCP server (extension). 22 commands across 9 API mo
 
 ---
 
+### `/seo preflight <domain>`
+
+Client onboarding check before quoting: Search Console property access, CrUX
+field data, AI answer-crawler access (same evaluator as the AEO score), and a
+send-ready access-request email. Runs `scripts/client_preflight.py`.
+
+**Exit codes:** 0 GO, 1 PARTIAL (crawl-only), 2 BLOCKED. Full runbook:
+[CLIENT-ONBOARDING.md](CLIENT-ONBOARDING.md).
+
+---
+
+### `/seo project init|show|set|add-competitor|add-prompt|note <domain>`
+
+Client profile every research, content and tracking skill reads: brand terms,
+3-7 competitors, audiences, market, exact GSC property string, GA4 property,
+money pages, conversion events, voice samples, AI prompt panel, and decision
+notes with `approved_by: user|inferred` provenance. Runs
+`scripts/seo_project.py`. Stored under `$CLAUDE_SEO_DATA_DIR` (0600), never in
+the repo.
+
+```
+/seo project init example.com
+/seo project add-prompt example.com "best crm for startups"
+```
+
+---
+
+### `/seo growth <domain>`
+
+Guided end-to-end loop with a checkpoint after each stage: preflight and
+profile, baseline audit (separate SEO and AEO scores), keyword and competitor
+research, cluster and content calendar, fixes and refreshes, AI share of
+voice, then weekly tracking. Stops before any paid API call or CMS write.
+
+---
+
+### `/seo keywords plan|discover|gsc|score <seed|domain|file>`
+
+Keyword research hub (`seo-keywords`). Free tier: Google autocomplete expansion
+(unofficial, no volume) and Search Console opportunity mining: striking
+distance (positions 4-20), CTR underperformers against a site-calibrated CTR
+curve, and cannibalization. Paid tiers merge Keyword Planner, DataForSEO,
+Ahrefs or Semrush exports. Every keyword gets intent, funnel stage (TOFU,
+MOFU or BOFU), lead value, an opportunity score with its data completeness, an
+action bucket (quick_win, growth, long_term or awareness), GEO answer-format
+flags, and lead priority. Runs `scripts/keyword_research.py`.
+
+**Output:** JSON or CSV with the data tier disclosed. Groups are lexical
+approximations; use `/seo cluster` for SERP-overlap clustering.
+
+---
+
+### `/seo competitors full|keywords|content <domain>`
+
+Competitor analysis hub (`seo-competitors`):
+- **Keyword gap:** needs ranking exports. Every keyword is segmented as moat
+  (only you rank), battleground (you and a competitor both rank), gap (only a
+  competitor ranks) or pioneer (nobody ranks).
+- **Content and format gap:** free, from competitor sitemaps. Shows missing
+  page types such as comparison, alternatives and integrations pages.
+- **Backlink gap:** routed to `seo-backlinks`.
+- **AI-citation gap:** routed to `geo-share-of-voice`.
+- **Battlecards:** one per competitor.
+
+Generating "X vs Y" pages stays with `/seo competitor-pages`. Runs
+`scripts/competitor_gap.py`.
+
+---
+
+### `/seo content-engine [plan|brief|draft|check|export|measure] <domain|item|file>`
+
+Outrank-style content pipeline with human checkpoints (`seo-content-engine`):
+1. Keyword selection, BOFU-first for leads.
+2. Cannibalization pre-check against GSC and existing URLs.
+3. Calendar with a volume guard against scaled-content abuse.
+4. Brief, then draft.
+5. Quality gates: claim verification, citability, content quality,
+   humanizer, coverage, schema and IPTC labels.
+6. Mandatory human review (`reviewed_by`).
+7. Export as a draft (Markdown/HTML bundle, HMAC-signed webhook, or WordPress
+   draft).
+8. Measurement at +14 and +28 days.
+
+Runs `scripts/content_export.py`. **Nothing is published without
+`--status publish`, passing publish gates and `--confirm`.**
+
+---
+
+### `/seo content optimize <url> <keyword>`
+
+Optimize mode of `seo-content`. Compares the page against competitor pages you
+supply (or DataForSEO SERP data; Google is never scraped). Measures:
+- term coverage over 1-3-grams present in at least 50% of competitor pages
+- heading and question coverage
+- length percentile
+- keyword placement and keyword stuffing
+
+The deterministic 0-100 score prints its own arithmetic and is correlational,
+not a ranking guarantee. Runs `scripts/content_optimizer.py`.
+
+---
+
+### `/seo refresh [decay|candidates|brief|aio|export|measure] <domain|url>`
+
+Content decay and improvement loop (`seo-refresh`). `content_decay.py analyze`
+compares the last 90 days with the same window a year earlier (or the previous
+90 days) and assigns:
+- a tier: −20% warning, −40% high, −60% critical
+- a cause: SERP feature or AI Overview, ranking loss, demand drop, or
+  cannibalization
+- a rule-traced action: refresh, rewrite, consolidate, redirect/retire review,
+  or monitor
+
+`candidates` lists high-impression pages at positions 4-25 with a CTR gap or
+declining clicks. Also includes an AI-Overview recovery playbook and
+date-hygiene rules.
+
+---
+
+### `/seo track setup|snapshot|report|ai-referrals|experiment|export <domain>`
+
+Measurement hub (`seo-track`). `performance_tracker.py` keeps KPI history in
+SQLite: GSC clicks (total and non-brand), rank visibility, GA4 organic and
+AI-assistant sessions and key events, AI share of voice, the AEO score, and
+CRM leads. Any script can contribute through a validated KPI envelope
+(`scripts/seo_kpi.py`). `report --compare 28d --fail-on-drop N` exits 3 when a
+watched metric drops. `experiment` gives holdout verdicts (Promote,
+Keep-testing, Rollback or Unproven).
+
+---
+
+### `/seo rank add|ingest|import|report|history <domain>`
+
+Rank tracking (`seo-track`, `scripts/rank_tracker.py`): daily GSC
+average-position history plus SERP imports from DataForSEO, Ahrefs, Semrush or
+manual files. Reports movers (|Δ| ≥ 3 with an impression floor, excluding the
+newest 3 days of GSC lag), a visibility index, band distribution,
+cannibalization, URL swaps and per-tag summaries. GSC position is an average,
+not a SERP rank; the report says so.
+
+---
+
+### `/seo ai-visibility plan|run|ingest|report|compare <domain>`
+
+AI share of voice (`geo-share-of-voice`, `scripts/ai_visibility.py`). It runs
+a fixed prompt panel (unbranded headline, treatment and control groups, k ≥ 5
+runs) through:
+- Anthropic's API with web search (`--max-calls` required; dry run available)
+- DataForSEO ChatGPT/LLM captures or manual captures (ingested)
+
+It reports mention rate with Wilson 95% CI, share of voice, citation rate and
+share, and competitor tables. n < 20 is flagged thin. API and consumer-UI
+answers are never pooled. `compare` runs paired sign tests with Holm
+correction. This is an outcome metric, never blended into the AEO readiness
+score.
+
+---
+
+### `/seo agentic [lighthouse|fix|refresh] <url>`
+
+Agent readiness (`seo-agentic`, ported from upstream v2.4). Covers:
+- the Lighthouse Agentic Browsing category
+- AI agent access rules and Content-Signal
+- Markdown delivery (`Accept: text/markdown`)
+- `ai-catalog.json`, `/.well-known` discovery files and WebMCP
+
+Fix mode drafts the files.
+
+---
+
 ## Quick Reference
 
 | Command | Use Case |
 |---------|----------|
 | `/seo audit <url>` | Full website audit with parallel subagents |
+| `/seo preflight <domain>` | Client onboarding: data access check + access request |
+| `/seo project init <domain>` | Client profile read by every skill |
+| `/seo growth <domain>` | Guided research → create → measure loop |
+| `/seo keywords <seed\|domain>` | Keyword research, scoring, lead priority |
+| `/seo competitors <domain>` | Keyword, content, backlink and AI-citation gaps |
+| `/seo content-engine <domain>` | Calendar → brief → draft → gates → review → draft export |
+| `/seo content optimize <url> <kw>` | Coverage vs ranking pages |
+| `/seo refresh <domain>` | Content decay + improvement candidates |
+| `/seo track <domain>` | KPI history and trend reports |
+| `/seo rank <domain>` | Rank tracking from GSC history + SERP imports |
+| `/seo ai-visibility <domain>` | AI share of voice with confidence intervals |
+| `/seo agentic <url>` | AI agent readiness |
 | `/seo page <url>` | Single page analysis |
 | `/seo technical <url>` | Technical SEO across 9 categories |
 | `/seo content <url>` | E-E-A-T and content quality |

@@ -1,15 +1,15 @@
 ---
 name: geo-proposal
 description: >
-  Auto-generate a professional, client-ready GEO service proposal from audit data.
+  Auto-generate a professional, client-ready AEO/GEO service proposal from audit data (AEO Score from scripts/aeo_score.py).
   Creates a full proposal in markdown and PDF including executive summary, findings,
   recommended service packages (Basic/Standard/Premium), pricing, timeline, and terms.
   Use when user says "proposal", "proposta", "offerta", "preventivo", "generate proposal",
-  or after completing a GEO audit for a prospect.
+  or after completing an AEO audit for a prospect.
 tags: [geo, business, proposal, sales, pricing, client]
 allowed-tools: Read, Write, Bash, Glob, WebFetch
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted)
 ---
 
@@ -18,10 +18,10 @@ metadata:
 ## Purpose
 
 Generate a fully customized, client-ready GEO service proposal that:
-1. Pulls findings directly from the prospect's GEO audit
+1. Pulls findings directly from the prospect's AEO audit and AEO Score
 2. Translates technical gaps into business pain points
 3. Presents 3 service tiers with clear pricing
-4. Includes a realistic ROI projection
+4. Includes an ROI framework built only from checkable inputs
 5. Outputs a professional markdown document ready to send
 
 ---
@@ -45,26 +45,30 @@ Generate a fully customized, client-ready GEO service proposal that:
 
 ### Step 1: Load Audit Data
 
-1. Check if `~/.geo-prospects/audits/<domain>*.md` exists
-2. If not, suggest running `/geo quick <domain>` first
-3. Extract from audit:
-   - GEO Score (overall and per-category)
+1. Check if `~/.geo-prospects/audits/<domain>*.md` exists, or whether the
+   client has `aeo.*` snapshots in seo-track
+   (`python3 scripts/performance_tracker.py export --project <domain> --metrics aeo.,ai. --json`).
+2. If not, run `/seo geo <url>` to measure the AEO components, then
+   `python3 scripts/aeo_score.py compute ... --json` to get the AEO Score
+   (and `--emit-kpis` + `performance_tracker.py ingest` to start the
+   client's history).
+3. Extract from the audit / aeo_score.py output:
+   - AEO Score with rating, completeness and the component table
    - Top 3 critical findings
    - Quick wins list
    - Business type
-   - Estimated organic traffic impact
+   - Measured traffic and leads, only if tracked (`ga4.*`, `leads.*`);
+     never an estimated traffic impact
 
 ### Step 2: Customize the Proposal
 
 Auto-fill proposal template with:
 - Company name (from domain or prospect record)
-- GEO score and tier label
+- AEO score, rating and completeness
 - 3 most critical pain points (translated to business language)
 - Estimated revenue at risk from AI search shift
-- Recommended service tier based on score:
-  - Score 0-40 → Recommend Premium (critical issues need full attention)
-  - Score 41-60 → Recommend Standard (significant gaps, needs monthly work)
-  - Score 61-75 → Recommend Basic (solid base, needs monitoring)
+- Recommended service tier based on the AEO score (see Pricing
+  Recommendation Logic below)
 
 ### Step 3: Generate Proposal File
 
@@ -80,7 +84,7 @@ Generate the following document, filling all `[PLACEHOLDERS]` with real audit da
 ---
 
 ```markdown
-# GEO Optimization Proposal
+# AEO / GEO Optimization Proposal
 ## [COMPANY NAME] — AI Search Visibility
 
 **Prepared by:** [YOUR AGENCY NAME]
@@ -94,10 +98,12 @@ Generate the following document, filling all `[PLACEHOLDERS]` with real audit da
 ## Executive Summary
 
 [COMPANY NAME] operates in [INDUSTRY] and serves customers across [GEOGRAPHY].
-Our GEO audit of [DOMAIN], conducted on [DATE], reveals a GEO Readiness Score
-of **[SCORE]/100 ([TIER LABEL])**.
+Our AEO audit of [DOMAIN], conducted on [DATE], measured an AEO Readiness
+Score of **[SCORE]/100 ([RATING])**, computed from [N] of 6 components
+(completeness [C]).
 
-This means your website currently has [TIER DESCRIPTION — use score interpretation table].
+This means your website currently has [RATING DESCRIPTION — Excellent 90+,
+Good 75-89, Fair 60-74, Poor 40-59, Critical 0-39].
 AI-powered search (ChatGPT, Google AI Overviews, Perplexity) is capturing a
 growing share of discovery traffic -- **[X]% of online discovery** for [COMPANY]'s
 industry -- and this gap represents a measurable risk to your pipeline.
@@ -145,13 +151,17 @@ unsourceable stat in a sales proposal is worse than a smaller, defensible one.
 
 ### Your Current Position
 
-| Metric | [COMPANY] | Industry Average | Top Performers |
-|--------|-----------|------------------|----------------|
-| GEO Score | [SCORE]/100 | 45/100 | 75+/100 |
-| AI Crawlers Allowed | [X]/14 | 8/14 | 14/14 |
-| Brand Mentions (AI platforms) | [STATUS] | Moderate | High |
-| Schema Coverage | [STATUS] | Partial | Complete |
-| llms.txt | [Yes/No] | [unverified — see note] | [unverified — see note] |
+| Metric | [COMPANY] | How it was measured |
+|--------|-----------|---------------------|
+| AEO Readiness Score | [SCORE]/100 ([RATING]) | `aeo_score.py compute`, completeness [C] |
+| AI answer engines allowed in robots.txt | [X]/9 answer-surface agents | `aeo_score.py crawlers` (training crawlers listed separately; blocking them is a licensing choice) |
+| Brand Authority | [X]/100 | `geo-brand-mentions` rubric (part judgment) |
+| Schema | [X]/100 | `seo-schema` |
+| AI share of voice | [X% mention rate, n, engine] or "not yet measured" | `geo-share-of-voice` (outcome; only if the prospect agreed to a panel run) |
+| llms.txt | [Yes/No] | audited only; not a ranking lever (see note) |
+
+There is no published industry benchmark for this score; do not add an
+"industry average" column or invent one.
 
 > **Note on the llms.txt row:** this template previously hardcoded "12% have
 > it" / "78% have it" adoption figures we could not verify. More importantly,
@@ -167,17 +177,22 @@ unsourceable stat in a sales proposal is worse than a smaller, defensible one.
 
 ## Audit Findings Summary
 
-### GEO Score Breakdown
+### AEO Score Breakdown
 
-| Category | Your Score | Weight | Weighted | Priority |
-|----------|-----------|--------|---------|----------|
-| AI Citability & Visibility | [SCORE]/100 | 25% | [WEIGHTED] | [HIGH/MED/LOW] |
-| Brand Authority Signals | [SCORE]/100 | 20% | [WEIGHTED] | [HIGH/MED/LOW] |
-| Content Quality & E-E-A-T | [SCORE]/100 | 20% | [WEIGHTED] | [HIGH/MED/LOW] |
-| Technical Foundations | [SCORE]/100 | 15% | [WEIGHTED] | [HIGH/MED/LOW] |
-| Structured Data | [SCORE]/100 | 10% | [WEIGHTED] | [HIGH/MED/LOW] |
-| Platform Optimization | [SCORE]/100 | 10% | [WEIGHTED] | [HIGH/MED/LOW] |
-| **TOTAL GEO SCORE** | | | **[SCORE]/100** | **[TIER]** |
+Copy the component table from `aeo_score.py compute --json`; do not
+recompute or round differently.
+
+| Component | Your Score | Weight | Priority |
+|----------|-----------|--------|----------|
+| Citability | [SCORE]/100 or N/A | 25 | [HIGH/MED/LOW] |
+| Brand authority | [SCORE]/100 or N/A | 20 | [HIGH/MED/LOW] |
+| Content E-E-A-T | [SCORE]/100 or N/A | 20 | [HIGH/MED/LOW] |
+| AI crawler access | [SCORE]/100 or N/A | 15 | [HIGH/MED/LOW] |
+| Schema | [SCORE]/100 or N/A | 10 | [HIGH/MED/LOW] |
+| Platform readiness | [SCORE]/100 or N/A | 10 | [HIGH/MED/LOW] |
+| **AEO SCORE** | | completeness [C] | **[SCORE]/100 ([RATING])** |
+
+Computation: `python3 -c "print(<expression from aeo_score.py>)"` -> [SCORE]
 
 ### Critical Issues Found
 
@@ -198,26 +213,27 @@ We offer three engagement models based on the scope of optimization needed.
 ---
 
 ### BASIC — €2,500/month
-*Best for: Sites with score 61-75 needing targeted improvements*
+*Best for: Sites with an AEO score of 61-75 needing targeted improvements*
 
 **What's included:**
-- Quarterly full GEO audit (4x/year)
-- Quarterly client report with score tracking
+- Quarterly full AEO audit (4x/year)
+- Quarterly client report with AEO Score tracking
 - Schema.org implementation (Organization + key page schemas)
-- AI crawler access optimization (robots.txt)
-- llms.txt creation and maintenance
+- AI crawler access optimization (robots.txt, answer-surface agents)
+- llms.txt creation on request (forward-looking; not a ranking lever)
 - Email support (48-hour response)
 
-**Estimated GEO score improvement:** +10-20 points in 6 months
+**Success measures:** AEO Score and its components, tracked in seo-track; targets agreed after the baseline, not promised here
 **Contract:** Minimum 6 months
 
 ---
 
 ### STANDARD — €5,000/month ⭐ Recommended for [COMPANY]
-*Best for: Sites with score 40-60 needing structured monthly work*
+*Best for: Sites with an AEO score of 41-60 needing structured monthly work*
 
 **Everything in Basic, plus:**
-- Monthly full GEO audit + delta report
+- Monthly full AEO audit + delta report (`geo-compare`)
+- Monthly AI share-of-voice panel (`geo-share-of-voice`) with treatment/control measurement
 - Monthly strategy call (60 minutes)
 - Content citability optimization (up to 10 pages/month)
 - Brand authority building (Wikipedia, Wikidata, LinkedIn optimization)
@@ -225,13 +241,13 @@ We offer three engagement models based on the scope of optimization needed.
 - E-E-A-T improvements (author pages, credentials, freshness signals)
 - Slack channel for fast communication (24-hour response)
 
-**Estimated GEO score improvement:** +25-40 points in 6 months
+**Success measures:** AEO Score, AI share of voice (mention rate with confidence interval) and AI-referred sessions, reported monthly
 **Contract:** Minimum 6 months
 
 ---
 
 ### PREMIUM — €9,500/month
-*Best for: Sites with score 0-40 with critical issues, or competitive industries*
+*Best for: Sites with an AEO score of 0-40 with critical issues, or competitive industries*
 
 **Everything in Standard, plus:**
 - Bi-weekly strategy calls
@@ -242,29 +258,29 @@ We offer three engagement models based on the scope of optimization needed.
 - Dedicated account manager
 - Priority support (4-hour response)
 
-**Estimated GEO score improvement:** +40-60 points in 6 months
+**Success measures:** as Standard, plus experiment verdicts (Promote / Keep-testing / Rollback / Unproven) for each major content change
 **Contract:** Minimum 12 months
 
 ---
 
-## ROI Projection for [COMPANY NAME]
+## ROI Framework for [COMPANY NAME]
 
-Based on your current GEO score of [SCORE]/100 and industry benchmarks:
+Build this section only from inputs the client can check:
 
-| Scenario | 6-Month Score | AI Traffic Increase | Est. Additional Value/Month |
-|----------|--------------|--------------------|-----------------------------|
-| No action | [SCORE + 2]/100 | +5% (organic growth) | €[LOW] |
-| Basic package | [SCORE + 15]/100 | +30-40% | €[MED] |
-| Standard package | [SCORE + 32]/100 | +60-90% | €[HIGH] |
-| Premium package | [SCORE + 50]/100 | +100-150% | €[VERY HIGH] |
+| Input | Value | Source |
+|-------|-------|--------|
+| Current AI-referred sessions / month | [X or "not measured"] | GA4 via `ai_referrals.py` |
+| Current organic sessions / month | [X] | GA4 / Search Console |
+| Lead conversion rate of organic visits | [X%] | client CRM / GA4 key events |
+| Value of a lead | €[X] | client |
 
-**Assumptions:**
-- Based on estimated [X] monthly organic visitors to [DOMAIN]
-- AI search is projected to drive 25-40% of organic discovery by end of 2026
-- AI-referred traffic converts at 4.4x the rate of regular organic traffic
-- Calculations use conservative estimates — actual results may vary
-
-**Payback period (Standard package):** [X] months based on current traffic
+Break-even for a package = monthly fee / value of a lead = the number of
+additional leads per month the work must produce. State it that way and let
+the client judge plausibility. Do not project score gains, AI-traffic
+growth percentages or conversion multipliers: published figures vary by
+2-3x or more between studies (see [[evidence-registry]]), and none of them
+is a forecast for this client. If you cite a market statistic for context,
+give its source and date.
 
 ---
 
@@ -272,26 +288,23 @@ Based on your current GEO score of [SCORE]/100 and industry benchmarks:
 
 ### Month 1 — Foundation
 - Kick-off call and onboarding (Week 1)
-- Full technical audit + baseline metrics capture
-- Quick wins implementation: robots.txt, schema, llms.txt, meta descriptions
-- Expected score improvement: +5-10 points
+- Full technical audit + baseline metrics capture (AEO Score, share-of-voice panel, AI-referred sessions)
+- Quick wins implementation: robots.txt for answer-surface agents, schema, meta descriptions
 
 ### Month 2-3 — Optimization
 - Content citability rewrites (top 10 pages)
 - E-E-A-T improvements: author pages, credentials, dates
 - Platform-specific optimization (Google AIO, ChatGPT, Perplexity)
 - Brand presence: LinkedIn, Wikipedia/Wikidata groundwork
-- Expected score improvement: +15-25 points cumulative
 
 ### Month 4-6 — Authority Building
 - Brand mention campaigns (Reddit, industry sites, YouTube)
 - Topical authority content strategy
-- Monthly reports showing score improvements
-- Expected score improvement: +30-45 points cumulative
+- Monthly reports with measured changes and experiment verdicts
 
 ### Month 6 — Review
-- Full re-audit with before/after comparison
-- ROI report
+- Full re-audit with before/after comparison (`geo-compare`)
+- ROI report from measured traffic and leads
 - Renewal discussion
 
 ---
@@ -301,7 +314,7 @@ Based on your current GEO score of [SCORE]/100 and industry benchmarks:
 - **GEO specialists**: We focus exclusively on AI search optimization, not traditional SEO agencies adapting to GEO
 - **Transparent reporting**: Monthly reports show exactly what changed and why
 - **No lock-in beyond minimum**: Month-to-month after initial commitment
-- **Proven methodology**: 11-dimension GEO audit covering all major AI platforms
+- **Reproducible methodology**: an AEO Readiness Score with a published formula and evidence for every component, plus measured AI share of voice
 - **Fast results**: Quick wins visible within 30 days
 
 ---
@@ -342,9 +355,9 @@ This proposal is valid for **30 days** from the date above.
 
 ---
 
-*This proposal was prepared using GEO-SEO analysis tools and reflects findings
-from the audit of [DOMAIN] conducted on [DATE]. All scores and recommendations
-are based on current industry best practices for Generative Engine Optimization.*
+*This proposal reflects findings from the audit of [DOMAIN] conducted on
+[DATE]. The AEO Score was computed with scripts/aeo_score.py; the formula and
+component evidence are available on request.*
 ```
 
 ---
@@ -357,14 +370,16 @@ are based on current industry best practices for Generative Engine Optimization.
    ```
    ✓ Proposal generated: ~/.geo-prospects/proposals/electron-srl.com-proposal-2026-03-12.md
    ✓ Prospect status updated: Qualified → Proposal
-   ✓ Recommended package: STANDARD (€5,000/month) — Score 32/100
+   ✓ Recommended package: STANDARD (€5,000/month) — AEO Score 52/100 (completeness 1.00)
 
-   Next: Share the proposal file or run `/geo report-pdf` for a visual version.
+   Next: Share the proposal file, or run `/seo google report` (scripts/google_report.py) for the PDF version.
    ```
 
 ## Pricing Recommendation Logic
 
-Base recommendation on GEO score:
+Base recommendation on the AEO score from `aeo_score.py compute` (only when
+completeness is at least 0.6; below that, measure the missing components
+before recommending a tier):
 - Score 0-40 → Recommend **Premium** (critical issues require intensive work)
 - Score 41-60 → Recommend **Standard** (structured monthly optimization)
 - Score 61-75 → Recommend **Basic** (maintenance + targeted improvements)

@@ -7,24 +7,16 @@ echo "Removing Firecrawl extension..."
 rm -rf "${HOME}/.claude/skills/seo-firecrawl"
 echo "v Removed skill files"
 
-# Remove MCP entry from settings.json
-SETTINGS_FILE="${HOME}/.claude/settings.json"
-if [ -f "${SETTINGS_FILE}" ]; then
-    python3 - "${SETTINGS_FILE}" <<'PY' || echo "  Warning: Could not update settings.json automatically."
-import json, os, sys
-
-settings_path = sys.argv[1]
-with open(settings_path, 'r') as f:
-    settings = json.load(f)
-
-if 'mcpServers' in settings and 'firecrawl-mcp' in settings['mcpServers']:
-    del settings['mcpServers']['firecrawl-mcp']
-    with open(settings_path, 'w') as f:
-        json.dump(settings, f, indent=2)
-    print('v Removed MCP server from settings.json')
-else:
-    print('  MCP server not found in settings.json (already removed)')
-PY
+# Remove the MCP entry from ~/.claude.json (where Claude Code reads MCP
+# servers), and the stale copy older releases wrote to ~/.claude/settings.json.
+# The helper rewrites a file atomically and never touches one that does not parse.
+CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
+if [ -f "${CLEANUP}" ]; then
+    python3 "${CLEANUP}" firecrawl-mcp --file "${HOME}/.claude.json" \
+        || echo "  Warning: Could not update ~/.claude.json automatically."
+    python3 "${CLEANUP}" firecrawl-mcp || true
+else
+    echo "  Warning: remove 'firecrawl-mcp' from mcpServers in ~/.claude.json manually."
 fi
 
 echo ""

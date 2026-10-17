@@ -14,7 +14,7 @@ license: MIT
 metadata:
   author: AgriciDaniel
   original_author: "Lutfiya Miller (Pro Hub Challenge Winner)"
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -43,6 +43,8 @@ interactive cluster map visualizations.
 ## Planning Workflow
 
 ### Step 1: Seed Keyword Expansion
+
+> Keyword discovery and scoring entry point: `seo-keywords` (`scripts/keyword_research.py`) — feed its scored list in here; SERP-overlap clusters supersede its approximate lexical groups.
 
 Expand the seed keyword into 30-50 variants using WebSearch:
 

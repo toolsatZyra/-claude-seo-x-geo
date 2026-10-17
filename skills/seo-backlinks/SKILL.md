@@ -7,7 +7,7 @@ license: MIT
 compatibility: "Free: Common Crawl + verify always available. Optional: Moz API, Bing Webmaster (free signup). Premium: DataForSEO extension."
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -17,7 +17,7 @@ metadata:
 
 Before analysis, detect available data sources:
 
-1. **DataForSEO MCP** (premium): Check if `dataforseo_backlinks_summary` tool is available
+1. **DataForSEO MCP** (premium): Check if `backlinks_summary` tool is available
 2. **Moz API** (free signup): `python3 scripts/backlinks_auth.py --check moz --json`
 3. **Bing Webmaster** (free signup): `python3 scripts/backlinks_auth.py --check bing --json`
 4. **Common Crawl** (always available): Domain-level graph with PageRank
@@ -46,11 +46,11 @@ Produce all 7 sections below. Each section lists data sources in preference orde
 
 ### 1. Profile Overview
 
-**DataForSEO:** `dataforseo_backlinks_summary` → total backlinks, referring domains, domain rank, follow ratio, trend.
+**DataForSEO:** `backlinks_summary` → total backlinks, referring domains, domain rank, follow ratio, trend.
 
 **Moz API:** `python3 scripts/moz_api.py metrics <url> --json` → Domain Authority, Page Authority, Spam Score, linking root domains, external links.
 
-**Common Crawl:** `python3 scripts/commoncrawl_graph.py <domain> --json` → in-degree (referring domain count), PageRank, harmonic centrality.
+**Common Crawl:** `python3 scripts/commoncrawl_graph.py <domain> --json` → PageRank, harmonic centrality, and low-confidence rank/presence data.
 
 **Scoring:**
 
@@ -63,7 +63,7 @@ Produce all 7 sections below. Each section lists data sources in preference orde
 
 ### 2. Anchor Text Distribution
 
-**DataForSEO:** `dataforseo_backlinks_anchors`
+**DataForSEO:** `backlinks_anchors`
 
 **Moz API:** `python3 scripts/moz_api.py anchors <url> --json`
 
@@ -84,11 +84,11 @@ Flag if exact-match anchors exceed 15% -- this is a Google Penguin risk signal.
 
 ### 3. Referring Domain Quality
 
-**DataForSEO:** `dataforseo_backlinks_referring_domains`
+**DataForSEO:** `backlinks_referring_domains`
 
 **Moz API:** `python3 scripts/moz_api.py domains <url> --json` → domains with DA scores
 
-**Common Crawl:** `python3 scripts/commoncrawl_graph.py <domain> --json` → top referring domains (domain-level, no authority scores)
+**Common Crawl:** `python3 scripts/commoncrawl_graph.py <domain> --json` → domain-level rank/presence data, no verified referring-domain counts
 
 Analyze:
 - **TLD distribution**: .edu, .gov, .org = high authority. Excessive .xyz, .info = low quality
@@ -98,7 +98,7 @@ Analyze:
 
 ### 4. Toxic Link Detection
 
-**DataForSEO:** `dataforseo_backlinks_bulk_spam_score` + toxic patterns from reference
+**DataForSEO:** `backlinks_bulk_spam_score` + toxic patterns from reference
 
 **Moz API:** Spam Score from `python3 scripts/moz_api.py metrics <url> --json` (1-17% scale, >11% = high risk)
 
@@ -122,7 +122,7 @@ Load `references/backlink-quality.md` for the full 30 toxic patterns and disavow
 
 ### 5. Top Pages by Backlinks
 
-**DataForSEO:** `dataforseo_backlinks_backlinks` with target type "page"
+**DataForSEO:** `backlinks_backlinks` with target type "page"
 
 **Moz API:** `python3 scripts/moz_api.py pages <domain> --json`
 
@@ -134,9 +134,9 @@ Find:
 
 ### 6. Competitor Gap Analysis
 
-**DataForSEO:** `dataforseo_backlinks_referring_domains` for both domains, then compare
+**DataForSEO:** `backlinks_referring_domains` for both domains, then compare
 
-**Bing Webmaster (unique!):** `python3 scripts/bing_webmaster.py compare <url1> <url2> --json` — the only free tool with built-in competitor comparison
+**Bing Webmaster:** `python3 scripts/bing_webmaster.py compare <url1> <url2> --json` — free side-by-side comparison, but only between sites verified in the same Bing Webmaster account (it cannot compare against an arbitrary competitor)
 
 **Moz API:** Compare DA/PA between domains via `python3 scripts/moz_api.py metrics <url> --json` for each
 
@@ -148,7 +148,7 @@ Output:
 
 ### 7. New and Lost Backlinks
 
-**DataForSEO only:** `dataforseo_backlinks_backlinks` with date filters for 30/60/90 day changes
+**DataForSEO only:** `backlinks_backlinks` with date filters for 30/60/90 day changes
 
 **Verification Crawler:** For known links, verify current status with `python3 scripts/verify_backlinks.py`
 

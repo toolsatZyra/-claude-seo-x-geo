@@ -4,14 +4,13 @@ description: >
   Strategic SEO planning for new or existing websites. Industry-specific
   templates, competitive analysis, content strategy, and implementation
   roadmap. Use when user says "SEO plan", "SEO strategy", "SEO planning",
-  "content strategy", "keyword strategy", "content calendar",
-  "site architecture", or "SEO roadmap".
+  "content strategy", "keyword strategy", "site architecture", or "SEO roadmap".
 user-invocable: true
 argument-hint: "[business-type]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -26,6 +25,7 @@ metadata:
 - Key performance indicators (KPIs)
 
 ### 2. Competitive Analysis
+> Keyword scoring and competitor gaps: use `seo-keywords` (intent, funnel, opportunity score, buckets) and `seo-competitors` (keyword/content gap, battlecards) as the deterministic entry points.
 - Identify top 5 competitors
 - Analyze their content strategy, schema usage, technical setup
 - Identify keyword gaps and content opportunities

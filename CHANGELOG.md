@@ -5,6 +5,222 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## v3.1.0 — 2026-10-17
+
+**SEO × AEO × GEO hub.** v3.0 was a strong audit toolkit. v3.1 adds the rest
+of the organic-growth loop around it: research, then create and optimize, then
+measure. Every new capability reads one client profile and writes comparable,
+dated numbers. The work started with an audit of v3.0 against a target
+capability list and with research into outrank.so, the two upstream projects,
+aaron-he-zhu/seo-geo-claude-skills and the wider open-source landscape (spec and
+plan under `docs/superpowers/`). Existing commands, scripts and outputs keep
+working, with three deliberate behaviour changes listed under **Changed**.
+
+### Added
+
+- **Hub router** (`skills/seo/SKILL.md`):
+  - commands grouped by job to be done
+  - a data-tier matrix: free, + Search Console/GA4, + paid data
+  - `/seo project`, a client profile every skill reads
+  - `/seo growth`, a guided loop with a checkpoint at every stage
+  - a rule that readiness scores and outcome metrics are never blended
+- **Shared deterministic core**:
+  - `seo_metrics.py` holds intent, funnel and lead value, position bands,
+    the CTR curve (site-calibrated preferred), the opportunity score (unknown
+    components treated as neutral, completeness reported), scenario buckets,
+    GEO answer-format flags, Wilson CI, the sign test, Holm correction and the
+    10%/10% cannibalization rule.
+  - `seo_store.py` handles the storage root (`$CLAUDE_SEO_DATA_DIR`, 0700/0600).
+  - `seo_project.py` holds the client profile.
+  - `seo_kpi.py` holds the KPI envelope contract, validated at write and at
+    ingest.
+- **`seo-keywords`** + `keyword_research.py`:
+  - **Discovery:** Google autocomplete expansion (unofficial, rate-limited,
+    cached, fail-soft).
+  - **Search Console mining:** striking distance at positions 4-20 with
+    opportunity clicks, CTR underperformers against a site-calibrated curve,
+    and cannibalization.
+  - **Scoring:** merges suggest, GSC, Keyword Planner, DataForSEO, Ahrefs and
+    Semrush data, then assigns intent, funnel, opportunity, bucket, lead
+    priority and lexical groups.
+- **`seo-competitors`** + `competitor_gap.py`:
+  - **Keyword gap:** 4-way segmentation (moat, battleground, gap, pioneer).
+  - **Content and format gap:** from competitor sitemaps, which surfaces
+    missing BOFU page types such as comparison, alternatives and integrations
+    pages.
+  - **Other gaps:** backlink and AI-citation gaps are routed to their own
+    skills; battlecards close the analysis.
+- **`seo-track`**:
+  - **`rank_tracker.py`:** GSC rank history, SERP imports, movers, visibility
+    index, cannibalization, URL swaps, and holdout `experiment` verdicts
+    (Promote, Keep-testing, Rollback, Unproven).
+  - **`performance_tracker.py`:** KPI snapshots, trend report,
+    `--fail-on-drop`, and an export that `geo-compare` consumes.
+  - **`ai_referrals.py`:** GA4 sessions and key events from AI assistants vs
+    organic.
+- **`seo-content-engine`**: an Outrank-style pipeline. A calendar with a
+  cannibalization pre-check and a volume guard, then brief, draft and quality
+  gates, then **mandatory human review**, then export via `content_export.py`
+  (HTML bundle, HMAC-signed webhook, idempotent WordPress drafts). It is
+  draft-first and never publishes from front matter alone.
+- **`seo-refresh`** + `content_decay.py`:
+  - **Decay:** YoY tiers at −20%, −40% and −60%; cause diagnosis (SERP
+    feature or AI Overview, ranking loss, demand drop, cannibalization);
+    rule-traced actions.
+  - **Improvement candidates:** at least 500 impressions, positions 4-25.
+  - **Guidance:** AI-Overview recovery playbook and date-hygiene rules.
+- **Content optimize mode** in `seo-content`, via `content_optimizer.py`:
+  - coverage against competitor pages: terms, headings, questions, length
+    percentile, placement and stuffing flags
+  - a deterministic score that prints its own arithmetic and is labelled
+    correlational
+- **`geo-share-of-voice`** + `ai_visibility.py`:
+  - **Panel:** a prompt panel with treatment and control groups, k ≥ 5 runs.
+  - **Engines:** Anthropic engine with web search (`--max-calls` required,
+    dry run), plus ingest for DataForSEO ChatGPT captures and manual captures.
+  - **Report:** an unbranded headline, Wilson CIs, a thin flag below n=20, and
+    API and consumer-UI answers never pooled.
+  - **Compare:** paired comparisons with Holm correction.
+- **`aeo_score.py`**, the single AEO Readiness Score: citability 25, brand 20,
+  content E-E-A-T 20, crawler access 15, schema 10, platform 10. It also
+  computes a deterministic AI-crawler access sub-score: answer-surface agents
+  are scored, training crawlers are reported only, and Cloudflare
+  managed-robots blocks are detected.
+- **Ported from upstream claude-seo v2.4** (MIT): `seo-agentic` (skill, agent
+  and three scripts), `metadata_template.py`, `sitemap_discovery.py`,
+  `consistency_check.py` (now a repo-wide test gate) and
+  `extensions/mcp_config_cleanup.py`.
+
+### Changed
+
+- **AEO score (behaviour change).** `seo-audit` now reports the AEO score from
+  `aeo_score.py`, a composite that includes citability, instead of the
+  citability figure alone. `geo-compare` computes deltas from `seo-track` data
+  and reports missing metrics as "not measured" instead of estimating them from
+  prose. `geo-platform-optimizer`'s figure is renamed Platform Readiness Score
+  and feeds the AEO platform component.
+- **FAQPage stance (behaviour change).** This follows upstream v2.4.1. The AI
+  benefit of FAQPage markup is unconfirmed, so it is no longer recommended as
+  an AI lever. Existing markup stays at Info, and visible Q&A content is still
+  recommended. Guarded by a test.
+- **Client preflight (behaviour change).** AI-crawler access now comes from the
+  same evaluator as the AEO score. Training-only crawlers are reported
+  separately and are not treated as AI-answer blockers. Fetches go through
+  `url_safety`.
+- **Agents:**
+  - an untrusted-content Security Rules section in every agent
+  - larger turn budgets plus an early partial-findings write for audit agents
+  - `model: opus` for judgment-heavy agents
+  - `tools:` frontmatter fixed on the geo agents
+- **Facts:** Google updates ledger refreshed (58 entries); local SEO, CWV,
+  schema-type, DMA/Consent Mode and Gemini image-model references corrected.
+- **Routing:** overlapping trigger phrases (content calendar, content plan,
+  monthly report, compare) each now have a single owning skill.
+- **Agent readiness:** criteria moved to `seo-agentic`, the single copy.
+
+### Fixed
+
+- **Dead references:**
+  - dead `/geo quick` and `/geo report-pdf` commands in the geo-* skills
+  - `seo-image-gen` calling scripts that exist only inside the Banana
+    extension
+- **Wrong AI-crawler claims:** GPTBot powering ChatGPT search, ClaudeBot
+  powering Claude search, and penalties for blocking training crawlers.
+- **Unverified statistics:** unsourced stats removed from agents; the backlink
+  correlation figure aligned with the evidence registry (~0.218).
+- **Install docs:** `docs/INSTALLATION.md` pointed users at the upstream
+  repository.
+- **Banana extension:** scripts and docs defaulted to Gemini image models
+  that Google has shut down.
+- **Smaller fixes:**
+  - `google_auth` token save no longer fails on Windows when `os.fchmod` is
+    absent
+  - `nlp_analyze` and `parasite_risk` use the shared charset-aware decoder
+  - a leftover client name removed from the dashboard stylesheet
+  - the DataForSEO agent mirror synced with the core agent
+
+### Security
+
+- **SSRF:** ported upstream hardening: 100.64.0.0/10, IPv4-mapped IPv6, proxy
+  validation, and an opt-in `CLAUDE_SEO_LOCAL_TARGETS` allowlist with a
+  port lock. URLs taken from fetched content never reach the allowlist.
+- **Extension installers:** MCP servers are registered in `~/.claude.json`,
+  where Claude Code reads them. Secrets never appear on a command line, an
+  unparseable config aborts instead of being reset, and stale secret-bearing
+  entries are cleaned out of `settings.json`.
+- **Script hardening:** `commoncrawl_graph` path traversal and `domain_history`
+  WHOIS referral validation and argument injection.
+- **Dependency floors:** requests 2.34.2, weasyprint 70, Pillow 12.3,
+  urllib3 2.8, flask 3.1.3.
+- **Client preflight:** the CrUX API key moved from the URL query string to
+  the `X-Goog-Api-Key` header.
+- **Client data and outbound actions:** documented in `SECURITY.md`.
+
+### Pre-merge review fixes
+
+Two independent reviews of the new scripts found defects. Each one was
+reproduced, fixed and pinned by a test in `tests/test_review_regressions.py`
+or the module's own test file.
+
+**Data accuracy**
+- GSC pulls requested 25,000 rows and never flagged truncation. They now
+  request the 100,000-row maximum, and a cut-off tail is reported instead of
+  disappearing. In decay analysis, truncation no longer produces false
+  "lost visibility" verdicts.
+- Unrecognised GA4 exports and GSC files without totals were stored as real
+  zeros, which faked a 100% drop. They are now "not measured" (null).
+- Brand queries carrying a buying modifier ("acme pricing", "acme
+  alternatives") were classified as navigational. They are now BOFU.
+- Repeated (query, page) rows were double-counted as cannibalization. They
+  are now aggregated per page first.
+- A filtered rank report (`--tag`, `--country`, `--device` or a SERP source)
+  combined with `--emit-kpis` overwrote the project-wide `rank.*` history.
+  That combination is now refused.
+- Competitor and brand terms derived from a domain now use the registrable
+  label (`shop.globex.com` → `globex`, never `shop`).
+- Trademark signs no longer hide brand mentions ("Acme™").
+- Printed score expressions now reproduce the score exactly.
+
+**Safety**
+- The competitor sitemap crawler now counts every attempted fetch toward
+  `--max-sitemaps`, ignores child sitemaps on other hosts, and stops a site
+  on 403, 429 or 503.
+- Client profiles are named by host, so two clients (`my-site.com` and
+  `my.site.com`) can no longer share one file. A renamed file is refused.
+- The Anthropic client runs with `max_retries=0`, so `--max-calls` bounds
+  every billed request.
+- A UTF-8 BOM no longer inverts a local robots.txt result.
+- **Content export:**
+  - the publish review gate now rejects non-text and placeholder
+    `reviewed_by` values
+  - unresolved markers are scanned on the rendered text
+  - `schema:` paths are confined to the draft's own folder (no credential
+    files)
+  - every rendering engine passes through one HTML sanitizer
+  - drafts default to a new non-publishing `save_draft` webhook event, and
+    `publish_articles` and `update_article` always require the publish gates
+  - WordPress updates only the post whose slug matches exactly
+- Decay and content-optimizer scores are now computed from the exact
+  expression they print, so evaluating the printed expression always
+  reproduces the score. Ties round half-to-even, as in `aeo_score.py`, so
+  a −12.5% click loss now scores 12 rather than 13.
+
+**Robustness**
+- Ingest rejects bad field types per row instead of aborting the batch.
+- Malformed hosts are handled cleanly.
+- `client_preflight` normalizes `www.` input, which previously made a GO
+  client look PARTIAL. It also takes the CrUX origin from the reached URL
+  and labels an unreachable robots.txt as unreachable, not absent.
+
+### Not ported (documented follow-ups)
+
+- **From upstream:** the managed runtime launcher, gcloud ADC sign-in, the
+  seo-cockpit companion and the Matomo extension.
+- **AI visibility engines:** native OpenAI and Perplexity engines.
+- **Free volume source:** Bing Webmaster keyword stats.
+- **Ahrefs extension:** `@ahrefs/mcp@0.0.11` is reportedly archived; the
+  pinned package needs verifying.
+
 ## v3.0.0 — 2026-07-06
 
 Merged AEO/GEO depth from [geo-seo-claude](https://github.com/zubair-trabzada/geo-seo-claude)

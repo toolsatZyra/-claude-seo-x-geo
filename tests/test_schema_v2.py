@@ -247,8 +247,9 @@ def test_deprecated_types_reference_exists_and_lists_retired_kinds() -> None:
 def test_faq_rich_results_retirement_documented() -> None:
     """FAQ rich results were fully retired on 2026-05-07 (supersedes the older
     Aug 2023 gov/health restriction). The canonical schema references must reflect
-    the retirement and point users to QAPage for genuine Q&A — while keeping
-    FAQPage as an AI/entity signal (not a Critical removal)."""
+    the retirement and point users to QAPage for genuine Q&A — while flagging
+    existing FAQPage at Info (not a Critical removal); any AI-citation benefit
+    of the markup is unconfirmed."""
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
@@ -267,3 +268,22 @@ def test_faq_rich_results_retirement_documented() -> None:
     assert "QAPage" in deprecated and "QAPage" in schema_types
     # Google's faqpage doc cited as primary source.
     assert "structured-data/faqpage" in deprecated
+
+
+def test_no_unconfirmed_faqpage_ai_benefit_claims() -> None:
+    """FAQPage markup's AI-citation benefit is unconfirmed (upstream v2.4.1 stance,
+    adopted in v3.1). Guard against reintroducing the claim anywhere."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    claim = re.compile(
+        r"(markup|FAQPage)[^.\n]{0,40}still (aids|helps)[^.\n]{0,40}(AI|LLM|entity)",
+        re.IGNORECASE,
+    )
+    offenders = []
+    for path in list((root / "skills").rglob("*.md")) + list((root / "agents").glob("*.md")):
+        for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if claim.search(line):
+                offenders.append(f"{path.relative_to(root)}:{n}")
+    assert not offenders, offenders

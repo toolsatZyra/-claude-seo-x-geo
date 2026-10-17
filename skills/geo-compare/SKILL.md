@@ -1,25 +1,30 @@
 ---
 name: geo-compare
 description: >
-  Monthly delta tracking and progress reporting for GEO clients. Compares two
-  GEO audits (baseline vs. current), calculates score improvements across all
-  categories, tracks action item completion, and generates a "here's your progress"
-  client report. Use when user says "compare", "delta", "monthly report", "progress",
-  "confronta", "progressi", "report mensile", or when running a monthly client check-in.
+  Monthly delta tracking and progress reporting for AEO/GEO clients. Computes
+  baseline-vs-current deltas deterministically from the seo-track KPI history
+  (performance_tracker.py export / report --compare) for the AEO Readiness
+  Score, its components and AI share of voice, tracks action item completion,
+  and generates a "here's your progress" client report. Missing metrics are
+  reported as not measured, never estimated. Use when user says "AEO progress",
+  "GEO progress", "monthly AEO report", "AEO delta", "confronta", "progressi",
+  "report mensile", or when running a monthly client check-in.
 tags: [geo, business, delta, monthly, reporting, client, progress]
 allowed-tools: Read, Write, Bash, Glob
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted)
 ---
 
-# GEO Monthly Delta Report Generator
+# AEO Monthly Progress Report
 
 ## Purpose
 
-The single most powerful retention tool for a GEO agency: show clients **exactly**
-what improved since they started working with you. Every point gained on the GEO
-score is proof of value. This skill generates the "here's your progress" report.
+Show a client exactly what changed since the engagement started, using
+numbers a reviewer can recompute. Every delta in this report comes from the
+KPI history kept by `seo-track` (`scripts/performance_tracker.py`); nothing is
+parsed out of prose and nothing is estimated. Declines are reported as
+declines.
 
 ---
 
@@ -27,283 +32,244 @@ score is proof of value. This skill generates the "here's your progress" report.
 
 ```
 /geo compare <domain>
-/geo compare <baseline-file> <current-file>
-/geo compare electron-srl.com --month march-2026
+/geo compare <domain> --baseline 2026-03-12
+/geo compare <domain> --month 2026-10
 ```
 
-**Examples:**
-```
-/geo compare electron-srl.com
-/geo compare ~/.geo-prospects/audits/electron-srl.com-2026-01-15.md ~/.geo-prospects/audits/electron-srl.com-2026-03-12.md
-```
+---
+
+## Where the numbers come from
+
+| Metric family | Producer | Stored as |
+|---|---|---|
+| AEO Readiness Score + components | `scripts/aeo_score.py compute --emit-kpis` | `aeo.score`, `aeo.citability`, `aeo.brand_authority`, `aeo.content_eeat`, `aeo.crawler_access`, `aeo.schema`, `aeo.platform` |
+| AI crawler access (alone) | `scripts/aeo_score.py crawlers --emit-kpis` | `aeo.crawler_access` |
+| AI share of voice (outcome) | `scripts/ai_visibility.py report --emit-kpis` | `ai.mention_rate`, `ai.mention_rate_ci_low`, `ai.mention_rate_ci_high`, `ai.citation_rate`, `ai.sov`, `ai.n` |
+| Search, traffic, leads (optional context) | `performance_tracker.py snapshot` / `record` | `gsc.*`, `ga4.*`, `leads.*` |
+
+Each producer's envelope is stored with `python3 scripts/performance_tracker.py ingest <file>`.
+If the client has no snapshots yet, run the producers first; there is nothing
+to compare until two dated snapshots exist.
 
 ---
 
 ## Workflow
 
-### Step 1: Find Audit Files
+### Step 1: List the available snapshots
 
-If only domain is provided:
-1. Look in `~/.geo-prospects/audits/` for files matching `<domain>-*.md`
-2. Sort by date
-3. Use oldest as baseline, newest as current
-4. If only one file exists: use it as baseline, run a fresh quick audit as current
-5. If no files exist: suggest running `/geo prospect audit <domain>` first
+```bash
+python3 scripts/performance_tracker.py export --project <domain> --metrics aeo.,ai. --json
+```
 
-### Step 2: Parse Both Audits
+Output contract: `{"project", "generated_at", "snapshots": [{"date", "metrics": {name: {"value", "source"}}}]}`.
+Choose:
+- **Current** = the latest snapshot containing `aeo.score` (or the latest in
+  `--month`).
+- **Baseline** = the engagement's first snapshot, or the date given with
+  `--baseline`, or the previous month for a month-over-month view.
 
-Extract from each audit file:
-- Overall GEO Score
-- Per-category scores (6 categories)
-- Per-platform scores (5 platforms)
-- AI crawler status (14 crawlers)
-- Critical issues list
-- Action items list with status
+### Step 2: Compute deltas with the tracker (deterministic)
 
-### Step 3: Calculate Deltas
+```bash
+python3 scripts/performance_tracker.py report --project <domain> \
+    --metrics aeo.,ai.,ga4.,leads. --compare <baseline-date|28d> --json
+```
 
-For each metric:
-- Delta = Current - Baseline
-- Trend = ▲ (improved), ▼ (declined), ── (unchanged)
-- Color coding in report: green (+), red (-), gray (=)
+Use its latest value, comparison value and change for every metric verbatim.
+If you need a delta the report does not show, compute it from the export
+with a tool call (`python3 -c "print(round(<current> - <baseline>, 4))"`) and
+show the expression (scoring-rubric Rule 4).
 
-### Step 4: Generate Monthly Report
+Rules for every row:
+- A metric missing in either snapshot is **not measured** for that period.
+  Never fill it from prose, from an older report, or by inferring it from
+  the written findings.
+- **AEO score comparability:** the score is comparable only when both
+  snapshots carry the same set of `aeo.<component>` metrics (missing
+  components were N/A and renormalized). If the sets differ, show the
+  component-level deltas and mark the overall delta "not comparable
+  (different component set)".
+- **AI share of voice:** compare only figures from the same engine and
+  surface (see the envelope `meta`, or rerun `ai_visibility.py report` for
+  each window). When the two 95% intervals overlap, describe the change as
+  "not distinguishable at this sample size". Only
+  `python3 scripts/ai_visibility.py compare ...` (paired test with a verdict)
+  can call a change real; quote its verdict when one exists.
+- Rates are 0-1 fractions in the tracker; show them as percentages and the
+  change in percentage points.
 
-Output to `~/.geo-prospects/reports/<domain>-monthly-<date>.md`
+### Step 3: Legacy fallback (clients whose history predates seo-track)
+
+Only if no tracker snapshot exists for the baseline date: read the old
+markdown audit and accept exactly one line shape, the v3.1 `seo-audit`
+heading `AEO Score: NN/100` (regex `AEO Score:\**\s*(\d{1,3})/100`). Parse
+nothing else. Older "GEO Score" figures were produced by retired, differently
+defined formulas; report them as "legacy score, not comparable", never as a
+baseline for a delta. If you accept a legacy AEO score, store it so the
+history is complete:
+
+```bash
+python3 scripts/performance_tracker.py record --project <domain> --metric aeo.score \
+    --value NN --date <audit-date> --source audit-markdown --note "<file>"
+```
+
+### Step 4: Generate the report
+
+Output to `~/.geo-prospects/reports/<domain>-monthly-<YYYY-MM>.md`.
 
 ---
 
 ## Report Template
 
-Generate the following document:
-
 ```markdown
-# GEO Monthly Progress Report
+# AEO Monthly Progress Report
 ## [COMPANY NAME] — [MONTH YEAR]
 
 **Reporting period:** [BASELINE DATE] → [CURRENT DATE]
 **Prepared by:** [AGENCY NAME]
-**Report reference:** GEO-MONTHLY-[DOMAIN]-[YYMMDD]
+**Data:** seo-track KPI history (performance_tracker.py), snapshots [dates]
 
 ---
 
 ## Executive Summary
 
-[2-3 sentences: What improved, what's the trend, what to focus on next month.]
+[2-3 factual sentences: what moved, in which direction, by how much, and
+what is next. Name declines as declines.]
 
-Example: "Electron Srl's GEO Score improved from 32 to 44 this month (+12 points),
-placing the site firmly in the 'Below Average' tier and on track to reach 'Moderate'
-by May. The biggest wins were AI crawler access (+3 crawlers now allowed) and schema
-implementation (+Organization and LocalBusiness schemas live). Next month's focus is
-content citability — the highest-weighted remaining gap."
-
----
-
-## GEO Score Progress
-
-```
-OVERALL GEO SCORE
-
-  Baseline   [▓▓▓▓░░░░░░░░░░░░░░░░]  32/100  (Critical)
-  Current    [▓▓▓▓▓▓▓▓░░░░░░░░░░░░]  44/100  (Below Average)
-  Change     ▲ +12 points (+37.5%)
-
-  Target:    65/100 by Month 6 (on track ✓)
-```
+Example: "The AEO Readiness Score rose from 41 to 52 (+11) with the same six
+components measured both months; the largest component gain was crawler
+access (56 → 100) after the Cloudflare managed robots.txt rule that blocked
+Claude-SearchBot was removed. AI share of voice on the ChatGPT app panel
+moved from 18% to 24%, which is not distinguishable at n = 40; the treatment
+experiment remains Keep-testing."
 
 ---
 
-## Score Breakdown: Before vs. After
+## AEO Readiness Score
 
-| Category | Baseline | Current | Change | Trend |
-|----------|---------|---------|--------|-------|
-| AI Citability & Visibility | [X]/100 | [X]/100 | [+/-X] | [▲/▼/──] |
-| Brand Authority Signals | [X]/100 | [X]/100 | [+/-X] | [▲/▼/──] |
-| Content Quality & E-E-A-T | [X]/100 | [X]/100 | [+/-X] | [▲/▼/──] |
-| Technical Foundations | [X]/100 | [X]/100 | [+/-X] | [▲/▼/──] |
-| Structured Data | [X]/100 | [X]/100 | [+/-X] | [▲/▼/──] |
-| Platform Optimization | [X]/100 | [X]/100 | [+/-X] | [▲/▼/──] |
-| **TOTAL** | **[X]/100** | **[X]/100** | **[+/-X]** | **[▲/▼]** |
+| | Baseline | Current | Change |
+|---|---|---|---|
+| AEO Score | [X]/100 ([rating], completeness [c]) | [X]/100 ([rating], completeness [c]) | [+/-X] or "not comparable" |
+
+| Component | Weight | Baseline | Current | Change |
+|---|---|---|---|---|
+| Citability | 25 | [X] | [X] | [+/-X] |
+| Brand authority | 20 | [X or not measured] | [X] | [...] |
+| Content E-E-A-T | 20 | [...] | [...] | [...] |
+| Crawler access | 15 | [...] | [...] | [...] |
+| Schema | 10 | [...] | [...] | [...] |
+| Platform readiness | 10 | [...] | [...] | [...] |
 
 ---
 
-## Platform Readiness: Before vs. After
+## AI Share of Voice (outcome, reported separately)
 
-| AI Platform | Baseline | Current | Change |
-|-------------|---------|---------|--------|
-| Google AI Overviews | [X]/100 | [X]/100 | [+/-X] |
-| ChatGPT Web Search | [X]/100 | [X]/100 | [+/-X] |
-| Perplexity AI | [X]/100 | [X]/100 | [+/-X] |
-| Google Gemini | [X]/100 | [X]/100 | [+/-X] |
-| Bing Copilot | [X]/100 | [X]/100 | [+/-X] |
+| [engine/surface] | Baseline | Current | Change |
+|---|---|---|---|
+| Mention rate (unbranded prompts) | [X%] (95% CI [a-b], n [N]) | [X%] (CI [a-b], n [N]) | [+/-X pp]; [distinguishable / not distinguishable] |
+| Share of voice | [X%] | [X%] | [+/-X pp] |
+| Citation rate | [X%] | [X%] | [+/-X pp] |
+
+Experiment verdict (ai_visibility.py compare): [Promote / Keep-testing / Rollback / Unproven — reason], or "no experiment this period".
 
 ---
 
 ## AI Crawler Access Changes
 
-| Crawler | Baseline | Current | Change |
-|---------|---------|---------|--------|
-| GPTBot (ChatGPT) | Blocked/Allowed | Blocked/Allowed | ✓ Fixed / No change |
-| ClaudeBot (Anthropic) | Blocked/Allowed | Blocked/Allowed | ✓ Fixed / No change |
-| PerplexityBot | Blocked/Allowed | Blocked/Allowed | ✓ Fixed / No change |
-| Google-Extended (Gemini) | Blocked/Allowed | Blocked/Allowed | ✓ Fixed / No change |
-| Bingbot | Blocked/Allowed | Blocked/Allowed | ✓ Fixed / No change |
+From the saved `aeo_score.py crawlers --json` outputs of both dates (show
+only agents whose status changed):
 
-[Show only crawlers that changed, or all if few crawlers.]
+| Agent | Kind | Baseline | Current |
+|---|---|---|---|
+| OAI-SearchBot | answer surface (ChatGPT Search) | Blocked | Allowed |
+| GPTBot | training (unscored) | Allowed | Blocked (client decision) |
 
 ---
 
 ## Action Plan Progress
 
-### Quick Wins — Status Update
+| # | Action | Owner | Status | Evidence |
+|---|--------|-------|--------|----------|
+| 1 | Remove the Cloudflare managed rule blocking answer-surface agents | Client dev | Done | robots.txt line removed, crawler access 56 → 100 |
+| 2 | Add Organization schema to homepage | Client dev | Done | seo-schema score 40 → 62 |
+| 3 | Rewrite top 10 pages with question-led sections | Agency | In progress (3/10) | — |
 
-| # | Action | Assigned | Status | Impact |
-|---|--------|---------|--------|--------|
-| 1 | Allow all AI crawlers in robots.txt | Client dev | ✅ Done | +3 crawlers |
-| 2 | Add Organization schema to homepage | Client dev | ✅ Done | Schema score +15 |
-| 3 | Create llms.txt | Agency | ✅ Done | AI visibility +8 |
-| 4 | Add author bylines to all articles | Client content | 🔄 In Progress | — |
-| 5 | Fix meta descriptions (47 pages missing) | Client dev | ❌ Not started | — |
-
-**Quick wins completed: [X]/[Y] ([%])**
-
-### Medium-Term — Status Update
-
-| # | Action | Target Month | Status |
-|---|--------|-------------|--------|
-| 1 | Rewrite top 10 pages with Q&A structure | Month 2 | 🔄 3/10 done |
-| 2 | E-E-A-T: Create author pages | Month 2 | ❌ Not started |
-| 3 | Register Bing Webmaster Tools | Month 1 | ✅ Done |
-| 4 | Implement IndexNow | Month 2 | 🔄 In Progress |
-
-### Strategic — Status Update
-
-| # | Action | Target | Status |
-|---|--------|--------|--------|
-| 1 | Wikipedia entity creation | Month 4 | 📋 Planned |
-| 2 | YouTube channel launch | Month 3 | 📋 Planned |
-| 3 | Reddit presence (industry subs) | Month 3 | 📋 Planned |
+**Completed: [X]/[Y]**
 
 ---
 
 ## This Month's Wins
 
-> Use this section to celebrate — clients need to see the value clearly.
+Only CONFIRMED changes, each tied to a metric above (scoring-rubric Rule 9):
+- [e.g., "OAI-SearchBot and Claude-SearchBot are now allowed; ChatGPT Search and Claude search can retrieve the site's pages."]
+- [e.g., "Organization schema is live on the homepage (schema component +22)."]
 
-✅ **[WIN 1]:** [Specific, tangible result — e.g., "GPTBot and ClaudeBot are now allowed. ChatGPT can now crawl and cite your content."]
-✅ **[WIN 2]:** [e.g., "Organization schema implemented on homepage. Your brand entity is now machine-readable."]
-✅ **[WIN 3]:** [e.g., "llms.txt created and deployed at electron-srl.com/llms.txt — one of only ~12% of sites in your industry to have this."]
+## Declines and New Issues
 
----
-
-## New Issues Discovered
-
-> Issues found in current audit that weren't in baseline.
-
-⚠️ **[ISSUE 1]:** [What it is, what it means, how we'll fix it]
-⚠️ **[ISSUE 2]:** [What it is, what it means, how we'll fix it]
+- [Metric that fell, by how much, and the likely cause tagged CONFIRMED or INFERRED]
 
 ---
 
 ## Next Month Focus
 
-### Priority Actions for [NEXT MONTH]:
+| Priority | Action | Owner | Metric it should move | Leading indicator | How we'd know it failed |
+|---|---|---|---|---|---|
+| 1 | [Action] | [Agency/Client] | [e.g., aeo.citability] | [e.g., citability of the 3 rewritten pages] | [no change after re-crawl] |
 
-| Priority | Action | Owner | Expected Impact |
-|----------|--------|-------|----------------|
-| 1 | [Highest ROI action] | [Agency/Client] | +[X] GEO points |
-| 2 | [Second priority] | [Agency/Client] | +[X] GEO points |
-| 3 | [Third priority] | [Agency/Client] | +[X] GEO points |
-
-**Target GEO Score next month:** [CURRENT + estimated gain]/100
+No point forecasts: targets are agreed with the client, not projected.
 
 ---
 
-## 6-Month Trajectory
+## History
 
-| Month | Date | Score | Delta | Key Achievement |
-|-------|------|-------|-------|----------------|
-| Baseline | [Date] | [Score] | — | Initial audit |
-| Month 1 | [Date] | [Score] | [+X] | Quick wins implemented |
-| Month 2 | [Date] | [Score] | [+X] | *Current month* |
-| Month 3 | [Date] | — | — | Content citability |
-| Month 4 | — | — | — | Brand authority |
-| Month 5 | — | — | — | Strategic initiatives |
-| Month 6 | — | **Target: [X]** | — | Full review |
+| Date | AEO Score | Completeness | Mention rate ([engine/surface]) |
+|---|---|---|---|
+| [snapshot dates from the export, actual values only] | | | |
 
-[Only fill rows that have happened. Show projected rows as "—"]
+## Traffic and Leads (if tracked)
 
----
+| Metric | Baseline | Current | Change |
+|---|---|---|---|
+| AI-assistant sessions (ga4.ai_sessions) | [X or not measured] | [X] | [...] |
+| Organic leads (leads.organic) | [...] | [...] | [...] |
 
-## Estimated Business Impact
-
-Based on the [X]-point improvement this month:
-
-- **AI citation likelihood:** Increased by approximately [X]%
-- **Crawlers with access:** [X]/14 → [Y]/14 (better coverage on [platforms])
-- **Estimated monthly AI-referred traffic improvement:** +[X]% (conservative)
-- **Traffic value at current conversion rates:** +€[X]/month in organic value
-
-*Note: Full traffic impact from GEO changes typically takes 4-8 weeks to materialize
-as AI platforms re-index and update their knowledge bases.*
-
----
-
-*GEO Monthly Report — [COMPANY NAME] — [DATE]*
-*Questions or comments? [CONTACT EMAIL]*
+Do not convert score changes into traffic or revenue estimates.
 ```
 
 ---
 
-## Delta Calculation Logic
+## Trend Symbols
 
-When parsing two audit files, look for these patterns:
-
-```
-Score markers to extract:
-- "GEO Score: XX/100"
-- "Overall Score: XX"
-- "AI Citability: XX/100"
-- "Brand Authority: XX/100"
-- "Technical: XX/100"
-- "Schema: XX/100"
-- "Platform: XX/100"
-- "Content: XX/100"
-- "GPTBot: Allowed/Blocked"
-- "ClaudeBot: Allowed/Blocked"
-```
-
-If exact scores are not found in audit files, use contextual analysis of the
-written findings to estimate approximate scores based on issues described.
-
----
-
-## Trend Interpretation
-
-| Delta | Trend Symbol | Meaning |
+| Change | Symbol | Meaning |
 |-------|-------------|---------|
-| +5 or more | ▲▲ | Strong improvement |
+| +5 or more points | ▲▲ | Strong improvement |
 | +1 to +4 | ▲ | Improvement |
 | 0 | ── | No change |
 | -1 to -4 | ▼ | Slight decline |
-| -5 or more | ▼▼ | Significant decline — needs discussion |
+| -5 or more | ▼▼ | Significant decline; discuss the cause |
+| either side missing | n/m | Not measured |
 
-A decline is not necessarily bad — it can mean new issues were discovered in the
-fresh audit that weren't visible before. Frame declines as "newly discovered opportunities."
+For share-of-voice rates, use the symbols only when the change is
+distinguishable (non-overlapping intervals or a `compare` verdict);
+otherwise write "within noise".
+
+A decline can come from a real regression, from a component measured for the
+first time, or from a stricter re-audit. Say which, with evidence; do not
+reframe it.
 
 ---
 
 ## Output
 
-1. Save report to `~/.geo-prospects/reports/<domain>-monthly-<YYYY-MM>.md`
+1. Save the report to `~/.geo-prospects/reports/<domain>-monthly-<YYYY-MM>.md`
 2. Print confirmation with key stats:
    ```
-   ✓ Monthly report generated: ~/.geo-prospects/reports/electron-srl.com-monthly-2026-03.md
+   ✓ Monthly report generated: ~/.geo-prospects/reports/example.com-monthly-2026-10.md
 
    SUMMARY:
-   GEO Score: 32 → 44 (+12 points) ▲
-   Quick wins completed: 3/5 (60%)
-   New issues found: 2 (minor)
-   On track for Month 6 target: YES (65/100)
+   AEO Score: 41 → 52 (+11), same components
+   AI mention rate (chatgpt/ui): 18% → 24%, not distinguishable (n=40)
+   Actions completed: 3/5
    ```
-3. Suggest next action: "Share with client or run `/geo report-pdf` for a visual version"
+3. Suggest next action: "Share with the client, or run `/seo google report`
+   (`scripts/google_report.py`) for the PDF version."

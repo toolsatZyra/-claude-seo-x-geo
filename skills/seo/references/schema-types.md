@@ -1,13 +1,13 @@
-<!-- Updated: 2026-05-25 -->
-# Schema.org Types: Status & Recommendations (May 2026)
+<!-- Updated: 2026-09-23 -->
+# Schema.org Types: Status & Recommendations (September 2026)
 
-**Schema.org Version:** 29.4 (December 8, 2025)
+**Schema.org Version:** 30.1 (2026-09-16)
 
 ## Format Preference
 Always use **JSON-LD** (`<script type="application/ld+json">`).
 Google's documentation explicitly recommends JSON-LD over Microdata and RDFa.
 
-**AI Search Note:** Content with proper schema has ~2.5× higher chance of appearing in AI-generated answers (confirmed by Google and Microsoft, March 2025).
+**AI Search Note:** Do not claim a confirmed schema uplift for AI-generated answers without a cited primary source.
 
 ---
 
@@ -28,11 +28,11 @@ Google's documentation explicitly recommends JSON-LD over Microdata and RDFa.
 | Review | Individual reviews | reviewRating, author, itemReviewed, reviewBody |
 | AggregateRating | Rating summaries | ratingValue, reviewCount, bestRating, worstRating |
 | BreadcrumbList | Navigation | itemListElement with position, name, item |
-| WebSite | Site-level | name, url, potentialAction (SearchAction for sitelinks search) |
+| WebSite | Site-level | name, url, potentialAction (SearchAction is machine-readable only; no Google sitelinks search box benefit) |
 | WebPage | Page-level | name, description, datePublished, dateModified |
 | Person | Author/team | name, jobTitle, url, sameAs, image, worksFor |
 | ContactPage | Contact pages | name, url |
-| VideoObject | Video content | name, description, thumbnailUrl, uploadDate, duration, contentUrl |
+| VideoObject | Video content | name, description, thumbnailUrl, uploadDate, duration, contentUrl; creator (Person or Organization with name or alternateName) recommended since 2026-09-24; interactionStatistic (recommended since 2019) supports WatchAction, LikeAction, CommentAction, ShareAction (clarified 2026-09-24; real counts only) |
 | ImageObject | Image content | contentUrl, caption, creator, copyrightHolder |
 | Event | Events | name, startDate, endDate, location, organizer, offers |
 | JobPosting | Job listings | title, description, datePosted, hiringOrganization, jobLocation |
@@ -40,25 +40,25 @@ Google's documentation explicitly recommends JSON-LD over Microdata and RDFa.
 | DiscussionForumPosting | Forum threads | headline, author, datePublished, text, url |
 | ProductGroup | Variant products | name, productGroupID, variesBy, hasVariant |
 | ProfilePage | Author/creator profiles | mainEntity (Person), name, url, description, sameAs |
-| QAPage | Genuine user Q&A pages (one question, community answers) | mainEntity (Question), acceptedAnswer, suggestedAnswer |
+| QAPage | Genuine user Q&A pages (one question, community answers) | mainEntity (Question), acceptedAnswer, suggestedAnswer: **fully supported** (not deprecated); expanded comment-thread properties added 2026-03-24 |
+| Education Q&A (Quiz) | Educational quiz / flashcard rich result | Quiz with Question, `eduQuestionType=Flashcard`; carousel expanded to PT/ES/VI in 2026 |
 
 ---
 
-## No rich results, but keep for AI: FAQPage
+## No Google rich results: FAQPage
 
 | Type | SERP status | Since |
 |------|------------|-------|
-| FAQPage | Rich results fully retired — no SERP feature for any site | May 7, 2026 |
+| FAQPage | Rich results fully retired: no SERP feature for any site | May 7, 2026 |
 
 > Google retired FAQ rich results entirely on **May 7, 2026**. This **supersedes** the
-> Aug 2023 gov/health restriction — even authoritative sites no longer get the rich result.
-> Rich Results Test + report support drops June 2026; Search Console API support is removed August 2026.
+> Aug 2023 gov/health restriction; even authoritative sites no longer get the rich result.
+> FAQ docs carried a notice on **2026-05-08** and were removed on **2026-06-15**.
 >
-> **Still worth keeping**: FAQPage markup remains a useful **AI / entity-verification signal**.
-> AI Mode and AI Overviews use structured data for entity resolution and claim verification
-> during answer synthesis, so accurate FAQPage can lift AI-citation probability independent of rich results.
-> - **Existing FAQPage**: Flag at Info priority, not Critical. Do **not** recommend removal — it carries AI-citation upside.
-> - **Adding new FAQPage**: No Google SERP benefit; acceptable if AI search visibility is the goal.
+> FAQPage AI-citation benefit is unconfirmed in this pack. Do not claim it lifts
+> AI-citation probability or is used for claim verification.
+> - **Existing FAQPage**: Flag at Info priority, not Critical. Do **not** recommend removal solely because rich results retired.
+> - **Adding new FAQPage**: No Google SERP benefit; do not recommend it for Google SERP benefit.
 > - **Genuine single-question pages** where users submit answers: use **QAPage** (Google's recommended type), not FAQPage.
 
 ---
@@ -72,11 +72,12 @@ Google's documentation explicitly recommends JSON-LD over Microdata and RDFa.
 | CourseInfo | Retired from rich results | June 2025 | Merged into Course |
 | EstimatedSalary | Retired from rich results | June 2025 | No longer displayed |
 | LearningVideo | Retired from rich results | June 2025 | Use VideoObject instead |
-| ClaimReview | Retired from rich results | June 2025 | Fact-check markup no longer generates rich results |
+| ClaimReview | Retired from rich results | June 2025 | No Search rich result; the doc is still live and the markup is still used by Fact Check Explorer |
 | VehicleListing | Retired from rich results | June 2025 | Vehicle listing structured data discontinued |
-| Book Actions | Deprecated then REVERSED | June 2025 | **Still functional as of Feb 2026**: historical note only |
-| Practice Problem | Retired from rich results | Late 2025 | Educational practice problems no longer displayed |
-| Dataset | Retired from rich results | Late 2025 | Dataset Search feature discontinued |
+| Practice Problem | Retired from rich results | Deprecation notice 2025-11-05 | Tooling support removed starting January 2026; documentation removed 2026-01-06 |
+| Dataset | No Google **Search** rich result | Clarified 2025-11-05 | **Not discontinued**: Dataset markup is used only by **Dataset Search** (which still exists and consumes it), not Google Search rich results. Don't tell users it was killed. |
+
+> **Tooling-removal timeline:** for CourseInfo, ClaimReview, EstimatedSalary, LearningVideo, SpecialAnnouncement, and VehicleListing, Search Console rich-result reporting, the Rich Results Test and Search appearance filters dropped them on **2025-09-09**; the Search Console API supported them through **December 2025**. Docs for all but ClaimReview were removed 2025-09-09. Practice Problem followed the January 2026 timeline. Audits should stop telling users to validate these in the Rich Results Test or Search Console. See `skills/seo-schema/references/deprecated-types-2024-2026.md`.
 
 ---
 
@@ -86,13 +87,20 @@ Google's documentation explicitly recommends JSON-LD over Microdata and RDFa.
 |-------------|-------|-------|
 | Product Certification markup | April 2025 | Energy ratings, safety certifications. Replaced EnergyConsumptionDetails. |
 | ProductGroup | 2025 | E-commerce product variants with variesBy, hasVariant properties |
-| ProfilePage | 2025 | Author/creator profile pages with mainEntity Person for E-E-A-T |
-| DiscussionForumPosting | 2024 | For forum/community content |
-| Speakable | Updated 2024 | For voice search optimization |
+| ProfilePage | 2023-11-27 | Author/creator profile pages with mainEntity Person for E-E-A-T |
+| DiscussionForumPosting | 2023-11-27 | For forum/community content |
+| Speakable | Beta (checked 2026-09-28) | For voice search optimization; Google still labels it beta and subject to change |
 | LoyaltyProgram | June 2025 | Member pricing, loyalty card structured data |
-| Organization-level shipping/return policies | November 2025 | Configure via Search Console without Merchant Center |
-| ConferenceEvent | December 2025 | Schema.org v29.4 addition |
-| PerformingArtsEvent | December 2025 | Schema.org v29.4 addition |
+| Organization-level MerchantShippingPolicy markup | 2025-11-12 | Merchant-level shipping policy structured data under Organization; return policies under Organization clarified 2025-07-11. Search Console shipping and returns settings (no Merchant Center needed) predate this |
+| ConferenceEvent | 2025-12-08 | Schema.org v29.4 addition (schema.org/docs/releases.html); no Google rich result |
+| PerformingArtsEvent | Long-standing schema.org type | Event subtype; no dedicated Google rich result |
+| hasAdultConsideration | 2026-05-20 | Product variant / Merchant listing; **required for adult-oriented products**; Google Search supports only `https://schema.org/SexualContentConsideration` |
+| Product.category | 2026-07-07 | Accepts `Text`, `CategoryCode`, or arrays mixing both; use Google's taxonomy URL and `codeValue` for Google Product Categories |
+| Offer sale duration | 2026-07-07 | Use `validFrom` plus `validThrough` or `priceValidUntil`, in ISO 8601 format |
+| QAPage / DiscussionForumPosting comment-thread props | 2026-03-24 | New supported properties for comment-thread structure |
+| Education Q&A (Quiz / eduQuestionType=Flashcard) | 2026 | Active rich result; carousel expanded to more languages |
+| Review snippet guideline: fake or undisclosed incentivized reviews | 2026-07-24 | New eligibility guideline in the review snippet docs |
+| Book actions (ReadAction / BorrowAction on Book) | Still supported | A phase-out banner added 2025-06-12 was removed 2025-11-05 because a Search feature still uses the markup |
 
 ## E-commerce Requirements (Updated)
 
@@ -101,7 +109,7 @@ Google's documentation explicitly recommends JSON-LD over Microdata and RDFa.
 | `returnPolicyCountry` in MerchantReturnPolicy | **Required** | March 2025 |
 | Product variant structured data | Expanded | 2025, includes apparel, cosmetics, electronics |
 
-> **Note:** Content API for Shopping sunsets August 18, 2026. Migrate to Merchant API.
+> **Note:** Content API for Shopping was sunset on August 18, 2026; since September 1, 2026 its requests progressively fail. Use the Merchant API.
 
 ---
 

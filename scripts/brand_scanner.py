@@ -10,7 +10,7 @@ Platform importance for AI citations:
 2. Reddit mentions (high)
 3. Wikipedia presence (high)
 4. LinkedIn presence (moderate)
-5. Domain Rating/backlinks (~0.266 - weak)
+5. Backlinks (~0.218 - weak; Ahrefs Dec 2025, see evidence-registry.md)
 
 Derived from zubair-trabzada/geo-seo-claude (MIT).
 """

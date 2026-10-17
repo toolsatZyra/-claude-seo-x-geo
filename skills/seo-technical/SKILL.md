@@ -10,7 +10,7 @@ argument-hint: "[url]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -34,20 +34,28 @@ As of 2025-2026, AI companies actively crawl the web to train models and power A
 
 | Crawler | Company | robots.txt token | Purpose |
 |---------|---------|-----------------|---------|
-| GPTBot | OpenAI | `GPTBot` | Model training |
-| ChatGPT-User | OpenAI | `ChatGPT-User` | Real-time browsing |
-| ClaudeBot | Anthropic | `ClaudeBot` | Model training |
-| PerplexityBot | Perplexity | `PerplexityBot` | Search index + training |
+| OAI-SearchBot | OpenAI | `OAI-SearchBot` | ChatGPT search results (answer surface; not training) |
+| ChatGPT-User | OpenAI | `ChatGPT-User` | User-initiated fetch; robots.txt may not apply |
+| GPTBot | OpenAI | `GPTBot` | Model training only |
+| Claude-SearchBot | Anthropic | `Claude-SearchBot` | Claude search results (answer surface; not training) |
+| Claude-User | Anthropic | `Claude-User` | User-initiated fetch |
+| ClaudeBot | Anthropic | `ClaudeBot` | Model training only |
+| PerplexityBot | Perplexity | `PerplexityBot` | Perplexity search index (not foundation-model training) |
+| Perplexity-User | Perplexity | `Perplexity-User` | User-initiated fetch; generally ignores robots.txt |
+| Google-Extended | Google | `Google-Extended` | Control token for Gemini/Vertex training and Gemini Apps grounding; no effect on Search inclusion, ranking, AI Overviews or AI Mode |
 | Bytespider | ByteDance | `Bytespider` | Model training |
-| Google-Extended | Google | `Google-Extended` | Gemini training (NOT search) |
-| CCBot | Common Crawl | `CCBot` | Open dataset |
+| CCBot | Common Crawl | `CCBot` | Open dataset widely used for training |
 | Bingbot / Copilot | Microsoft | `Bingbot` | Classic Bing indexing + Bing Copilot answer sourcing (same UA handles both) |
 
+The canonical, dated vendor matrix lives in `skills/geo-crawlers/SKILL.md`;
+`python3 scripts/aeo_score.py crawlers <url>` evaluates a live robots.txt
+against it (answer-surface agents scored, training crawlers reported) and
+flags Cloudflare-injected blocks.
+
 **Key distinctions:**
-- Blocking `Google-Extended` prevents Gemini training use but does NOT affect Google Search indexing or AI Overviews (those use `Googlebot`)
-- Blocking `GPTBot` prevents OpenAI training but does NOT prevent ChatGPT from citing your content via browsing (`ChatGPT-User`)
-- Blocking any of these does not affect classic Google/Bing search rankings — it only controls whether that specific AI system's answer engine or model training can access the page
-- ~3-5% of websites now use AI-specific robots.txt rules
+- Blocking `Google-Extended` stops Gemini training and grounding in Gemini Apps but does NOT affect Google Search indexing, AI Overviews or AI Mode (those use `Googlebot`)
+- Blocking `GPTBot` or `ClaudeBot` stops training only; ChatGPT and Claude search visibility depend on `OAI-SearchBot` and `Claude-SearchBot`
+- Apart from `Bingbot` (which is also Bing's search crawler), blocking these does not affect classic Google/Bing search rankings — it only controls whether that specific AI system's answer engine or model training can access the page
 
 **Example, selective AI crawler blocking:**
 ```
@@ -66,7 +74,7 @@ User-agent: *
 Allow: /
 ```
 
-**Recommendation:** Consider your AI visibility strategy before blocking. Being cited by AI systems drives brand awareness and referral traffic. Recommend allowing these crawlers unless the client has an explicit content-licensing objection; blocking is a business decision, not a technical-SEO best practice. Cross-reference the `seo-geo` skill for AI visibility strategy, and the `geo-crawlers` skill for a complete Tier 1/2/3 crawler reference and per-crawler audit.
+**Recommendation:** Consider your AI visibility strategy before blocking. Being cited by AI systems drives brand awareness and referral traffic. Recommend allowing these crawlers unless the client has an explicit content-licensing objection; blocking is a business decision, not a technical-SEO best practice. Cross-reference the `seo-geo` skill for AI visibility strategy, and the `geo-crawlers` skill for the full answer-surface vs training crawler reference and per-crawler audit.
 
 Core Web Vitals, INP, and the rest of this skill's technical checks remain authoritative and unaffected by AI crawler configuration — see the sections below.
 
@@ -156,10 +164,12 @@ performed for categories 1-2, don't re-crawl):
 
 AI agents (not just AI summarizers) increasingly read sites through three
 channels: vision models on screenshots, raw HTML/DOM, and the **accessibility
-tree** (the cleanest signal). Audit criteria — semantic HTML (real `<button>`
-and `<a>`, not `<div onclick>`), label associations, interactive target sizing,
-layout stability across templates, `cursor: pointer` correctness — live in
-`references/agent-friendly-pages.md`.
+tree** (the cleanest signal). The page-level criteria (semantic HTML, label
+associations, target sizing, layout stability) and the site-level agent checks
+(AI agent access, Markdown delivery, discovery files) now live in one place:
+`seo-agentic` (`/seo agentic <url>`, criteria in
+`skills/seo-agentic/references/agent-friendly-pages.md`). The quick score below
+stays available from a technical audit.
 
 ### Audit command
 

@@ -1,15 +1,17 @@
 ---
 name: seo-content
 description: >
-  Content quality and E-E-A-T analysis with AI citation readiness assessment.
+  Content quality and E-E-A-T analysis with AI citation readiness assessment,
+  plus an optimize mode that scores coverage against ranking competitor pages.
   Use when user says "content quality", "E-E-A-T", "content analysis",
-  "readability check", "thin content", or "content audit".
+  "readability check", "thin content", "content audit", "optimize content",
+  or "content score".
 user-invocable: true
-argument-hint: "[url]"
+argument-hint: "[url] | optimize <url> <keyword>"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -113,7 +115,7 @@ Compare against page type minimums:
 - Open in new tab for user experience
 - Reasonable count (not excessive)
 
-## AI Content Assessment (Sept 2025 QRG addition)
+## AI Content Assessment (QRG: generative-AI guidance added January 2025; current version September 11, 2025)
 
 Google's raters now formally assess whether content appears AI-generated.
 
@@ -150,7 +152,7 @@ Optimize for AI search engines (ChatGPT, Perplexity, Google AI Overviews):
 **Key optimization strategies for AI citation:**
 - **Structured answers:** Clear question-answer formats, definition patterns, and step-by-step instructions that AI systems can extract and cite
 - **First-party data:** Original research, statistics, case studies, and unique datasets are highly cited by AI systems
-- **Schema markup:** Article, FAQPage (Google retired FAQ *rich results* in May 2026, but the markup still aids AI parsing/entity resolution) or QAPage for genuine user Q&A, and structured content schemas help AI systems parse and attribute content
+- **Schema markup:** Article, FAQPage only if already present (Google retired FAQ *rich results* in May 2026; any AI benefit of the markup is unconfirmed, while visible question-and-answer content is what AI systems extract) or QAPage for genuine user Q&A, and structured content schemas help AI systems parse and attribute content
 - **Topical authority:** AI systems preferentially cite sources that demonstrate deep expertise. Build content clusters, not isolated pages
 - **Entity clarity:** Ensure brand, authors, and key concepts are clearly defined with structured data (Organization, Person schema)
 - **Multi-platform tracking:** Monitor visibility across Google AI Overviews, AI Mode, ChatGPT, Perplexity, and Bing Copilot, not just traditional rankings. Treat AI citation as a standalone KPI alongside organic rankings and traffic.
@@ -196,6 +198,42 @@ and this plugin's AEO stance (see root `CLAUDE.md`), do not recommend:
 keyword stuffing, AI-specific keyword rewriting/long-tail variant stuffing,
 or content "chunking" purely for AI parsing. These are neutral-to-negative
 per the Princeton weights in [[aeo-scoring-weights]].
+
+## Optimize mode
+
+`/seo content optimize <url> <keyword>` compares the page with pages that
+rank for the keyword, using `scripts/content_optimizer.py`:
+
+```bash
+python3 scripts/content_optimizer.py analyze --keyword "crm pricing" \
+    --url https://example.com/blog/crm-pricing \
+    --competitor https://a.example/... --competitor https://b.example/... \
+    --competitor https://c.example/... --json
+```
+
+- **Competitor URLs** come from the user or from DataForSEO SERP data
+  (`serp_organic_live_advanced`). Never scrape Google. At least 3 usable
+  pages are required (`--min-competitors`); the script exits 2 and lists the
+  failures otherwise. Same-site URLs are dropped. Drafts work too:
+  `--page-file draft.md` (front matter supplies title, meta and slug).
+- **What it measures:** expected terms (1-3-word phrases in at least half of
+  the competitor pages and at least two of them), section topics most
+  competitors give a heading to, questions competitors answer in headings,
+  word count against the competitor median and IQR, keyword placement
+  (title, H1, first 100 words, meta description, slug, an H2) and keyword
+  density.
+- **Content score (0-100), fixed weights:** term coverage 35, headings 20,
+  questions 15, length fit 15, placement 15. A component without data is
+  excluded and the rest renormalized (Rule 5); placement is zeroed when
+  density exceeds 3%. The JSON carries the expression; show it (Rule 4).
+
+Report it as a separate **Content Coverage Score**, never blended into the
+Content Quality Score or the AEO Citability Score. Phrase it as correlation:
+"pages ranking for this keyword commonly cover X", never "add keyword X N
+times" (keyword stuffing scored below baseline in the Princeton GEO study).
+Recommend a missing term or topic only where the page can genuinely address
+it (Website Relevance Rule in `seo-content-brief`). Matching is lexical, so
+a topic covered in other words can show as missing; say so when it matters.
 
 ## Scoring
 

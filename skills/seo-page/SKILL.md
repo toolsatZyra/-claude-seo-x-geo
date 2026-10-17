@@ -10,7 +10,7 @@ argument-hint: "[url]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -21,6 +21,13 @@ metadata:
 ### On-Page SEO
 - Title tag: 50-60 characters, includes primary keyword, unique
 - Meta description: 150-160 characters, compelling, includes keyword
+- Meta description is not a restatement of the title: run
+  `python3 scripts/metadata_template.py --title "<title>" --description "<desc>" --json`
+  (heuristic, deterministic string comparison). A description that opens by
+  repeating its own title and closes on a stock CTA ("Try it free now.",
+  "Start free!") is templated metadata, the shape bulk generation jobs produce
+  site-wide, and duplicated or templated metadata is a documented
+  content-quality problem regardless of how original the body copy is
 - H1: exactly one, matches page intent, includes keyword
 - H2-H6: logical hierarchy (no skipped levels), descriptive
 - URL: short, descriptive, hyphenated, no parameters
@@ -45,7 +52,7 @@ metadata:
 - Detect all types (JSON-LD preferred)
 - Validate required properties
 - Identify missing opportunities
-- NEVER recommend HowTo (deprecated) or FAQ for rich results (retired May 2026); keep existing FAQPage as an AI-citation signal, use QAPage for genuine Q&A
+- NEVER recommend HowTo (deprecated) or FAQ for rich results (retired May 2026); existing FAQPage can stay (AI-citation benefit of the markup unconfirmed), use QAPage for genuine Q&A
 
 ### Images
 - Alt text: present, descriptive, includes keywords where natural

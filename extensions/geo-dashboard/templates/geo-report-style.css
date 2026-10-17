@@ -405,7 +405,7 @@ h2.section-break { page-break-before: always; }
 /* ---- Footer ---- */
 @page {
   @bottom-center {
-    content: "Alexa Media Solutions · GEO Audit · May 2026";
+    content: "GEO Audit";
     font-family: 'Inter', sans-serif;
     font-size: 7.5pt;
     color: #94a3b8;

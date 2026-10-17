@@ -15,7 +15,7 @@
 ## MCP Server Configuration
 
 The installer configures this automatically. If you need to set it up manually,
-add to `~/.claude/settings.json`:
+add to `~/.claude.json` (where `claude mcp add` writes; Claude Code does not read MCP servers from `~/.claude/settings.json`):
 
 ```json
 {
@@ -41,14 +41,14 @@ python3 ~/.claude/skills/seo-image-gen/scripts/validate_setup.py
 Or check manually:
 1. `ls ~/.claude/skills/seo-image-gen/SKILL.md`:skill file exists
 2. `ls ~/.claude/agents/seo-image-gen.md`:agent file exists
-3. `grep nanobanana ~/.claude/settings.json`:MCP configured
+3. `claude mcp list` shows `nanobanana-mcp`: MCP configured
 
 ## Common Issues
 
 ### "MCP tools not available"
 - Restart Claude Code after installing the extension
 - Verify your API key is valid at [aistudio.google.com](https://aistudio.google.com)
-- Check `~/.claude/settings.json` has the nanobanana-mcp entry
+- Check `claude mcp list` (or `~/.claude.json`) has the nanobanana-mcp entry
 
 ### "Rate limited (429)"
 - Free tier: ~10 requests/minute, ~500/day
@@ -59,7 +59,7 @@ Or check manually:
 - The safety filter flagged your prompt (often a false positive)
 - Claude will suggest rephrased alternatives automatically
 - Common triggers: certain color descriptions, implied scenarios
-- See `references/prompt-engineering.md` Safety Rephrase section
+- See `references/prompt-adaptation-safety.md` (safety-filter rephrasing)
 
 ### "Node.js version too old"
 - Requires Node.js 18+

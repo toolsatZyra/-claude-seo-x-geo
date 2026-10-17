@@ -11,7 +11,7 @@ argument-hint: "[url or generate] [competitor]"
 license: MIT
 metadata:
   author: AgriciDaniel
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -19,6 +19,8 @@ metadata:
 
 Create high-converting comparison and alternatives pages that target
 competitive intent keywords with accurate, structured content.
+
+> Which pages to build first: run `seo-competitors` (gaps marked `route: seo-competitor-pages`) or `seo-keywords` (keyword scoring) — this skill writes the pages.
 
 ## Page Types
 

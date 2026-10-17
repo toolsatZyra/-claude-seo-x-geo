@@ -9,11 +9,13 @@ allowed-tools:
   - WebFetch
   - Write
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted)
 ---
 
 # Brand Mention Scanner Skill
+
+**AEO score component:** the Brand Authority Score below is the `brand_authority` component (weight 20) of the one AEO Readiness Score computed by `scripts/aeo_score.py compute`; report it as part researcher judgment, and never as the AEO score by itself.
 
 ## What's actually automated here
 
@@ -454,8 +456,8 @@ Generate a file called `GEO-BRAND-MENTIONS.md`:
 | Reddit mentions | High (exact coefficient not published) | Low |
 | Wikipedia presence | High | Moderate (trust signal) |
 | LinkedIn presence | Moderate | Low |
-| Domain Rating | ~0.266 | Very High |
-| Backlink count | ~0.266 | Very High |
+| Backlinks | ~0.218 (vs ~0.664 for brand web mentions; see `skills/seo-geo/references/evidence-registry.md`) | Very High |
+| Domain Rating | Weak (no separately verified coefficient) | Very High |
 | Organic traffic | Moderate | Very High |
 
 **Key insight:** The signals that matter most for AI visibility (YouTube, Reddit) are almost irrelevant in traditional SEO, and the signals that matter most for traditional SEO (backlinks, DR) are weak predictors of AI visibility. This requires a fundamentally different optimization strategy.

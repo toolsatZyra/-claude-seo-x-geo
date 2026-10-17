@@ -45,10 +45,15 @@ status you can branch on:
 
 The preflight also surfaces two things worth knowing before a sales call:
 
-- **Blocked AI crawlers.** If GPTBot, ClaudeBot, PerplexityBot or
-  Google-Extended are disallowed, the client cannot appear in AI answers at
-  all. This is common, usually accidental, and it is the single most
-  compelling finding to lead a pitch with.
+- **Blocked AI answer crawlers.** If OAI-SearchBot (ChatGPT search),
+  Claude-SearchBot, PerplexityBot, Googlebot or Bingbot are disallowed, the
+  client cannot be cited by that answer engine. This is common, usually
+  accidental (a blanket rule, a security plugin, or Cloudflare's managed
+  robots.txt), and it is the single most compelling finding to lead a pitch
+  with. Blocks on training-only crawlers (GPTBot, ClaudeBot, Google-Extended,
+  CCBot) are a licensing choice and do **not** remove the site from AI answers
+  — the preflight reports them separately. The evaluation is the same one
+  `scripts/aeo_score.py crawlers` uses for the AEO score.
 - **CrUX field data.** Absent means the site lacks the traffic for real-user
   Core Web Vitals. Lab data via PageSpeed still works, but do not promise
   field-data reporting to a site that has none.

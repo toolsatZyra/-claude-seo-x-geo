@@ -13,24 +13,17 @@ main() {
     # Remove field config
     rm -f "${HOME}/.claude/skills/seo/dataforseo-field-config.json"
 
-    # Remove MCP server entry from settings.json
-    SETTINGS_FILE="${HOME}/.claude/settings.json"
-    if [ -f "${SETTINGS_FILE}" ]; then
-        python3 - "${SETTINGS_FILE}" <<'PY' 2>/dev/null || echo "  ⚠  Could not auto-remove MCP config. Remove 'dataforseo' from ~/.claude/settings.json manually."
-import json, os, sys
-settings_path = sys.argv[1]
-with open(settings_path, 'r') as f:
-    settings = json.load(f)
-if 'mcpServers' in settings and 'dataforseo' in settings['mcpServers']:
-    del settings['mcpServers']['dataforseo']
-    if not settings['mcpServers']:
-        del settings['mcpServers']
-    with open(settings_path, 'w') as f:
-        json.dump(settings, f, indent=2)
-    print('  ✓ Removed dataforseo from settings.json')
-else:
-    print('  ✓ No dataforseo entry in settings.json')
-PY
+    # Remove the MCP server entry from ~/.claude.json (where Claude Code reads
+    # MCP servers), and the stale copy older releases wrote to
+    # ~/.claude/settings.json. The helper rewrites a file atomically and never
+    # touches one that does not parse.
+    CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
+    if [ -f "${CLEANUP}" ]; then
+        python3 "${CLEANUP}" dataforseo --file "${HOME}/.claude.json" \
+            || echo "  ⚠  Could not auto-remove MCP config. Remove 'dataforseo' from ~/.claude.json manually."
+        python3 "${CLEANUP}" dataforseo || true
+    else
+        echo "  ⚠  Remove 'dataforseo' from mcpServers in ~/.claude.json manually."
     fi
 
     echo "✓ DataForSEO extension uninstalled."

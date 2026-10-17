@@ -5,7 +5,7 @@ Expired-domain heritage check.
 Compares a domain's registration age against the topical fingerprint
 of its current content. A site that was registered 18 years ago for
 veterinary services and now reads as a high-volume crypto signal hub
-is the canonical "expired-domain abuse" pattern under Jan 2025 QRG
+is the canonical "expired-domain abuse" pattern under current QRG
 §4.6.7.
 
 Approach
@@ -18,10 +18,10 @@ Approach
      - ``years_registered``
      - ``last_significant_renewal`` (best-effort: last "updated:" date)
 4. Optional ``--topic`` flag accepts the current detected topic. If
-   the topic differs from what was registered for (heuristic — see
+   the topic differs from what was registered for (heuristic: see
    notes), flag as a potential expired-domain abuse risk.
 
-This script does NOT make the topical comparison itself — that requires
+This script does NOT make the topical comparison itself; that requires
 fetching the current site, classifying it, and comparing against the
 Wayback Machine's earliest snapshot. The expensive cross-reference is
 delegated to the ``seo-content`` skill which orchestrates it.
@@ -63,6 +63,10 @@ import sys
 from datetime import datetime, timezone
 from typing import Optional
 
+_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from url_safety import URLSafetyError, is_safe_ip, validate_url_strict  # noqa: E402
 
 _DATE_LABELS = {
     "created": (
@@ -80,6 +84,31 @@ _DATE_LABELS = {
 }
 
 _REGISTRAR_LABELS = ("registrar", "registrant organization")
+
+
+# A registrable DNS name: dot-separated LDH labels, optionally IDNA-encoded.
+# Validated before the value reaches the whois binary's argv (a leading "-"
+# would be read as an option) or the plaintext port-43 request line (a CR/LF
+# would inject a second query).
+_DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+"
+    r"[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+)
+
+
+def normalize_domain(domain: str) -> Optional[str]:
+    """Return ``domain`` as a lower-case ASCII (IDNA) name, or None if it is
+    not a plausible registrable domain. Never raises."""
+    if not isinstance(domain, str):
+        return None
+    candidate = domain.strip().lower().rstrip(".")
+    if not candidate or candidate.startswith("-"):
+        return None
+    try:
+        candidate = candidate.encode("idna").decode("ascii")
+    except UnicodeError:
+        return None
+    return candidate if _DOMAIN_RE.match(candidate) else None
 
 
 def _shell_whois(domain: str) -> Optional[str]:
@@ -126,8 +155,29 @@ def _socket_whois(domain: str) -> Optional[str]:
         return iana_text
 
     referral = m.group(1).strip()
+
+    # The referral host is attacker-influenceable: WHOIS runs unencrypted on
+    # port 43, so anyone able to tamper with the IANA response can inject a
+    # `refer:` line pointing at an internal address, turning this fallback into
+    # a port-43 probe of the operator's private network. Resolve and validate
+    # it through the same guard every other outbound call uses, then connect to
+    # the pinned address so the answer cannot be re-pointed after the check.
+    # WHOIS is plaintext with no SNI, so dialling the IP directly is lossless.
     try:
-        with socket.create_connection((referral, 43), timeout=10) as sock:
+        _, pinned_ip = validate_url_strict(f"https://{referral}/")
+    except URLSafetyError:
+        # A referral we cannot vouch for is not worth following. IANA's own
+        # answer is still useful, so return that rather than nothing.
+        return iana_text
+    # ZYRA fork hardening: the referral comes from a network response, not
+    # from the operator, so the CLAUDE_SEO_LOCAL_TARGETS allowlist (which
+    # validate_url_strict honours for top-level URLs) must not apply to it.
+    # Only a public address is ever dialled.
+    if not is_safe_ip(pinned_ip):
+        return iana_text
+
+    try:
+        with socket.create_connection((pinned_ip, 43), timeout=10) as sock:
             sock.sendall(f"{domain}\r\n".encode("ascii"))
             buf = b""
             while True:
@@ -170,6 +220,20 @@ def _extract(field_labels: tuple[str, ...], text: str) -> Optional[str]:
 
 
 def lookup(domain: str) -> dict:
+    normalized = normalize_domain(domain)
+    if normalized is None:
+        return {
+            "domain": domain,
+            "whois_source": None,
+            "created": None,
+            "updated": None,
+            "expires": None,
+            "registrar": None,
+            "years_registered": None,
+            "notes": ["invalid domain: expected a bare registrable name such "
+                      "as example.com (no scheme, path, port or spaces)"],
+        }
+    domain = normalized
     raw = _shell_whois(domain)
     source = "whois-binary"
     if raw is None:
@@ -184,7 +248,7 @@ def lookup(domain: str) -> dict:
             "expires": None,
             "registrar": None,
             "years_registered": None,
-            "notes": ["whois unavailable — install the 'whois' system package "
+            "notes": ["whois unavailable: install the 'whois' system package "
                       "or check egress on TCP/43"],
         }
 
@@ -259,7 +323,7 @@ def assess_risk(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Expired-domain heritage check (Jan 2025 QRG §4.6.7)."
+        description="Expired-domain heritage check (current QRG §4.6.7)."
     )
     parser.add_argument("domain")
     parser.add_argument("--topic", help="Current detected topic (free text).")

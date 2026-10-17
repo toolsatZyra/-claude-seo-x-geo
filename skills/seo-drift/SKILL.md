@@ -12,7 +12,7 @@ license: MIT
 metadata:
   author: AgriciDaniel
   original_author: "Dan Colta (Pro Hub Challenge)"
-  version: "3.0.0"
+  version: "3.1.0"
   category: seo
 ---
 
@@ -168,6 +168,8 @@ When drift is detected, recommend the appropriate specialized skill:
 | H1/heading structure changed | Run `/seo content <url>` for E-E-A-T review |
 | OG tags removed | Run `/seo page <url>` for social sharing analysis |
 | Status code changed to error | Run `/seo technical <url>` for full diagnostics |
+
+To see whether a change cost rankings or traffic over time, use `seo-track` (`/seo rank report`, `/seo track report`); drift covers on-page state only.
 
 ---
 

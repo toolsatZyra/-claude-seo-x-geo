@@ -4,7 +4,7 @@ description: Platform-specific AI search optimization — audit and optimize for
 tags: [geo, ai-search, platform-optimization, chatgpt, perplexity, gemini, aio]
 allowed-tools: Read, Grep, Glob, Bash, WebFetch, Write
 metadata:
-  version: "3.0.0"
+  version: "3.1.0"
   author: geo-seo-claude (grafted)
 ---
 
@@ -19,7 +19,13 @@ Cross-platform citation overlap is low: only a minority of domains (commonly cit
 1. Collect the target URL and the site's primary topic/industry
 2. Run each platform checklist below against the site
 3. Score each platform on the 0-100 rubric
-4. Generate GEO-PLATFORM-OPTIMIZATION.md with per-platform scores, gaps, and action items
+4. Compute the **Platform Readiness Score** (mean of the five platform scores)
+5. Generate GEO-PLATFORM-OPTIMIZATION.md with per-platform scores, gaps, and action items
+
+The Platform Readiness Score is the `platform` component (weight 10) of the
+one AEO Readiness Score: pass it to `python3 scripts/aeo_score.py compute
+--platform N`. It is not an AEO score by itself, and it must not be reported
+as one.
 
 ## Scoring discipline (mandatory — apply to every criterion below)
 
@@ -91,7 +97,7 @@ Apply this discipline when running the rubrics:
 2. **Direct Answer in First Paragraph**: After each question heading, provide a clear 1-2 sentence answer immediately. Then expand with supporting detail. The first sentence should be a standalone citation candidate.
 3. **Tables and Structured Comparisons**: AIO heavily cites tables. Convert any comparison, pricing, specification, or feature data into HTML tables. Use clear column headers.
 4. **Ordered and Unordered Lists**: Step-by-step processes should use ordered lists. Feature lists should use unordered lists. AIO extracts these directly.
-5. **FAQ Sections**: Add a dedicated FAQ section with 5-10 real questions. Use proper H3 headings for each question. Google retired FAQ rich results for ALL sites on May 7, 2026 (superseding the Aug 2023 gov/health-only restriction) -- there is no SERP rich-result benefit anymore. Keep the FAQ content pattern anyway: it still aids AIO/AI Mode extraction and entity resolution as a supporting signal, not a ranking feature. See `seo-schema/SKILL.md` for the canonical position.
+5. **FAQ Sections**: Add a dedicated FAQ section with 5-10 real questions. Use proper H3 headings for each question. Google retired FAQ rich results for ALL sites on May 7, 2026 (superseding the Aug 2023 gov/health-only restriction) -- there is no SERP rich-result benefit anymore. Keep the FAQ content pattern anyway: question-phrased headings with self-contained answers are the citation-structure signals the AEO track scores (FAQPage markup itself has no confirmed AI benefit). See `seo-schema/SKILL.md` for the canonical position.
 6. **Definitions and Glossary Boxes**: For any industry-specific term, provide a clear definition. Format: "**[Term]** is [concise definition]." AIO frequently cites definitions.
 7. **Statistics with Sources**: Include specific numbers with attribution. "According to [Source], [statistic]." AIO prefers citeable, specific claims over vague assertions.
 8. **Publication Date**: Include a visible publication date and last-updated date. AIO deprioritizes undated content for time-sensitive queries.
@@ -295,7 +301,7 @@ Apply this discipline when running the rubrics:
 ## Output Format
 
 Generate **GEO-PLATFORM-OPTIMIZATION.md** with the following structure.
-Per Rule 4, each platform score and the Combined GEO Score must show the
+Per Rule 4, each platform score and the Platform Readiness Score must show the
 actual computed expression, not just the resulting number — e.g.
 `python3 -c "print(20+0+15+5+10+0+3+0+5)"` alongside its output — so a
 reader can re-verify the sum against the itemized criteria table.
@@ -305,10 +311,11 @@ reader can re-verify the sum against the itemized criteria table.
 Date: [Date]
 
 ## Overall Platform Readiness
-- Combined GEO Score: XX/100 — computed as
+- Platform Readiness Score: XX/100 — computed as
   `round((AIO + ChatGPT + Perplexity + Gemini + Copilot) / 5)`; show the
   actual tool call with the 5 real numbers substituted in, not just the
-  final figure
+  final figure. This is the `platform` component of the AEO Readiness
+  Score (`scripts/aeo_score.py compute --platform XX`), not the AEO score.
 
 ## Platform Scores
 | Platform | Score | Computation shown | Status |

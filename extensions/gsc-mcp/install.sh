@@ -26,7 +26,11 @@ main() {
     read -rp "Path to your Google Search Console MCP server package (npm package name or local path): " GSC_MCP_PACKAGE
     [ -z "${GSC_MCP_PACKAGE}" ] && { echo "✗ No package specified."; exit 1; }
 
-    claude mcp add gsc-mcp -- npx -y "${GSC_MCP_PACKAGE}"
+    # `claude mcp add` writes ~/.claude.json, the file Claude Code reads MCP
+    # servers from. --scope user makes the server available in every project
+    # (the default "local" scope would tie it to the current directory only).
+    # No credential is involved: the server runs its own auth flow.
+    claude mcp add --scope user gsc-mcp -- npx -y "${GSC_MCP_PACKAGE}"
 
     mkdir -p "${SKILL_DIR}/seo-gsc-mcp"
     cp "${SOURCE_DIR}/skills/seo-gsc-mcp/SKILL.md" "${SKILL_DIR}/seo-gsc-mcp/SKILL.md"

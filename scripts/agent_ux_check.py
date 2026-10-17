@@ -3,7 +3,7 @@
 Agent-friendly page auditor.
 
 Scores a page against the checklist in
-``skills/seo-technical/references/agent-friendly-pages.md`` — the
+``skills/seo-agentic/references/agent-friendly-pages.md`` — the
 web.dev-sourced criteria Google's AI optimization guide references for
 agent UX. Findings cover the three channels agents use:
 

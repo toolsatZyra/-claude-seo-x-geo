@@ -6,14 +6,14 @@ Claude SEO follows Anthropic's official Claude Code skill specification with a m
 
 ## Directory Structure
 
-The plugin ships 32 sub-skills (28 core + 1 orchestrator + 1 framework integration + 2 extension mirrors) and 20 sub-agents (15 core + 1 framework integration + 2 extension mirrors + 2 grafted AEO agents).
+The plugin ships 39 sub-skills (35 core + 1 orchestrator + 1 framework integration + 2 extension mirrors) and 21 sub-agents (16 core + 1 framework integration + 2 extension mirrors + 2 grafted AEO agents).
 
 ```
 ~/.claude/plugins/.../claude-seo/
 ├── skills/
 │   ├── seo/                    # Main orchestrator
 │   │   ├── SKILL.md
-│   │   └── references/         # On-demand reference files (12 files)
+│   │   └── references/         # On-demand reference files (15 files)
 │   │
 │   ├── seo-audit/              # Full site audit (parallel subagents)
 │   ├── seo-page/               # Single page analysis
@@ -38,7 +38,16 @@ The plugin ships 32 sub-skills (28 core + 1 orchestrator + 1 framework integrati
 │   ├── seo-google/             # Google SEO APIs (GSC, PSI, CrUX, GA4)
 │   ├── seo-flow/               # FLOW framework integration (CC BY 4.0)
 │   ├── seo-dataforseo/         # DataForSEO MCP mirror (extension surface)
-│   └── seo-image-gen/          # Banana MCP mirror (extension surface)
+│   ├── seo-image-gen/          # Banana MCP mirror (extension surface)
+│   ├── seo-keywords/           # Keyword research hub (v3.1)
+│   ├── seo-competitors/        # Competitor keyword/content gap hub (v3.1)
+│   ├── seo-content-engine/     # Content calendar -> draft -> review -> export (v3.1)
+│   ├── seo-refresh/            # Content decay + improvement loop (v3.1)
+│   ├── seo-track/              # Rank, KPI, AI-referral tracking (v3.1)
+│   ├── seo-agentic/            # Agent readiness (upstream v2.4 port)
+│   └── geo-*/                  # AEO cluster routed by seo-geo: citability, platform-optimizer,
+│                               # brand-mentions, crawlers, compare, prospect, proposal,
+│                               # share-of-voice (v3.1)
 │
 └── agents/
     ├── seo-technical.md        # Crawlability, indexability, security
@@ -58,8 +67,43 @@ The plugin ships 32 sub-skills (28 core + 1 orchestrator + 1 framework integrati
     ├── seo-google.md           # GSC, PSI, CrUX, GA4 analyst
     ├── seo-flow.md             # FLOW framework prompt selection
     ├── seo-dataforseo.md       # DataForSEO MCP mirror
-    └── seo-image-gen.md        # Banana MCP mirror
+    ├── seo-image-gen.md        # Banana MCP mirror
+    ├── seo-agentic.md          # Agent readiness (v3.1)
+    ├── geo-ai-visibility.md    # AEO specialist
+    └── geo-platform-analysis.md # AEO platform specialist
 ```
+
+## The growth loop (v3.1)
+
+v3.1 turns the audit toolkit into a hub for the whole organic-growth loop.
+Every stage reads one client profile and writes comparable, dated numbers:
+
+```
+                 scripts/seo_project.py (client profile: brand terms, competitors,
+                 GSC/GA4 property strings, money pages, conversions, AI prompts)
+                                        │
+   RESEARCH ──────────────► CREATE / OPTIMIZE ──────────────► MEASURE
+   seo-keywords             seo-content-engine (draft-first)   seo-track (rank, KPIs,
+   seo-competitors          seo-refresh (decay)                  AI referrals, holdouts)
+   seo-cluster              seo-content optimize               geo-share-of-voice
+                            technical fixes from /seo audit    geo-compare (client narrative)
+        │                            │                                 ▲
+        └────── scripts/seo_metrics.py (one definition of intent, ────┘
+                CTR curve, opportunity, statistics, cannibalization)
+                scripts/seo_kpi.py (KPI envelope: every producer -> one history)
+                scripts/seo_store.py ($CLAUDE_SEO_DATA_DIR, 0700/0600)
+```
+
+Two kinds of number are always kept apart:
+
+- **Readiness scores** say whether the site *can* win. SEO Health comes from
+  the specialists via the scoring rubric. The AEO score comes only from
+  `scripts/aeo_score.py`.
+- **Outcomes** say whether it *did* win: organic and non-brand clicks, rank
+  visibility, AI share of voice, AI-referral sessions and leads, all tracked
+  in `seo-track`.
+
+Readiness and outcomes are reported side by side and never blended.
 
 ## Component Types
 
@@ -271,5 +315,5 @@ extensions/
 3. Own `uninstall.sh` and `uninstall.ps1` that reverse installation
 4. Installs the sub-skill mirror to the plugin's skill directory
 5. Installs the sub-agent mirror to the plugin's agent directory
-6. Merges MCP config into `~/.claude/settings.json` non-destructively
+6. Merges MCP config into `~/.claude.json` non-destructively (atomic write; an unparseable file aborts the install instead of being reset)
 7. MCP server versions are pinned (`@<version>`) for supply-chain stability

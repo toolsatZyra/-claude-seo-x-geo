@@ -2,7 +2,7 @@
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "→ Uninstalling DataForSEO extension..." -ForegroundColor Yellow
+Write-Host "-> Uninstalling DataForSEO extension..." -ForegroundColor Yellow
 
 # Remove skill
 if (Test-Path "$env:USERPROFILE\.claude\skills\seo-dataforseo") {
@@ -21,38 +21,46 @@ if (Test-Path $fieldConfig) {
     Remove-Item -Force $fieldConfig
 }
 
-# Remove MCP server entry from settings.json
-$settingsFile = "$env:USERPROFILE\.claude\settings.json"
-if (Test-Path $settingsFile) {
-    $python = Get-Command -Name python -ErrorAction SilentlyContinue
-    if ($null -eq $python) {
-        $python = Get-Command -Name py -ErrorAction SilentlyContinue
-    }
-
-    if ($null -ne $python) {
-        $pyExe = $python.Source
-        $pyScript = @"
-import json
-settings_path = r'$settingsFile'
-with open(settings_path, 'r') as f:
-    settings = json.load(f)
-if 'mcpServers' in settings and 'dataforseo' in settings['mcpServers']:
-    del settings['mcpServers']['dataforseo']
-    if not settings['mcpServers']:
-        del settings['mcpServers']
-    with open(settings_path, 'w') as f:
-        json.dump(settings, f, indent=2)
-    print('  ok')
-"@
-        $result = & $pyExe -c $pyScript 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Write-Host "  ✓ Removed dataforseo from settings.json" -ForegroundColor Green
+# Remove the MCP server entry from ~/.claude.json (where Claude Code reads MCP
+# servers). Native PowerShell, same pattern as firecrawl's uninstaller: the
+# credential-bearing path is never interpolated into another language's source,
+# and the write is atomic. A file that does not parse throws before anything
+# is written, so a malformed ~/.claude.json is never replaced.
+$McpConfigFile = "$env:USERPROFILE\.claude.json"
+if (Test-Path $McpConfigFile) {
+    try {
+        $settings = Get-Content $McpConfigFile -Raw | ConvertFrom-Json
+        if ($settings.mcpServers -and $settings.mcpServers.'dataforseo') {
+            $settings.mcpServers.PSObject.Properties.Remove('dataforseo')
+            # Write atomically: stage to a temp file in the same directory, then
+            # swap it into place, so a crash mid-write never leaves
+            # ~/.claude.json truncated or half-written.
+            # -Depth 100 so an existing ~/.claude.json with deeply nested config
+            # round-trips intact.
+            $TempConfigFile = Join-Path (Split-Path -Parent $McpConfigFile) ".claude.json.$([guid]::NewGuid().ToString('N')).tmp"
+            $jsonText = $settings | ConvertTo-Json -Depth 100
+            # Write without a byte-order mark: Node's JSON.parse rejects a BOM.
+            [System.IO.File]::WriteAllText($TempConfigFile, $jsonText, (New-Object System.Text.UTF8Encoding $false))
+            Move-Item -Path $TempConfigFile -Destination $McpConfigFile -Force
+            Write-Host "  [OK] Removed dataforseo from ~/.claude.json" -ForegroundColor Green
         } else {
-            Write-Host "  ⚠  Could not auto-remove MCP config. Remove 'dataforseo' from ~\.claude\settings.json manually." -ForegroundColor Yellow
+            Write-Host "  [OK] No dataforseo entry in ~/.claude.json" -ForegroundColor Green
         }
-    } else {
-        Write-Host "  ⚠  Python not found. Remove 'dataforseo' from ~\.claude\settings.json manually." -ForegroundColor Yellow
+    } catch {
+        Write-Host "  [!]  Could not auto-remove MCP config ($($_.Exception.Message)). Remove 'dataforseo' from ~\.claude.json manually; it was not changed." -ForegroundColor Yellow
     }
 }
 
-Write-Host "✓ DataForSEO extension uninstalled." -ForegroundColor Green
+# Older releases wrote the entry, with the credential, to ~/.claude/settings.json,
+# which Claude Code never reads for MCP servers. Remove that stale copy when
+# Python is available; the helper never rewrites a file that does not parse.
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$LegacyCleanup = Join-Path (Split-Path -Parent $ScriptDir) "mcp_config_cleanup.py"
+$python = Get-Command -Name python -ErrorAction SilentlyContinue
+if ($null -ne $python -and (Test-Path $LegacyCleanup)) {
+    & $python.Source $LegacyCleanup dataforseo
+} elseif (Test-Path "$env:USERPROFILE\.claude\settings.json") {
+    Write-Host "  Note: if ~\.claude\settings.json still has an mcpServers.dataforseo entry, remove it by hand." -ForegroundColor Yellow
+}
+
+Write-Host "[OK] DataForSEO extension uninstalled." -ForegroundColor Green

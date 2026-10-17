@@ -1,33 +1,25 @@
 #!/usr/bin/env bash
-# Claude SEO — Ahrefs extension uninstaller.
+# Claude SEO: Ahrefs extension uninstaller.
 set -euo pipefail
 
 SKILL_DIR="${HOME}/.claude/skills/seo-ahrefs"
-SETTINGS_JSON="${HOME}/.claude/settings.json"
+MCP_CONFIG_JSON="${HOME}/.claude.json"
 
 if [ -d "${SKILL_DIR}" ]; then
     rm -rf "${SKILL_DIR}"
     echo "✓ Removed ${SKILL_DIR}"
 fi
 
-if [ -f "${SETTINGS_JSON}" ]; then
-    python3 - "${SETTINGS_JSON}" <<'PY'
-import json, os, sys, tempfile
-path = sys.argv[1]
-with open(path) as fh:
-    data = json.load(fh)
-servers = data.get("mcpServers", {})
-if "ahrefs" in servers:
-    servers.pop("ahrefs")
-    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".", prefix=".settings.", suffix=".json")
-    with os.fdopen(fd, "w") as fh:
-        json.dump(data, fh, indent=2)
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
-    print(f"✓ Removed mcpServers.ahrefs from {path}")
-else:
-    print(f"  (no mcpServers.ahrefs entry to remove in {path})")
-PY
+# Remove mcpServers.ahrefs from ~/.claude.json (where Claude Code reads MCP
+# servers), and the stale copy older releases wrote to ~/.claude/settings.json.
+# The helper rewrites a file atomically and never touches one that does not parse.
+CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
+if [ -f "${CLEANUP}" ]; then
+    python3 "${CLEANUP}" ahrefs --file "${MCP_CONFIG_JSON}" \
+        || echo "  ⚠  Could not update ${MCP_CONFIG_JSON}; remove mcpServers.ahrefs manually."
+    python3 "${CLEANUP}" ahrefs || true
+else
+    echo "  ⚠  Remove mcpServers.ahrefs from ${MCP_CONFIG_JSON} manually."
 fi
 
 echo "Done."
