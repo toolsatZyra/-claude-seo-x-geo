@@ -1,5 +1,5 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
-  - name: Question or Discussion
-    url: https://github.com/AgriciDaniel/claude-seo/discussions
-    about: Ask questions and discuss ideas in GitHub Discussions
+  - name: Report a security vulnerability
+    url: https://github.com/toolsatZyra/-claude-seo-x-geo/security/policy
+    about: Please report vulnerabilities privately, not in a public issue

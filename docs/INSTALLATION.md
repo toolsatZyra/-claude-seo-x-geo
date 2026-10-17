@@ -113,7 +113,7 @@ If installed as a plugin:
 
 ```
 /plugin uninstall claude-seo@toolsatzyra-claude-seo-x-geo
-/plugin marketplace remove toolsatZyra/-claude-seo-x-geo
+/plugin marketplace remove toolsatzyra-claude-seo-x-geo
 ```
 
 If installed manually, run the uninstaller from a fresh clone:
