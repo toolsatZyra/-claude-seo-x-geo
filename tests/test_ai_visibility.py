@@ -302,7 +302,7 @@ def test_missing_sdk_gives_install_message(monkeypatch):
 def _install_fake_engine(monkeypatch, client):
     made = []
 
-    def factory():
+    def factory(**_kw):   # accepts search_tool like the real engine
         made.append(1)
         return av.AnthropicEngine(client=client, sdk=_fake_sdk(client))
 
@@ -535,7 +535,8 @@ def test_report_cli_emits_kpi_envelope(tmp_path, data_dir):
     assert env["date"] == "2026-10-05"
     assert env["metrics"] == {"ai.mention_rate": 0.4, "ai.mention_rate_ci_low": wilson_interval(4, 10)[0],
                               "ai.mention_rate_ci_high": wilson_interval(4, 10)[1],
-                              "ai.citation_rate": 0.2, "ai.sov": round(4 / 12, 4), "ai.n": 10}
+                              "ai.citation_rate": 0.2, "ai.sov": round(4 / 12, 4),
+                              "ai.retrieval_rate": None, "ai.n": 10}
     assert env["meta"]["thin"] is True and env["meta"]["surface"] == "api"
     tracker = pytest.importorskip("performance_tracker")
     validate = getattr(tracker, "validate_envelope", None)

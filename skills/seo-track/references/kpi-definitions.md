@@ -12,7 +12,7 @@ warning on ingest because it is usually a typo.
 | Kind | Range | Applies to |
 |---|---|---|
 | count | >= 0 | clicks, impressions, sessions, key events, keyword counts, leads, `ai.n` |
-| fraction | 0-1, never a percent | `gsc.ctr`, `ai.mention_rate`, its CI bounds, `ai.citation_rate`, `ai.sov` |
+| fraction | 0-1, never a percent | `gsc.ctr`, `ai.mention_rate`, its CI bounds, `ai.citation_rate`, `ai.retrieval_rate`, `ai.sov` |
 | rate | >= 0 | `ga4.*_cvr` (can exceed 1 when the basis is key events per session) |
 | score | 0-100 | `aeo.*`, `seo.health`, `rank.visibility` |
 | position | > 0, lower is better | `gsc.position` (and any metric ending in `position`) |
@@ -102,7 +102,8 @@ Caveats:
 |---|---|---|
 | `ai.mention_rate` | Share of non-branded panel answers that mention the brand | Outcome (layer 3) |
 | `ai.mention_rate_ci_low` / `_ci_high` | 95% Wilson interval for the mention rate | Context for the above |
-| `ai.citation_rate` | Share of answers citing a URL on the client's domain | Outcome (layer 3) |
+| `ai.citation_rate` | Share of answers citing a URL on the client's domain; null when the engine returned no structured citations | Outcome (layer 3) |
+| `ai.retrieval_rate` | Share of answers whose own web search returned a client URL (found, not necessarily credited) | Outcome (layer 3) |
 | `ai.sov` | Brand mentions / all tracked-brand mentions (client + competitors) | Outcome (layer 3) |
 | `ai.n` | Answers behind the rates (prompts x engines x runs) | Neutral |
 

@@ -185,3 +185,66 @@ def test_bad_ingest_field_marks_row_invalid_not_crash(field, value):
 def test_anthropic_client_has_retries_disabled():
     import inspect
     assert "Anthropic(max_retries=0)" in inspect.getsource(av)
+
+
+# --- live-run finding: raw API responses contain datetimes -------------------
+
+def test_raw_response_with_datetimes_is_stored(tmp_path):
+    """Regression from the first live pilot: SDK to_dict() (python mode) returns
+    datetime objects for web-search results; storing the run crashed after the
+    API call had already been billed."""
+    from datetime import datetime, timezone
+
+    class FakeMessage:
+        def to_dict(self, mode="python"):
+            when = datetime(2026, 10, 1, tzinfo=timezone.utc)
+            return {"content": [{"type": "web_search_tool_result",
+                                 "content": [{"url": "https://a.com", "page_age": when if mode == "python" else when.isoformat()}]}],
+                    "mode": mode}
+
+    raw = av._to_raw(FakeMessage())
+    assert raw["mode"] == "json"                         # asks the SDK for JSON-safe output
+    conn = av.open_store(str(tmp_path))
+    rid = av.insert_run(conn, {"project": "acme.io", "batch_id": "b", "run_at": "2026-10-17T00:00:00Z",
+                               "prompt": "p", "engine": "anthropic", "surface": "api", "status": "ok",
+                               "answer": "x", "raw": {"when": datetime(2026, 10, 1)}})  # still stored
+    assert rid
+    class OldSDK:
+        def to_dict(self):
+            return {"ok": True}
+    assert av._to_raw(OldSDK()) == {"ok": True}
+
+
+# --- live-run finding: dynamic web search returns uncited answers -----------
+
+def test_retrieval_rate_measured_when_citations_are_absent():
+    profile = proj.new_profile("acme.io", brand_terms=["acme"], competitors=["rival.com"])
+    entities = av.build_entities(profile)
+    a1 = av.analyze_answer("Acme and Rival make CRMs.", [], entities,
+                           [{"url": "https://www.acme.io/pricing"}, {"url": "https://rival.com/"}])
+    a2 = av.analyze_answer("Rival is popular.", [], entities, [{"url": "https://rival.com/"}])
+    for a in (a1, a2):
+        a["_row"] = {"branded": False, "prompt": "p"}
+    s = av.summarize([a1, a2], entities)
+    assert s["retrieval_rate"] == 0.5 and s["answers_retrieving_own"] == 1
+    assert s["citation_rate"] is None            # no structured citations: not measured, never 0
+    none = av.summarize([av.analyze_answer("x", [], entities, [])], entities)
+    assert none["retrieval_rate"] is None        # no search results reported: not measured
+
+
+def test_search_tool_option_selects_the_tool_type():
+    class FakeSDK:
+        class Anthropic:
+            def __init__(self, **kw):
+                pass
+    basic = av.AnthropicEngine(sdk=FakeSDK, search_tool="basic")
+    assert basic.request_kwargs("claude-opus-5-5", [])["tools"][0]["type"] == "web_search_20250305"
+    dyn = av.AnthropicEngine(sdk=FakeSDK)
+    assert dyn.request_kwargs("claude-opus-5-5", [])["tools"][0]["type"] == "web_search_20260209"
+    with pytest.raises(av.EngineFatalError):
+        av.AnthropicEngine(sdk=FakeSDK, search_tool="other")
+
+
+def test_retrieval_rate_is_a_reserved_fraction_metric():
+    import seo_kpi
+    assert seo_kpi.RESERVED_METRICS["ai.retrieval_rate"] == "fraction"

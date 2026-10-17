@@ -92,7 +92,8 @@ Use the confirmed number as `--max-calls`. `--dry-run` prints the same plan.
 
 ```bash
 python3 scripts/ai_visibility.py run --project example.com --engine anthropic \
-    --runs 5 --max-calls 150 [--group treatment] [--model claude-opus-5-5] [--country GB]
+    --runs 5 --max-calls 150 [--group treatment] [--model claude-opus-5-5] [--country GB] \
+    [--search-tool dynamic|basic]
 ```
 
 - `--max-calls` is required and counts API requests, continuations included.
@@ -100,7 +101,11 @@ python3 scripts/ai_visibility.py run --project example.com --engine anthropic \
   budget is spent, and stops after 3 consecutive errors or any credential /
   unknown-model error. Runs are interleaved (run 1 over every prompt, then
   run 2), so an early stop still leaves even coverage.
-- Request shape: Messages API, `web_search_20260209` (max 5 searches), effort
+- Search tool: `dynamic` (default, `web_search_20260209`) answers often carry
+  no structured citations, so the report shows citation rate as not measured
+  and relies on retrieval rate (did the search return the client's site?);
+  `basic` (`web_search_20250305`) returns cited answers. Keep it fixed per panel.
+- Request shape: Messages API, the chosen web search tool (max 5 searches), effort
   `medium`, no system prompt, no prefill. Server-side refusal fallbacks are
   deliberately off: a fallback model's answer would be stored under the wrong
   model. Refusals are stored as `refused`, never as "not mentioned".
@@ -186,7 +191,8 @@ Basis: unbranded prompts only (prompts naming <client> are excluded).
 |---|---|---|---|
 | Mention rate | 32.0% | 21.5-44.8% | 60 |
 | Share of voice vs tracked competitors | 28.1% | | |
-| Citation rate (answers citing <domain>) | 15.0% | | 60 |
+| Citation rate (answers citing <domain>) | 15.0% (or "not measured") | | 60 |
+| Retrieval rate (search returned <domain>) | 41.7% | | 60 |
 
 | Brand | Mention rate | Share of voice | Avg first position |
 |---|---|---|---|
