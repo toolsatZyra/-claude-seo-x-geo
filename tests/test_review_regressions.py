@@ -248,3 +248,33 @@ def test_search_tool_option_selects_the_tool_type():
 def test_retrieval_rate_is_a_reserved_fraction_metric():
     import seo_kpi
     assert seo_kpi.RESERVED_METRICS["ai.retrieval_rate"] == "fraction"
+
+
+# --- live-run finding: out of credits mid-batch --------------------------------
+
+def test_credit_exhaustion_stops_the_run_and_errors_keep_their_message():
+    class FakeStatusError(Exception):
+        def __init__(self, message, status_code, body):
+            super().__init__(message)
+            self.message, self.status_code, self.body = message, status_code, body
+
+    class FakeSDK:
+        AuthenticationError = PermissionDeniedError = NotFoundError = RateLimitError = type("X", (Exception,), {})
+        APIConnectionError = type("Y", (Exception,), {})
+    FakeSDK.APIStatusError = FakeStatusError
+
+    def failing(body):
+        class Messages:
+            def create(self, **kw):
+                raise FakeStatusError("Error code: 400", 400, body)
+        return type("Client", (), {"messages": Messages()})()
+
+    credit = {"error": {"type": "invalid_request_error",
+                        "message": "Your credit balance is too low to access the Anthropic API."}}
+    eng = av.AnthropicEngine(client=failing(credit), sdk=FakeSDK)
+    with pytest.raises(av.EngineFatalError, match="credit balance"):
+        eng.ask("best crm", "claude-opus-5-5", av.Budget(5))
+
+    other = {"error": {"type": "invalid_request_error", "message": "messages: text content blocks must be non-empty"}}
+    res = av.AnthropicEngine(client=failing(other), sdk=FakeSDK).ask("best crm", "claude-opus-5-5", av.Budget(5))
+    assert res["status"] == "error" and "must be non-empty" in res["error"]

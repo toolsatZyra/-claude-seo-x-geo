@@ -308,6 +308,17 @@ def _strip_opaque(obj: Any) -> Any:
     return obj
 
 
+def _api_error_message(exc: Any) -> str:
+    """The API's own error message (no credentials ever appear in it), trimmed."""
+    body = getattr(exc, "body", None)
+    msg = None
+    if isinstance(body, dict):
+        err = body.get("error")
+        msg = err.get("message") if isinstance(err, dict) else body.get("message")
+    msg = msg or getattr(exc, "message", None) or exc.__class__.__name__
+    return " ".join(str(msg).split())[:240]
+
+
 def _to_raw(response: Any) -> Any:
     if isinstance(response, dict):
         data = response
@@ -475,9 +486,15 @@ class AnthropicEngine:
         except sdk.NotFoundError as exc:
             raise EngineFatalError(f"model or endpoint not found ({model!r})") from exc
         except sdk.RateLimitError:
-            return self._result("error", "rate limited (after SDK retries)", model, raws, assistant_content)
+            return self._result("error", "rate limited", model, raws, assistant_content)
         except sdk.APIStatusError as exc:
-            return self._result("error", f"API error HTTP {getattr(exc, 'status_code', '?')}",
+            detail = _api_error_message(exc)
+            if "credit balance" in detail.lower():
+                # Out of credits: every further call fails the same way, so stop
+                # now instead of after MAX_CONSECUTIVE_ERRORS wasted attempts.
+                raise EngineFatalError(f"Anthropic credit balance too low ({detail}); add credits "
+                                       "under Plans & Billing, then re-run") from exc
+            return self._result("error", f"API error HTTP {getattr(exc, 'status_code', '?')}: {detail}",
                                 model, raws, assistant_content)
         except sdk.APIConnectionError as exc:
             return self._result("error", f"connection error: {exc.__class__.__name__}",
