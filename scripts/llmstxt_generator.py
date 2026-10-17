@@ -13,6 +13,7 @@ Extended: /llms-full.txt (detailed version)
 Derived from zubair-trabzada/geo-seo-claude (MIT).
 """
 
+import argparse
 import sys
 import json
 import re
@@ -249,27 +250,26 @@ def generate_llmstxt(url: str, max_pages: int = 30, mode: str = "generate") -> d
     return result
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python llmstxt_generator.py <url> [mode] [aeo_llmstxt_mode]")
-        print("Modes: validate (default), generate")
-        print("aeo_llmstxt_mode: audit | generate | off (default: generate)")
-        sys.exit(1)
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(description="Audit or generate a site's llms.txt (JSON).")
+    parser.add_argument("url", help="Site URL")
+    parser.add_argument("mode", nargs="?", default="validate", choices=("validate", "generate"),
+                        help="validate (default) or generate")
+    parser.add_argument("aeo_mode", nargs="?", default="generate", choices=("audit", "generate", "off"),
+                        help="aeo.llmstxt_mode policy flag (default: generate)")
+    args = parser.parse_args(argv)
 
-    target_url = sys.argv[1]
-    cli_mode = sys.argv[2] if len(sys.argv) > 2 else "validate"
-    aeo_mode = sys.argv[3] if len(sys.argv) > 3 else "generate"
-
-    if cli_mode == "validate":
-        data = validate_llmstxt(target_url)
-    elif cli_mode == "generate":
+    if args.mode == "validate":
+        data = validate_llmstxt(args.url)
+    else:
         try:
-            data = generate_llmstxt(target_url, mode=aeo_mode)
+            data = generate_llmstxt(args.url, mode=args.aeo_mode)
         except LlmsTxtGenerationDisabledError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-    else:
-        print(f"Unknown mode: {cli_mode}. Use 'validate' or 'generate'.")
-        sys.exit(1)
 
     print(json.dumps(data, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()

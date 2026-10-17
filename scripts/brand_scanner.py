@@ -15,6 +15,7 @@ Platform importance for AI citations:
 Derived from zubair-trabzada/geo-seo-claude (MIT).
 """
 
+import argparse
 import sys
 import json
 import re
@@ -280,12 +281,16 @@ def generate_brand_report(brand_name: str, domain: str = None) -> dict:
     return report
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python brand_scanner.py <brand_name> [domain]")
-        print("Example: python brand_scanner.py 'Acme Corp' acmecorp.com")
-        sys.exit(1)
-    brand = sys.argv[1]
-    domain = sys.argv[2] if len(sys.argv) > 2 else None
-    result = generate_brand_report(brand, domain)
+def main(argv=None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Brand presence on AI-cited platforms (JSON report).",
+        epilog="Example: python brand_scanner.py 'Acme Corp' acmecorp.com")
+    parser.add_argument("brand", help="Brand name to scan for")
+    parser.add_argument("domain", nargs="?", default=None, help="Brand's own domain (optional)")
+    args = parser.parse_args(argv)
+    result = generate_brand_report(args.brand, args.domain)
     print(json.dumps(result, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()

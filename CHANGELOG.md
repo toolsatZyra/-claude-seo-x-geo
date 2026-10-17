@@ -24,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Uninstall hints.** They named upstream's marketplace. `/plugin marketplace
   remove` takes the marketplace name (`toolsatzyra-claude-seo-x-geo`), not the
   repo path, and the uninstall hints and `docs/INSTALLATION.md` now use it.
+- **`--help` ran a real job.** `citability_scorer.py`, `brand_scanner.py` and
+  `llmstxt_generator.py` read `sys.argv` by hand, so `--help` was treated as
+  input:
+  - `citability_scorer.py` fetched a page named "--help";
+  - `brand_scanner.py` scanned a brand named "--help";
+  - `llmstxt_generator.py` fetched `:///llms.txt`.
+
+  All three now use argparse. The positional interface the skills document is
+  unchanged, a missing argument exits with code 2 and a usage message, and an
+  unknown llms.txt mode is rejected. Covered by `tests/test_aeo_cli_args.py`.
 - **Issue templates.** GitHub Discussions is disabled on this repository, so
   the issue templates no longer link to it. Questions go to a blank issue, and
   the template chooser links the security policy.
