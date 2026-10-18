@@ -4,7 +4,7 @@
 
 This repository contains **Claude SEO**, a Tier 4 Claude Code skill for comprehensive
 SEO analysis across all industries. It follows the Agent Skills open standard and the
-3-layer architecture (directive, orchestration, execution). 39 sub-skills (35 core +
+3-layer architecture (directive, orchestration, execution). 40 sub-skills (36 core +
 1 orchestrator + 1 framework integration + 2 extension mirrors), 21 sub-agents, and
 an extensible reference system make it a central SEO + AEO + GEO hub: keyword
 research, rank and KPI tracking, competitor gap analysis, an Outrank-style content
@@ -27,7 +27,7 @@ claude-seo/
   .claude-plugin/
     plugin.json                    # Plugin manifest (v3.1.0)
     marketplace.json               # Marketplace catalog for distribution
-  skills/                            # 39 sub-skills (auto-discovered)
+  skills/                            # 40 sub-skills (auto-discovered)
     seo/                           # Main orchestrator skill
       SKILL.md                     # Entry point, routing table, core rules
       references/                  # On-demand knowledge files (15 files)
@@ -71,6 +71,7 @@ claude-seo/
     seo-content-engine/          # Calendar -> brief -> draft -> gates -> review -> draft export (v3.1)
     seo-refresh/                 # Content decay + GSC improvement loop, AIO recovery (v3.1)
     seo-track/                   # Rank tracking, KPI history, AI referrals, holdout tests (v3.1)
+    seo-links/                   # Competitor link gap + link earning (prospects, approved drafts, tracker)
     seo-agentic/                 # Agent readiness (ported from upstream v2.4)
     geo-citability/ geo-platform-optimizer/ geo-brand-mentions/ geo-crawlers/
     geo-compare/ geo-prospect/ geo-proposal/ geo-share-of-voice/   # AEO cluster (routed by seo-geo)
@@ -112,6 +113,10 @@ claude-seo/
     content_optimizer.py         # Term/heading/question coverage vs competitor pages
     content_export.py            # Draft-first export: HTML bundle, HMAC webhook, WordPress draft, calendar checks
     ai_visibility.py             # AI share of voice: prompt panels, Anthropic engine, ingest, CI, paired compare
+    link_store.py                # links store: referring-domain snapshots, prospects, events
+    link_sources.py              # DataForSEO / Moz / CSV referring domains, cost-capped
+    link_gap.py                  # Competitor link gap, prospect classification and scoring
+    link_outreach.py             # Approval-gated outreach tracker, draft lint, verification, KPIs
     aeo_score.py                 # The single AEO Readiness Score + AI crawler access sub-score
     # --- AEO / GEO (v3.0) ---
     citability_scorer.py         # Deterministic passage citability (0-100)
@@ -221,6 +226,7 @@ claude-seo/
 | `/seo growth <domain>` | Guided research -> create -> measure loop with checkpoints |
 | `/seo keywords <seed\|domain>` | Keyword research: discovery, intent/funnel, opportunity, lead priority |
 | `/seo competitors <domain>` | Keyword gap, content/format gap, backlink + AI-citation gap, battlecards |
+| `/seo links <setup\|gap\|prospects\|draft\|track> <domain>` | Competitor link gap, scored prospects, approval-gated outreach, tracker |
 | `/seo content-engine <domain>` | Content calendar -> brief -> draft -> gates -> human review -> draft export |
 | `/seo content optimize <url> <kw>` | Coverage vs ranking pages (correlational) |
 | `/seo refresh <domain>` | Content decay + improvement candidates, AI-Overview recovery |

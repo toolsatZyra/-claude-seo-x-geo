@@ -2,7 +2,7 @@
 
 # Claude SEO × GEO — SEO + AEO Plugin for Claude Code
 
-**A ZYRA-maintained distribution of an SEO analysis plugin for [Claude Code](https://claude.ai/claude-code), extended with a first-class Answer Engine Optimization (AEO/GEO) layer.** It is a central SEO + AEO + GEO hub: 39 sub-skills and 21 specialist agents cover the whole organic-growth loop. **Research** covers keyword research with lead-priority scoring and competitor keyword/content gaps. **Create and optimize** covers an Outrank-style content engine with human review gates, content-decay refresh, and technical, schema and E-E-A-T audits. **Measure** covers rank and KPI history, GA4 AI-referral analytics, and AI share of voice in ChatGPT, Claude, Perplexity and AI Overviews, plus deterministic citability, AI crawler access and agent readiness. Every audit produces a prioritized action plan with falsifiable recommendations, and SEO and AEO are always reported as **two separate scores** — never blended into one number.
+**A ZYRA-maintained distribution of an SEO analysis plugin for [Claude Code](https://claude.ai/claude-code), extended with a first-class Answer Engine Optimization (AEO/GEO) layer.** It is a central SEO + AEO + GEO hub: 40 sub-skills and 21 specialist agents cover the whole organic-growth loop. **Research** covers keyword research with lead-priority scoring and competitor keyword/content gaps. **Create and optimize** covers an Outrank-style content engine with human review gates, content-decay refresh, and technical, schema and E-E-A-T audits. **Measure** covers rank and KPI history, GA4 AI-referral analytics, and AI share of voice in ChatGPT, Claude, Perplexity and AI Overviews, plus deterministic citability, AI crawler access and agent readiness. Every audit produces a prioritized action plan with falsifiable recommendations, and SEO and AEO are always reported as **two separate scores** — never blended into one number.
 
 [![CI](https://github.com/toolsatZyra/-claude-seo-x-geo/actions/workflows/ci.yml/badge.svg)](https://github.com/toolsatZyra/-claude-seo-x-geo/actions/workflows/ci.yml)
 [![Claude Code Skill](https://img.shields.io/badge/Claude%20Code-Skill-blue)](https://claude.ai/claude-code)
@@ -140,6 +140,7 @@ claude
 | `/seo growth <domain>` | Guided research → create → measure loop with a checkpoint at every stage |
 | `/seo keywords <seed\|domain>` | Keyword research: autocomplete + Search Console striking distance + paid tiers; intent, funnel, opportunity, lead priority |
 | `/seo competitors <domain>` | Keyword gap (moat/battleground/gap/pioneer), content and format gap, backlink and AI-citation gap, battlecards |
+| `/seo links <domain>` | Competitor link gap, deterministic prospect scoring, human-approved outreach drafts, pipeline tracker, won-link verification |
 | `/seo content-engine <domain>` | Calendar with cannibalization pre-check → brief → draft → quality gates → human review → draft export (WordPress, signed webhook, HTML) |
 | `/seo content optimize <url> <kw>` | Term, heading and question coverage against pages that rank |
 | `/seo refresh <domain>` | Content decay (YoY), cause diagnosis, improvement candidates, AI-Overview recovery |
@@ -294,7 +295,7 @@ Other audit outputs follow the same shape: `FULL-AUDIT-REPORT.md` (umbrella audi
 
 ## Architecture
 
-![Claude SEO audit signal flow: /seo audit enters the orchestrator, fans out to 39 sub-skills and 6 parallel audit agents, and converges through the scoring engine into a prioritized report](assets/signal-flow.svg)
+![Claude SEO audit signal flow: /seo audit enters the orchestrator, fans out to 40 sub-skills and 6 parallel audit agents, and converges through the scoring engine into a prioritized report](assets/signal-flow.svg)
 
 The plugin follows the [Agent Skills standard](https://docs.claude.com/en/docs/claude-code/skills) with a 3-layer architecture (directive, orchestration, execution). Skills and agents are auto-discovered from `skills/` and `agents/`. The orchestrator (`skills/seo/SKILL.md`) handles industry detection (SaaS, local, ecommerce, publisher, agency), parallel sub-agent dispatch up to 15 simultaneously, and synthesis through the [10-principle framework](#methodology) before emitting the action plan. The AEO/GEO layer is architecturally separate: `seo-geo` routes to the `geo-*` cluster as a distinct scored track, per `skills/seo-audit/SKILL.md`'s AEO fan-out. Full architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -458,7 +459,7 @@ This plugin builds on the upstream `claude-seo` / `geo-seo-claude` ecosystem:
 
 ### What is this plugin?
 
-An SEO + AEO analysis plugin for Claude Code, maintained by ZYRA as a fork of `claude-seo` and `geo-seo-claude`. It runs 39 sub-skills and 21 specialist agents across keyword research, competitor analysis, content creation and refresh, technical SEO, content quality, Schema.org markup, rank and KPI tracking, and a first-class AEO/GEO layer, producing a prioritized action plan where each recommendation carries the observation it rests on, its dependencies, a falsifiability check, and a leading indicator. MIT-licensed, ships zero proprietary tracking, works fully offline if you skip the optional Google API and MCP-extension enrichments.
+An SEO + AEO analysis plugin for Claude Code, maintained by ZYRA as a fork of `claude-seo` and `geo-seo-claude`. It runs 40 sub-skills and 21 specialist agents across keyword research, competitor analysis, content creation and refresh, technical SEO, content quality, Schema.org markup, rank and KPI tracking, and a first-class AEO/GEO layer, producing a prioritized action plan where each recommendation carries the observation it rests on, its dependencies, a falsifiability check, and a leading indicator. MIT-licensed, ships zero proprietary tracking, works fully offline if you skip the optional Google API and MCP-extension enrichments.
 
 ### How does this compare to Outrank or other AI SEO autopilots?
 
@@ -474,7 +475,7 @@ Yes, via a shared headless renderer (Playwright Chromium). `--render auto` (the 
 
 ### Is this free?
 
-Yes. MIT licensed, fully open source, no per-domain pricing, no telemetry. The core plugin and all 39 sub-skills work without any paid service (some capabilities deepen with Search Console/GA4 access or paid data; see the data-tier matrix in `skills/seo/SKILL.md`). Some optional MCP extensions wrap paid services (DataForSEO, Ahrefs, Profound, SE Ranking) where you bring your own account credentials.
+Yes. MIT licensed, fully open source, no per-domain pricing, no telemetry. The core plugin and all 40 sub-skills work without any paid service (some capabilities deepen with Search Console/GA4 access or paid data; see the data-tier matrix in `skills/seo/SKILL.md`). Some optional MCP extensions wrap paid services (DataForSEO, Ahrefs, Profound, SE Ranking) where you bring your own account credentials.
 
 ### How is AEO/GEO scoring different from just relabeled SEO?
 

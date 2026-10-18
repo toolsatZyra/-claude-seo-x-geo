@@ -1,6 +1,6 @@
 ---
 name: seo-backlinks
-description: "Backlink profile analysis: referring domains, anchor text distribution, toxic link detection, competitor gap analysis. Works with free APIs (Moz, Bing Webmaster, Common Crawl) and DataForSEO extension. Use when user says backlinks, link profile, referring domains, anchor text, toxic links, link gap, link building, disavow, or backlink audit."
+description: "Backlink profile analysis: referring domains, anchor text distribution, toxic link detection, competitor link gap (routed to seo-links). Works with free APIs (Moz, Bing Webmaster, Common Crawl) and DataForSEO extension. Use when user says backlinks, link profile, referring domains, anchor text, toxic links, disavow, or backlink audit."
 user-invocable: true
 argument-hint: "<url>"
 license: MIT
@@ -134,17 +134,10 @@ Find:
 
 ### 6. Competitor Gap Analysis
 
-**DataForSEO:** `backlinks_referring_domains` for both domains, then compare
-
-**Bing Webmaster:** `python3 scripts/bing_webmaster.py compare <url1> <url2> --json` — free side-by-side comparison, but only between sites verified in the same Bing Webmaster account (it cannot compare against an arbitrary competitor)
-
-**Moz API:** Compare DA/PA between domains via `python3 scripts/moz_api.py metrics <url> --json` for each
-
-Output:
-- Domains linking to competitor but NOT to target = link building opportunities
-- Domains linking to both = validate existing relationships
-- Domains linking only to target = competitive advantage
-- Top 20 link building opportunities with domain authority
+Handled by `seo-links`, which is deterministic and source-consistent:
+`/seo links gap <domain>` then `/seo links prospects <domain>` (DataForSEO,
+Moz or CSV exports; one source per run). Do not compare referring domains here
+by hand.
 
 ### 7. New and Lost Backlinks
 
@@ -202,7 +195,7 @@ the reality is we simply lack data.
 ### Critical Issues (fix immediately)
 ### High Priority (fix within 1 month)
 ### Medium Priority (ongoing improvement)
-### Link Building Opportunities (top 10)
+### Link Building Opportunities (top 10 from /seo links prospects)
 
 ## Error Handling
 

@@ -52,7 +52,7 @@ in case a recipe needs a specific call.
 
 ## Overview
 
-Claude SEO is a Tier 4 SEO + AEO + GEO hub with 39 sub-skills (35 core + 1 orchestrator +
+Claude SEO is a Tier 4 SEO + AEO + GEO hub with 40 sub-skills (36 core + 1 orchestrator +
 1 framework integration + 2 extension mirrors), 21 sub-agents, and 75 Python execution
 scripts. It covers the full organic-growth loop: research (keywords, competitors),
 create/optimize (content engine, refresh, technical fixes) and measure (rank and KPI
@@ -93,6 +93,7 @@ history, AI share of voice). Client data lives under `$CLAUDE_SEO_DATA_DIR`
 | `/seo project init <domain>` | Client profile read by every skill |
 | `/seo keywords <seed\|domain>` | Keyword research, opportunity and lead priority |
 | `/seo competitors <domain>` | Keyword, content, backlink and AI-citation gaps |
+| `/seo links <domain>` | Competitor link gap, prospects, approved outreach, tracker |
 | `/seo content-engine <domain>` | Calendar, briefs, drafts, gates, human review, draft export |
 | `/seo refresh <domain>` | Content decay and improvement candidates |
 | `/seo track <domain>` / `/seo rank <domain>` | KPI history and rank tracking |
@@ -140,7 +141,7 @@ bash install.sh
 ## Architecture
 
 ```
-skills/                    # 39 sub-skills (auto-discovered)
+skills/                    # 40 sub-skills (auto-discovered)
   seo/SKILL.md            # Main orchestrator + routing
   seo-cluster/            # Semantic clustering (v1.9.0)
   seo-sxo/                # Search Experience Optimization (v1.9.0)

@@ -194,7 +194,12 @@ fall; `rank.tracked` and `ai.n` are neutral). Structure the client write-up as:
 2. Rankings: visibility index, band shifts, top movers, URL swaps, cannibalization.
 3. AI visibility: `ai.*` from `geo-share-of-voice` and AI referrals; keep the AEO
    readiness score separate from AI share of voice (readiness is not outcome).
-4. What we changed and what we will watch: every recommendation carries the
+4. Links: `links.referring_domains` and `links.gap_domains` (from `link_gap.py kpis`,
+   per data source; never compare DataForSEO counts with Moz counts) and the
+   outreach pipeline `links.contacted`, `links.won`, `links.won_verified`,
+   `links.win_rate` (from `link_outreach.py kpis`; win rate stays null below 5
+   contacted).
+5. What we changed and what we will watch: every recommendation carries the
    observation it rests on, its dependency, "how we would know it failed", and a
    leading indicator (see the protocol below).
 
@@ -212,7 +217,7 @@ For the monthly client narrative, hand the export to `geo-compare`.
 | When | Run |
 |---|---|
 | Weekly | `rank_tracker.py ingest-gsc --days 10`, `performance_tracker.py snapshot`, `performance_tracker.py report --fail-on-drop 20 --watch gsc.clicks_nonbrand,ga4.organic_key_events` |
-| Monthly | `ai_referrals.py --emit-kpis` + `ingest`, `record` leads, `report --compare 28d`, `geo-compare` narrative |
+| Monthly | `ai_referrals.py --emit-kpis` + `ingest`, `record` leads, `report --compare 28d`, `geo-compare` narrative, `link_outreach.py verify` + `kpis` and `link_gap.py kpis` + `ingest` |
 | Quarterly | `report --compare 90d`; prune and re-tag the tracked list (new tags only for new experiments) |
 
 The plugin does not schedule anything. Use the operator's own scheduler (cron,

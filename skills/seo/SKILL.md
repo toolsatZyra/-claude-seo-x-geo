@@ -1,6 +1,6 @@
 ---
 name: seo
-description: "Central SEO + AEO + GEO hub: one entry point for keyword research, rank tracking, technical audits, content creation and optimization, competitor gap analysis, programmatic SEO, AI search visibility (citability, AI crawlers, share of voice in ChatGPT/Claude/Perplexity/AI Overviews), and performance/lead tracking. Routes to 38 specialist skills, industry-aware (SaaS, e-commerce, local, publisher, agency). Triggers on: SEO, AEO, GEO, audit, keyword research, rankings, rank tracking, content plan, content decay, competitor analysis, schema, Core Web Vitals, AI Overviews, AI visibility, ChatGPT mentions, organic traffic, leads."
+description: "Central SEO + AEO + GEO hub: one entry point for keyword research, rank tracking, technical audits, content creation and optimization, competitor gap analysis, programmatic SEO, AI search visibility (citability, AI crawlers, share of voice in ChatGPT/Claude/Perplexity/AI Overviews), and performance/lead tracking. Routes to 39 specialist skills, industry-aware (SaaS, e-commerce, local, publisher, agency). Triggers on: SEO, AEO, GEO, audit, keyword research, rankings, rank tracking, content plan, content decay, competitor analysis, schema, Core Web Vitals, AI Overviews, AI visibility, ChatGPT mentions, organic traffic, leads."
 user-invocable: true
 argument-hint: "[command] [url|domain|keyword]"
 license: MIT
@@ -19,7 +19,7 @@ metadata:
 One hub for the whole organic-growth loop — **research → create/optimize →
 measure** — across classic search (SEO), answer engines (AEO) and generative
 engines (GEO), aimed at organic traffic, AI-search visibility and qualified
-leads. Orchestrates 38 sub-skills (35 core + 1 framework integration + 2
+leads. Orchestrates 39 sub-skills (36 core + 1 framework integration + 2
 extension mirrors) and 21 sub-agents. Optional extensions are listed below.
 
 ## Quick Reference (by job to be done)
@@ -38,6 +38,7 @@ extension mirrors) and 21 sub-agents. Optional extensions are listed below.
 |---------|-------------|
 | `/seo keywords <seed\|domain>` | Keyword discovery + intent/funnel + opportunity score + lead priority (`seo-keywords`) |
 | `/seo competitors <domain>` | Keyword gap, content/format gap, backlink + AI-citation gap, battlecard (`seo-competitors`) |
+| `/seo links <setup\|gap\|prospects\|draft\|track> <domain>` | Competitor link gap, scored prospects, approval-gated outreach drafts, tracker, won-link verification (`seo-links`) |
 | `/seo cluster <seed-keyword>` | SERP-overlap clustering and hub-and-spoke architecture |
 | `/seo plan <business-type>` | Strategic SEO planning |
 | `/seo sxo <url>` | Search Experience Optimization: page-type fit, personas |
@@ -361,8 +362,8 @@ outcome into a readiness score or vice versa.
 
 ## Sub-Skills
 
-This skill orchestrates 38 sub-skills (35 core + 1 framework integration + 2 extension
-mirrors). The orchestrator itself (`seo`) is the 39th in `skills/`, but does not
+This skill orchestrates 39 sub-skills (36 core + 1 framework integration + 2 extension
+mirrors). The orchestrator itself (`seo`) is the 40th in `skills/`, but does not
 orchestrate itself, so it is not enumerated below.
 
 1. **seo-audit** -- Full website audit with parallel delegation
@@ -402,7 +403,8 @@ orchestrate itself, so it is not enumerated below.
 35. **seo-refresh** -- Content decay and GSC-driven improvement loop, AI-Overview recovery playbook
 36. **seo-track** -- Measurement hub: rank tracking, KPI snapshots (SEO + AEO + leads), AI referrals, measurement protocol
 37. **geo-share-of-voice** -- AI answer tracking: prompt panels, mention/citation rates with confidence intervals, paired comparisons
-38. **seo-agentic** -- Agent readiness: AI agent access, Markdown delivery, agent discovery files (ported from upstream v2.4)
+38. **seo-links** -- Competitor link gap and white-hat link earning: deterministic prospect scoring, human-approved drafts, pipeline tracker, won-link verification, links.* KPIs
+39. **seo-agentic** -- Agent readiness: AI agent access, Markdown delivery, agent discovery files (ported from upstream v2.4)
 
 ### Optional Extensions
 

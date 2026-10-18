@@ -7,8 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **`/seo links`: competitor link gap and white-hat link earning** (new
+  `seo-links` skill and `link_store.py`, `link_sources.py`, `link_gap.py`,
+  `link_outreach.py`).
+  - **Sources:** referring domains for the client and its profile competitors
+    come from DataForSEO (cost estimated first, hard `--max-cost`, stops on
+    insufficient funds, actual cost logged), Moz, or CSV exports. One source is
+    used per run.
+  - **Gap and scoring:** a deterministic gap segments the domains, excludes
+    spam and paid signals, classifies prospects by rule, and scores them with a
+    fixed formula into high-value, quick-win and backlog buckets.
+  - **Outreach:** drafts are written from briefs and linted against payment,
+    sponsorship, link-swap and dofollow asks. A named person approves; nothing
+    is ever sent.
+  - **Tracking:** a pipeline tracker with one follow-up, a 90-day cooldown and
+    do-not-contact; won links are verified on the page; `links.*` KPIs.
+- **Profile `topics` field** (service terms used for link relevance).
+- **`dataforseo_costs.unit_cost` / `record_spend`** for scripts that budget
+  paid calls.
+
 ### Fixed
 
+- **DataForSEO detection.** `backlinks_auth.py` reported "Tier 3, Premium"
+  whenever `~/.claude/settings.json` had a dataforseo MCP entry, but Claude Code
+  never loads MCP servers from that file. It now reads `~/.claude.json` (user
+  and project scopes), flags the stale copy with the fix command, and resolves
+  REST credentials without printing them.
 - **Installer cloned the upstream repo.** `install.sh` and `install.ps1` still
   cloned `AgriciDaniel/claude-seo`. That repo has no `v3.1.0` tag, so the
   documented one-line install failed. Both now clone this repository. A new

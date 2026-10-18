@@ -1,7 +1,7 @@
 {
   "name": "claude-seo",
   "version": "3.1.0",
-  "description": "Central SEO + AEO + GEO hub for Claude Code. 39 sub-skills (35 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 21 sub-agents: keyword research, rank and KPI tracking, technical audits, content engine and decay refresh, competitor gaps, programmatic SEO, schema, local, Core Web Vitals, and first-class AEO (one AEO score, AI crawler access, AI share of voice, agent readiness). Deterministic scoring, SSRF-safe fetchers, draft-first CMS export.",
+  "description": "Central SEO + AEO + GEO hub for Claude Code. 40 sub-skills (36 core + 1 orchestrator + 1 framework + 2 extension mirrors) and 21 sub-agents: keyword research, rank and KPI tracking, technical audits, content engine and decay refresh, competitor gaps, programmatic SEO, schema, local, Core Web Vitals, and first-class AEO (one AEO score, AI crawler access, AI share of voice, agent readiness). Deterministic scoring, SSRF-safe fetchers, draft-first CMS export.",
   "author": {
     "name": "ZYRA",
     "email": "hello@growthzyra.com",
