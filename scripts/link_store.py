@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS prospects (
     evidence_json TEXT NOT NULL DEFAULT '[]',
     brief_json TEXT,
     brief_hash TEXT,
+    draft_brief_hash TEXT,
     draft_subject TEXT,
     draft_body TEXT,
     reviewed_by TEXT,
@@ -113,9 +114,24 @@ RECORD_FIELDS = ("domain", "authority", "authority_scale", "spam_score", "dofoll
                  "first_seen", "last_seen", "sample_url", "sample_anchor", "sample_title", "tld")
 
 
+# Columns added after the first release: (table, column, declaration). CREATE TABLE IF NOT EXISTS
+# leaves an existing table alone, so stores created earlier get them here.
+MIGRATIONS = (("prospects", "draft_brief_hash", "TEXT"),)
+
+
+def _migrate(conn: sqlite3.Connection) -> None:
+    for table, column, declaration in MIGRATIONS:
+        columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+        if columns and column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {declaration}")
+    conn.commit()
+
+
 def open_store(data_dir: Optional[str] = None) -> sqlite3.Connection:
-    """Open (creating if needed) the links store."""
-    return connect(STORE, SCHEMA, data_dir)
+    """Open (creating or migrating if needed) the links store."""
+    conn = connect(STORE, SCHEMA, data_dir)
+    _migrate(conn)
+    return conn
 
 
 def save_topics(conn: sqlite3.Connection, project: str, terms: Iterable[str], origin: str,

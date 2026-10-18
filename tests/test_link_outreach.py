@@ -164,6 +164,11 @@ def test_won_requires_link_on_prospect_domain(conn):
     ({"status": "verified", "rel_attributes": ["follow"]}, "live", "dofollow"),
     ({"status": "link_removed"}, "missing", None),
     ({"status": "error", "error": "timeout"}, "unreachable", None),
+    # the page answered but the link cannot be confirmed over plain HTTP: not "unreachable"
+    ({"status": "unverifiable_js"}, "unverifiable", None),
+    ({"status": "moved"}, "unverifiable", None),
+    ({"status": "exists"}, "unverifiable", None),
+    ({"status": "lost"}, "missing", None),
 ])
 def test_verify_mapping(conn, checker, verified, rel):
     drafted(conn)
@@ -288,3 +293,171 @@ def test_cli_add_segment_option(tmp_path):
     assert [r["domain"] for r in c.execute("SELECT domain FROM prospects")] == ["plain.org"]
     assert lo.main(common + ["--top", "5"]) == 0  # default: all segments, the gap domain already tracked
     assert {r["domain"] for r in c.execute("SELECT domain FROM prospects")} == {"plain.org", "bignews.com"}
+
+
+# ---- pipeline guardrails: whole-organization suppression, cooldown, skipped, follow-up outcomes ----
+
+def contacted(c, domain="trainingmag.com"):
+    """Drive one tracked prospect to `contacted` through the real gates."""
+    brief = lo.build_brief(PROFILE, row(c, domain), PROFILE["money_pages"])
+    lo.store_brief(c, PROJECT, domain, brief)
+    body = f"Your studios list is useful. Our approach: {brief['asset_url']} Would it fit?"
+    assert lo.save_draft(c, PROJECT, domain, "Studios list", body, brief["brief_hash"])["ok"]
+    lo.approve(c, PROJECT, domain, "Riya")
+    lo.mark(c, PROJECT, domain, "contacted", now="2026-10-01T09:00:00Z")
+    return brief
+
+
+def reasons(out):
+    return {s["domain"]: s["reason"] for s in out["skipped"]}
+
+
+def test_do_not_contact_covers_the_whole_registrable_domain(conn):
+    lo.mark(conn, PROJECT, "trainingmag.com", "do_not_contact")
+    out = lo.add_prospects(conn, PROJECT, [prospect("blog.trainingmag.com"), prospect("www2.trainingmag.com"),
+                                           prospect("trainingmag.org")], "dataforseo")
+    assert out["added"] == ["trainingmag.org"]  # a different organization is unaffected
+    assert reasons(out)["blog.trainingmag.com"].startswith("do_not_contact")
+    assert "trainingmag.com" in reasons(out)["www2.trainingmag.com"]
+
+
+def test_a_subdomain_marked_do_not_contact_blocks_the_parent_domain(conn):
+    lo.add_prospects(conn, PROJECT, [prospect("news.example.org")], "dataforseo")
+    lo.mark(conn, PROJECT, "news.example.org", "do_not_contact")
+    out = lo.add_prospects(conn, PROJECT, [prospect("example.org")], "dataforseo")
+    assert out["added"] == [] and reasons(out)["example.org"].startswith("do_not_contact")
+
+
+def test_an_active_sibling_blocks_the_rest_of_the_organization(conn):
+    out = lo.add_prospects(conn, PROJECT, [prospect("blog.trainingmag.com")], "dataforseo")
+    assert out["added"] == [] and "already tracked" in reasons(out)["blog.trainingmag.com"]
+    # and inside one batch only the first sibling is taken
+    out = lo.add_prospects(conn, PROJECT, [prospect("a.newsite.io"), prospect("newsite.io")], "dataforseo")
+    assert out["added"] == ["a.newsite.io"] and "already tracked" in reasons(out)["newsite.io"]
+
+
+def test_shared_hosting_tenants_are_different_organizations(conn):
+    lo.add_prospects(conn, PROJECT, [prospect("alice.blogspot.com")], "dataforseo")
+    lo.mark(conn, PROJECT, "alice.blogspot.com", "do_not_contact")
+    out = lo.add_prospects(conn, PROJECT, [prospect("bob.blogspot.com")], "dataforseo")
+    assert out["added"] == ["bob.blogspot.com"]
+
+
+def test_cooldown_covers_subdomains_of_the_domain(tmp_path):
+    c = link_store.open_store(str(tmp_path))
+    lo.add_prospects(c, PROJECT, [prospect()], "dataforseo")
+    contacted(c)
+    lo.mark(c, PROJECT, "trainingmag.com", "no_reply", today=date(2026, 10, 17))
+    out = lo.add_prospects(c, PROJECT, [prospect("blog.trainingmag.com")], "dataforseo",
+                           today=date(2026, 12, 1))
+    assert out["added"] == [] and "cooldown until 2027-01-15" in reasons(out)["blog.trainingmag.com"]
+    later = lo.add_prospects(c, PROJECT, [prospect("blog.trainingmag.com")], "dataforseo",
+                             today=date(2027, 1, 16))
+    assert later["added"] == ["blog.trainingmag.com"]
+
+
+@pytest.mark.parametrize("outcome", ["skipped", "do_not_contact"])
+def test_leaving_the_pipeline_after_contact_starts_the_cooldown(tmp_path, outcome):
+    c = link_store.open_store(str(tmp_path))
+    lo.add_prospects(c, PROJECT, [prospect()], "dataforseo")
+    contacted(c)
+    lo.mark(c, PROJECT, "trainingmag.com", outcome, today=date(2026, 10, 17))
+    assert row(c)["cooldown_until"] == "2027-01-15" and row(c)["contacted_at"]
+    # the old bypass: choose "skipped" instead of "no_reply" and be re-added at once with a clean slate
+    out = lo.add_prospects(c, PROJECT, [prospect()], "dataforseo", today=date(2026, 10, 18),
+                           include_skipped=True)
+    assert out["added"] == [] and row(c)["contacted_at"]  # nothing was reset
+
+
+def test_skipped_before_contact_has_no_cooldown_but_is_not_readded_by_default(conn):
+    lo.mark(conn, PROJECT, "trainingmag.com", "skipped")
+    assert row(conn)["cooldown_until"] is None
+    out = lo.add_prospects(conn, PROJECT, [prospect()], "dataforseo")
+    assert out["added"] == [] and "skipped" in reasons(out)["trainingmag.com"]
+    assert "--include-skipped" in reasons(out)["trainingmag.com"]
+    assert row(conn)["status"] == "skipped"
+    out = lo.add_prospects(conn, PROJECT, [prospect()], "dataforseo", include_skipped=True)
+    assert out["added"] == ["trainingmag.com"] and row(conn)["status"] == "new"
+
+
+def test_include_skipped_flag_is_exposed_on_the_cli(tmp_path):
+    parser = lo.build_parser()
+    args = parser.parse_args(["add", "--project", "acme.in", "--source", "dataforseo", "--include-skipped"])
+    assert args.include_skipped is True
+    assert parser.parse_args(["add", "--project", "acme.in", "--source", "x"]).include_skipped is False
+
+
+# ---- an outcome can be recorded while a follow-up draft is pending ----
+
+@pytest.mark.parametrize("pending", ["drafted", "approved"])
+@pytest.mark.parametrize("outcome", ["won", "lost", "no_reply"])
+def test_outcome_is_recordable_while_a_followup_is_pending(tmp_path, pending, outcome):
+    c = link_store.open_store(str(tmp_path))
+    lo.add_prospects(c, PROJECT, [prospect()], "dataforseo")
+    brief = contacted(c)
+    body = f"Following up on my note: {brief['asset_url']}"
+    assert lo.save_draft(c, PROJECT, "trainingmag.com", "Following up", body, brief["brief_hash"],
+                         today=date(2026, 10, 9))["ok"]
+    if pending == "approved":
+        lo.approve(c, PROJECT, "trainingmag.com", "Riya")
+    assert row(c)["status"] == pending
+    kwargs = {"link_url": "https://trainingmag.com/2026/10/x/"} if outcome == "won" else {}
+    lo.mark(c, PROJECT, "trainingmag.com", outcome, today=date(2026, 10, 17), **kwargs)
+    assert row(c)["status"] == outcome and row(c)["followup_at"] is None  # no follow-up was ever sent
+    events = [(e["from_status"], e["to_status"]) for e in c.execute(
+        "SELECT * FROM events WHERE domain = 'trainingmag.com' ORDER BY id")]
+    assert events[-1] == (pending, outcome) and ("contacted", "contacted") not in events
+    if outcome != "won":
+        assert row(c)["cooldown_until"] == "2027-01-15"
+
+
+@pytest.mark.parametrize("status", ["won", "lost", "no_reply"])
+def test_outcome_without_prior_contact_is_still_illegal(conn, status):
+    drafted(conn)
+    with pytest.raises(lo.TransitionError):
+        lo.mark(conn, PROJECT, "trainingmag.com", status, link_url="https://trainingmag.com/x")
+    assert row(conn)["status"] == "drafted"
+
+
+# ---- the approved draft is the one that was linted against the current brief ----
+
+def test_approval_refuses_a_draft_linted_against_a_replaced_brief(conn):
+    drafted(conn)
+    assert row(conn)["draft_brief_hash"] == row(conn)["brief_hash"]
+    changed = {**PROFILE, "notes": [*PROFILE["notes"], {"text": "Won an award in 2026", "approved_by": "user"}]}
+    new_brief = lo.build_brief(changed, row(conn), PROFILE["money_pages"])
+    assert new_brief["brief_hash"] != row(conn)["brief_hash"]
+    lo.store_brief(conn, PROJECT, "trainingmag.com", new_brief)
+    with pytest.raises(lo.TransitionError) as exc:
+        lo.approve(conn, PROJECT, "trainingmag.com", "Riya")
+    assert "save-draft" in str(exc.value) and row(conn)["status"] == "drafted"
+    body = f"Your list helps teams. See {new_brief['asset_url']} for our approach to training video."
+    assert lo.save_draft(conn, PROJECT, "trainingmag.com", "Studios list", body, new_brief["brief_hash"])["ok"]
+    assert lo.approve(conn, PROJECT, "trainingmag.com", "Riya")["status"] == "approved"
+
+
+def test_a_regenerated_identical_brief_does_not_block_approval(conn):
+    brief = drafted(conn)
+    again = lo.build_brief(PROFILE, row(conn), PROFILE["money_pages"])
+    assert again["brief_hash"] == brief["brief_hash"]
+    lo.store_brief(conn, PROJECT, "trainingmag.com", again)
+    assert lo.approve(conn, PROJECT, "trainingmag.com", "Riya")["status"] == "approved"
+
+
+def test_an_old_store_without_the_column_is_migrated(tmp_path):
+    import sqlite3
+    path = tmp_path / "links" / "links.db"
+    path.parent.mkdir(parents=True)
+    old = sqlite3.connect(str(path))
+    old.execute("CREATE TABLE prospects (project TEXT NOT NULL, domain TEXT NOT NULL, status TEXT NOT NULL,"
+                " source TEXT, segment TEXT, type TEXT, matched_rule TEXT, score INTEGER, effort TEXT,"
+                " bucket TEXT, tactic TEXT, evidence_json TEXT NOT NULL DEFAULT '[]', brief_json TEXT,"
+                " brief_hash TEXT, draft_subject TEXT, draft_body TEXT, reviewed_by TEXT, reviewed_at TEXT,"
+                " contacted_at TEXT, followup_at TEXT, outcome_at TEXT, link_url TEXT, verified_at TEXT,"
+                " verified_status TEXT, link_rel TEXT, cooldown_until TEXT, notes TEXT,"
+                " created_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY (project, domain))")
+    old.commit()
+    old.close()
+    c = link_store.open_store(str(tmp_path))
+    cols = {r["name"] for r in c.execute("PRAGMA table_info(prospects)")}
+    assert "draft_brief_hash" in cols

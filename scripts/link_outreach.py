@@ -11,10 +11,18 @@ States:
     new -> drafted -> approved -> contacted -> won | lost | no_reply
     any -> do_not_contact (permanent)        any non-terminal -> skipped
     contacted -> drafted (one follow-up, at least 7 days after first contact)
-    lost / no_reply start a 90-day cooldown before the domain can be re-added.
+    drafted | approved -> won | lost | no_reply, only after first contact (a reply can arrive
+        while a follow-up draft is waiting; the outcome is recorded without a follow-up "sent")
+
+Guardrails (all by registrable domain, so blog.example.org and example.org are one organization):
+    do_not_contact is permanent; an active prospect, or one in cooldown, blocks its siblings.
+    lost / no_reply, and skipped / do_not_contact after first contact, start a 90-day cooldown.
+    skipped prospects are not re-added unless add is run with --include-skipped.
 
 Usage:
     python link_outreach.py add --project acme.io --source dataforseo --top 20 --json
+    python link_outreach.py add --project acme.io --source dataforseo --segment gap --top 10 --json
+    python link_outreach.py add --project acme.io --source dataforseo --include-skipped --json
     python link_outreach.py brief --project acme.io --domain trainingmag.com --json
     python link_outreach.py save-draft --project acme.io --domain trainingmag.com \
         --brief-hash HASH --subject "..." --body-file draft.txt --json
@@ -47,14 +55,16 @@ from link_gap import GapError, analyze_project, fold_words  # noqa: E402
 from link_store import open_store  # noqa: E402
 from seo_kpi import EnvelopeError, write_envelope  # noqa: E402
 from seo_project import load_profile, slugify  # noqa: E402
-from seo_store import host_matches, normalize_domain, utc_now  # noqa: E402
+from seo_store import host_matches, normalize_domain, registrable_domain, utc_now  # noqa: E402
 
 ACTIVE = ("new", "drafted", "approved", "contacted")
 TERMINAL = ("won", "lost", "no_reply", "skipped", "do_not_contact")
+OUTCOMES = ("won", "lost", "no_reply")
 TRANSITIONS = {
     "new": {"drafted", "skipped", "do_not_contact"},
-    "drafted": {"drafted", "approved", "skipped", "do_not_contact"},
-    "approved": {"drafted", "contacted", "skipped", "do_not_contact"},
+    # drafted/approved -> an outcome is legal only after first contact (a follow-up draft is pending)
+    "drafted": {"drafted", "approved", "skipped", "do_not_contact", *OUTCOMES},
+    "approved": {"drafted", "contacted", "skipped", "do_not_contact", *OUTCOMES},
     "contacted": {"drafted", "won", "lost", "no_reply", "skipped", "do_not_contact"},
     "won": {"do_not_contact"},
     "lost": {"do_not_contact"},
@@ -70,7 +80,11 @@ MIN_CONTACTS_FOR_RATE = 5
 BANNED_TERMS = ("pay", "payment", "paid", "sponsor", "sponsored", "sponsorship", "link exchange",
                 "swap links", "reciprocal", "guest post fee", "dofollow", "do-follow")
 REL_ORDER = ("sponsored", "ugc", "nofollow")
-VERIFY_MAP = {"verified": "live", "link_removed": "missing", "lost": "missing"}
+# checker status -> verified_status. unverifiable: the page answered but the link cannot be confirmed
+# over plain HTTP (JS-rendered, redirected, or only existence was checked). Anything else, e.g. a
+# network error or an SSRF block, is unreachable.
+VERIFY_MAP = {"verified": "live", "link_removed": "missing", "lost": "missing",
+              "unverifiable_js": "unverifiable", "moved": "unverifiable", "exists": "unverifiable"}
 MARK_STATUSES = ("contacted", "won", "lost", "no_reply", "skipped", "do_not_contact")
 
 
@@ -108,6 +122,8 @@ def transition(conn, project: str, domain: str, to_status: str, actor: Optional[
     frm = row["status"]
     if to_status not in TRANSITIONS[frm]:
         raise TransitionError(f"{domain}: cannot go from {frm} to {to_status}")
+    if frm in ("drafted", "approved") and to_status in OUTCOMES and not row["contacted_at"]:
+        raise TransitionError(f"{domain}: cannot go from {frm} to {to_status} before first contact")
     at = now or utc_now()
     _update(conn, project, domain, {"status": to_status, "updated_at": at, **(fields or {})})
     _event(conn, project, domain, frm, to_status, actor, note, at)
@@ -116,18 +132,58 @@ def transition(conn, project: str, domain: str, to_status: str, actor: Optional[
 
 
 def add_prospects(conn, project: str, prospects: list, source: str,
-                  today: Optional[date] = None, now: Optional[str] = None) -> dict:
-    """Track new prospects; respects suppression, active status and cooldown."""
+                  today: Optional[date] = None, now: Optional[str] = None,
+                  include_skipped: bool = False) -> dict:
+    """Track new prospects; respects suppression, active status and cooldown.
+
+    do_not_contact, active status and cooldown are checked by registrable domain, so
+    blog.example.org is held back by anything recorded for example.org, and the reverse.
+    skipped prospects are only re-added with ``include_skipped``.
+    """
     day = _today(today).isoformat()
     at = now or utc_now()
     added, skipped = [], []
+    org: dict = {}
+    for r in conn.execute("SELECT domain, status, cooldown_until FROM prospects WHERE project = ?",
+                          (project,)):
+        org.setdefault(registrable_domain(r["domain"]), []).append(dict(r))
     for p in prospects:
         dom = p["domain"]
         values = {"source": source, "segment": p["segment"], "type": p["type"],
                   "matched_rule": p["matched_rule"], "score": p["score"], "effort": p["effort"],
                   "bucket": p["bucket"], "tactic": p["tactic"],
                   "evidence_json": json.dumps(p["evidence"], sort_keys=True)}
+        reg = registrable_domain(dom)
+        family = org.setdefault(reg, [])
+        others = [r for r in family if r["domain"] != dom]
         row = _get(conn, project, dom)
+
+        def via(r):
+            return "" if r["domain"] == dom else f" via {r['domain']}"
+
+        reason = None
+        for r in family:
+            if r["status"] == "do_not_contact":
+                reason = "do_not_contact" if r["domain"] == dom else f"do_not_contact{via(r)}"
+                break
+        if reason is None and row is not None and row["status"] in ACTIVE:
+            reason = f"already tracked ({row['status']})"
+        if reason is None:
+            sibling = next((r for r in others if r["status"] in ACTIVE), None)
+            if sibling:
+                reason = f"already tracked{via(sibling)} ({sibling['status']})"
+        if reason is None and row is not None and row["status"] == "won":
+            reason = "already won"
+        if reason is None:
+            cool = max((r for r in family if r["cooldown_until"] and r["cooldown_until"] > day),
+                       key=lambda r: r["cooldown_until"], default=None)
+            if cool:
+                reason = f"cooldown until {cool['cooldown_until']}{via(cool)}"
+        if reason is None and row is not None and row["status"] == "skipped" and not include_skipped:
+            reason = "skipped earlier; pass --include-skipped to track it again"
+        if reason:
+            skipped.append({"domain": dom, "reason": reason})
+            continue
         if row is None:
             conn.execute(
                 "INSERT INTO prospects (project, domain, status, source, segment, type, matched_rule,"
@@ -135,27 +191,21 @@ def add_prospects(conn, project: str, prospects: list, source: str,
                 " VALUES (?, ?, 'new', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (project, dom, *values.values(), at, at))
             _event(conn, project, dom, None, "new", "link_outreach.py add", None, at)
-            added.append(dom)
-            continue
-        status = row["status"]
-        if status == "do_not_contact":
-            skipped.append({"domain": dom, "reason": "do_not_contact"})
-        elif status in ACTIVE:
-            skipped.append({"domain": dom, "reason": f"already tracked ({status})"})
-        elif status == "won":
-            skipped.append({"domain": dom, "reason": "already won"})
-        elif row["cooldown_until"] and row["cooldown_until"] > day:
-            skipped.append({"domain": dom, "reason": f"cooldown until {row['cooldown_until']}"})
+            family.append({"domain": dom, "status": "new", "cooldown_until": None})
         else:
+            status = row["status"]
             _update(conn, project, dom, {
                 **values, "status": "new", "brief_json": None, "brief_hash": None,
-                "draft_subject": None, "draft_body": None, "reviewed_by": None,
-                "reviewed_at": None, "contacted_at": None, "followup_at": None,
+                "draft_brief_hash": None, "draft_subject": None, "draft_body": None,
+                "reviewed_by": None, "reviewed_at": None, "contacted_at": None, "followup_at": None,
                 "outcome_at": None, "link_url": None, "verified_at": None,
                 "verified_status": None, "link_rel": None, "cooldown_until": None,
                 "updated_at": at})
             _event(conn, project, dom, status, "new", "link_outreach.py add", "re-added", at)
-            added.append(dom)
+            for r in family:
+                if r["domain"] == dom:
+                    r.update(status="new", cooldown_until=None)
+        added.append(dom)
     conn.commit()
     return {"added": added, "skipped": skipped}
 
@@ -304,6 +354,7 @@ def save_draft(conn, project: str, domain: str, subject: str, body: str, brief_h
                                   f"{first + timedelta(days=FOLLOWUP_MIN_DAYS)}")
     updated = transition(conn, project, domain, "drafted", actor="link_outreach.py save-draft",
                          fields={"draft_subject": subject, "draft_body": body,
+                                 "draft_brief_hash": brief_hash,
                                  "reviewed_by": None, "reviewed_at": None}, now=now)
     return {"ok": True, "prospect": _public(updated)}
 
@@ -316,6 +367,9 @@ def approve(conn, project: str, domain: str, reviewed_by: str, now: Optional[str
     row = _get(conn, project, domain)
     if row is not None and row["status"] != "drafted":
         raise TransitionError(f"{domain}: only a drafted prospect can be approved (status {row['status']})")
+    if row is not None and row["draft_brief_hash"] != row["brief_hash"]:
+        raise TransitionError(f"{domain}: the draft was checked against an older brief; run save-draft "
+                              "again with the current brief hash before approving")
     at = now or utc_now()
     return transition(conn, project, domain, "approved", actor=name,
                       fields={"reviewed_by": name, "reviewed_at": at}, now=at)
@@ -345,6 +399,8 @@ def mark(conn, project: str, domain: str, status: str, link_url: Optional[str] =
                   "cooldown_until": (_today(today) + timedelta(days=COOLDOWN_DAYS)).isoformat()}
     elif status in ("skipped", "do_not_contact"):
         fields = {"outcome_at": at}
+        if row["contacted_at"]:  # leaving after first contact must not reset the cadence rules
+            fields["cooldown_until"] = (_today(today) + timedelta(days=COOLDOWN_DAYS)).isoformat()
     else:
         raise TransitionError(f"unknown status {status!r}; use one of {', '.join(MARK_STATUSES)}")
     return transition(conn, project, domain, status, actor="link_outreach.py mark", note=note,
@@ -353,7 +409,8 @@ def mark(conn, project: str, domain: str, status: str, link_url: Optional[str] =
 
 def verify(conn, project: str, domain: Optional[str] = None, verifier: Optional[Callable] = None,
            now: Optional[str] = None) -> list:
-    """Check won links on their pages; an unreachable page stays won, marked unverified."""
+    """Check won links on their pages. A page that is unreachable or cannot be confirmed (JS-rendered,
+    redirected) stays won with verified_status unreachable / unverifiable; it is never moved to lost."""
     if verifier is None:
         from verify_backlinks import verify_single_backlink as verifier
     query = "SELECT * FROM prospects WHERE project = ? AND status = 'won' AND link_url IS NOT NULL"
@@ -442,6 +499,8 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--segment", choices=SEGMENT_CHOICES, default="all",
                    help="gap = links to 2+ competitors, single = 1 competitor, all = both with gap "
                         "ranked first (default all)")
+    a.add_argument("--include-skipped", action="store_true",
+                   help="Also re-add prospects that were skipped earlier (default: leave them skipped)")
     a.add_argument("--no-sitemap", action="store_true",
                    help="Do not read the client sitemap now (stored topic terms are still used)")
     a.add_argument("--refresh-topics", action="store_true",
@@ -489,7 +548,8 @@ def main(argv: Optional[list] = None) -> int:
                                        refresh_topics=args.refresh_topics)
             wanted = None if args.buckets == "all" else set(args.buckets.split(","))
             picked = select_for_add(analysis["prospects"], args.segment, wanted, args.min_score, args.top)
-            result = add_prospects(conn, project, picked, args.source)
+            result = add_prospects(conn, project, picked, args.source,
+                                   include_skipped=args.include_skipped)
             result["warnings"] = analysis["warnings"]
         elif args.cmd == "brief":
             profile = load_profile(project, args.data_dir)
