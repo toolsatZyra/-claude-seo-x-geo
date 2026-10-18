@@ -115,10 +115,10 @@ checks that we really lack the content.
 
 ## Step 4: Backlink gap
 
-Route to `seo-backlinks` with `/seo backlinks gap <our-url> <competitor-url>`.
-Report the referring domains that competitors have and we lack, with the
-data source and its confidence. Never recommend buying links or joining link
-exchanges.
+Route to `seo-links`: `/seo links gap <domain>` (it runs `scripts/link_sources.py`
+and `scripts/link_gap.py` on one source for the client and every profile
+competitor). Report the gap segment (domains linking to 2+ competitors but not
+to us) with its coverage, then `/seo links prospects` for the ranked list.
 
 ## Step 5: AI citation gap
 

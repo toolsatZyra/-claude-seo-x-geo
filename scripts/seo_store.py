@@ -123,6 +123,44 @@ def host_matches(url_or_host: str, domain: str) -> bool:
     return bool(host) and bool(dom) and (host == dom or host.endswith("." + dom))
 
 
+# Second-level labels that sit under a country code (example.co.uk, example.ac.in).
+TWO_PART_SUFFIX_SLD = frozenset({"co", "com", "net", "org", "gov", "ac", "edu", "ne", "or", "ltd", "plc"})
+# Hosting platforms where every subdomain is a different owner (alice.blogspot.com and
+# bob.blogspot.com are unrelated), so the owner is one label further left.
+SHARED_HOSTING_SUFFIXES = frozenset({
+    "blogspot.com", "wordpress.com", "home.blog", "github.io", "gitlab.io", "substack.com",
+    "medium.com", "wixsite.com", "weebly.com", "tumblr.com", "myshopify.com", "webflow.io",
+    "netlify.app", "vercel.app", "herokuapp.com", "pages.dev", "wpengine.com", "kinsta.cloud",
+})
+
+
+def registrable_domain(url_or_host: str) -> str:
+    """The organization-level domain of a host: example.org for blog.example.org.
+
+    Approximates the public-suffix rule without a dependency: two labels, three under a
+    country suffix (example.co.uk), and one more label under a shared-hosting platform
+    (alice.blogspot.com). Returns "" for an empty or unparseable host.
+
+    >>> registrable_domain("news.shop.globex.co.uk")
+    'globex.co.uk'
+    """
+    labels = [x for x in normalize_domain(url_or_host).split(".") if x]
+    if len(labels) < 3:
+        return ".".join(labels)
+    tail2 = ".".join(labels[-2:])
+    if tail2 in SHARED_HOSTING_SUFFIXES:
+        return ".".join(labels[-3:])
+    if len(labels[-1]) == 2 and labels[-2] in TWO_PART_SUFFIX_SLD:
+        return ".".join(labels[-3:])
+    return tail2
+
+
+def same_organization(host_a: str, host_b: str) -> bool:
+    """True when both hosts share a registrable domain (subdomains included)."""
+    a, b = registrable_domain(host_a), registrable_domain(host_b)
+    return bool(a) and a == b
+
+
 def list_stores(data_dir: Optional[str] = None) -> list[dict]:
     """List existing stores under the root with their size in bytes."""
     root = data_root(data_dir)

@@ -609,12 +609,38 @@ Competitor analysis hub (`seo-competitors`):
   competitor ranks) or pioneer (nobody ranks).
 - **Content and format gap:** free, from competitor sitemaps. Shows missing
   page types such as comparison, alternatives and integrations pages.
-- **Backlink gap:** routed to `seo-backlinks`.
+- **Backlink gap:** routed to `seo-links`.
 - **AI-citation gap:** routed to `geo-share-of-voice`.
 - **Battlecards:** one per competitor.
 
 Generating "X vs Y" pages stays with `/seo competitor-pages`. Runs
 `scripts/competitor_gap.py`.
+
+---
+
+### `/seo links setup|gap|prospects|draft|track <domain>`
+
+Competitor link gap and white-hat link earning (`seo-links`):
+- **Gap:** referring domains of the client and its 3-7 profile competitors, from
+  one source (DataForSEO, Moz or a CSV export), segmented as gap / single /
+  shared / moat.
+- **Prospects:** exclusions (own, competitor, social and portfolio platforms,
+  staging hosts, spam ≥ 60, link-selling words, link-farm footprints), a
+  rule-based type and a deterministic 0-100 score; high-value, quick-win and
+  backlog buckets. Sites that link to two or more competitors are listed first
+  (`gap_prospects`). Confirm the profile `topics` first: the score uses them.
+- **Drafts:** written from a brief and linted against payment, sponsorship,
+  link-swap and dofollow asks. A named person approves; nothing is ever sent.
+- **Track:** contacted → won/lost/no-reply, one follow-up, a 90-day cooldown,
+  do-not-contact and cooldown by whole organization, won links verified on the
+  page (live / missing / unverifiable / unreachable), `links.*` KPIs for
+  `/seo track`.
+- **Cost:** DataForSEO is about $0.02 per call plus $0.00004 per requested row
+  ($0.06 per 1,000-row target); `--dry-run` shows the estimate and `--max-cost`
+  is a hard cap.
+
+Runs `scripts/link_sources.py`, `scripts/link_gap.py` and
+`scripts/link_outreach.py`.
 
 ---
 
@@ -729,6 +755,7 @@ Fix mode drafts the files.
 | `/seo growth <domain>` | Guided research → create → measure loop |
 | `/seo keywords <seed\|domain>` | Keyword research, scoring, lead priority |
 | `/seo competitors <domain>` | Keyword, content, backlink and AI-citation gaps |
+| `/seo links <domain>` | Competitor link gap, scored prospects, approved outreach, tracker |
 | `/seo content-engine <domain>` | Calendar → brief → draft → gates → review → draft export |
 | `/seo content optimize <url> <kw>` | Coverage vs ranking pages |
 | `/seo refresh <domain>` | Content decay + improvement candidates |

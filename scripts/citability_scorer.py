@@ -18,6 +18,7 @@ as an untested assumption open to retuning, not a validated constant.
 Derived from zubair-trabzada/geo-seo-claude (MIT).
 """
 
+import argparse
 import sys
 import json
 import re
@@ -341,12 +342,14 @@ def analyze_page_citability(url: str) -> dict:
     }
 
 
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python citability_scorer.py <url>")
-        print("Returns JSON with citability analysis for all content blocks.")
-        sys.exit(1)
-
-    url = sys.argv[1]
-    result = analyze_page_citability(url)
+def main(argv: Optional[list] = None) -> None:
+    parser = argparse.ArgumentParser(
+        description="Score how citable a page's passages are for AI answers (JSON, 0-100).")
+    parser.add_argument("url", help="Page URL to analyze")
+    args = parser.parse_args(argv)
+    result = analyze_page_citability(args.url)
     print(json.dumps(result, indent=2, default=str))
+
+
+if __name__ == "__main__":
+    main()

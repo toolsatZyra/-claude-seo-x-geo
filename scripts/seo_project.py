@@ -41,7 +41,7 @@ _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from seo_store import data_root, normalize_domain, utc_now  # noqa: E402
+from seo_store import TWO_PART_SUFFIX_SLD, data_root, normalize_domain, utc_now  # noqa: E402
 
 SCHEMA_VERSION = 1
 MAX_COMPETITORS = 10
@@ -56,6 +56,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "business_type": "",          # saas | ecommerce | local | publisher | agency | other
     "brand_terms": [],            # strings that identify the client in queries / AI answers
     "competitors": [],            # [{"name", "domain", "aliases": []}]
+    "topics": [],                 # service/topic terms for link relevance (seo-links), e.g. "training video"
     "audiences": [],              # free-text personas
     "markets": {"country": "US", "language": "en"},
     "gsc_property": "",           # exact string, e.g. "sc-domain:example.com"
@@ -183,6 +184,9 @@ def validate_profile(profile: dict) -> list[dict]:
     content = profile.get("content") if isinstance(profile.get("content"), dict) else {}
     if content.get("default_status") not in ("draft", "pending", "publish"):
         out.append({"level": "error", "message": "content.default_status must be draft|pending|publish"})
+    topics = profile.get("topics")
+    if isinstance(topics, list) and any(not isinstance(t, str) or not t.strip() for t in topics):
+        out.append({"level": "error", "message": "topics must be a list of non-empty strings"})
     return out
 
 
@@ -268,7 +272,7 @@ def set_field(profile: dict, dotted_key: str, raw_value: str) -> dict:
 
 
 # Second-level labels that sit under a country code (example.co.uk).
-_TWO_PART_SUFFIX_SLD = frozenset({"co", "com", "net", "org", "gov", "ac", "edu", "ne", "or", "ltd", "plc"})
+_TWO_PART_SUFFIX_SLD = TWO_PART_SUFFIX_SLD  # shared with seo_store.registrable_domain
 # Subdomain-ish labels that are ordinary words: never derive a brand term
 # from them ("shop.globex.com" must not turn every "shop" into a mention).
 GENERIC_LABELS = frozenset({"www", "app", "apps", "shop", "store", "blog", "get", "try", "go", "my",
