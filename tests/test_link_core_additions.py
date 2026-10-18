@@ -52,3 +52,13 @@ def test_cost_helpers(tmp_path, monkeypatch):
     assert entry["cost"] == 0.0215 and entry["note"] == "link_sources rival.com"
     ledger = json.loads((tmp_path / "dataforseo-ledger.json").read_text())
     assert ledger["entries"][-1]["endpoint"] == "backlinks_backlinks"
+
+
+def test_backlinks_call_estimate_is_row_aware():
+    # $0.02 per request plus $0.00004 per requested row: $0.06 at the 1,000-row default,
+    # which is what the live run of 2026-10-18 was billed for a capped response.
+    assert dataforseo_costs.estimate_backlinks_call(1000) == pytest.approx(0.06)
+    assert dataforseo_costs.estimate_backlinks_call(0) == pytest.approx(0.02)
+    assert dataforseo_costs.estimate_backlinks_call(250) == pytest.approx(0.03)
+    # COST_TABLE keeps the flat base price for every other caller.
+    assert dataforseo_costs.COST_TABLE["backlinks_backlinks"] == 0.02

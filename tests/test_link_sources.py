@@ -185,7 +185,10 @@ def test_cli_dry_run_and_budget_refusal(tmp_path):
                 "--source", "dataforseo", "--dry-run", "--json")
     assert proc.returncode == 0, proc.stderr
     plan = json.loads(proc.stdout)
-    assert plan["calls"] == 3 and plan["estimated_cost_usd"] == 0.06
+    # Row-aware: 3 calls x (0.02 + 0.00004 x 1,000 rows). The old flat estimate of 0.06
+    # under-reported the live run's real cost (0.1447) by a factor of 2.4.
+    assert plan["calls"] == 3 and plan["estimated_cost_usd"] == 0.18
+    assert plan["per_call_estimate_usd"] == 0.06 and plan["rows_per_target"] == 1000
     refused = _cli(tmp_path, "fetch", "--project", "acme.io", "--targets", "acme.io", "r1.com",
                    "--source", "dataforseo", "--max-cost", "0.01", "--json")
     assert refused.returncode == 2 and "max-cost" in refused.stderr
@@ -205,3 +208,151 @@ def test_cli_import(tmp_path):
     assert proc.returncode == 0, proc.stderr
     out = json.loads(proc.stdout)
     assert out["source"] == "csv-generic" and out["rows"] == 2
+
+
+# ---- cost cap: the dry-run estimate is a ceiling the run never exceeds ----
+
+LIVE_COSTS = [0.024684, 0.06, 0.06]  # thezyra.studio, galleri5.com, superside.com (2026-10-18)
+
+
+def _run_with_costs(tmp_path, costs, max_cost, limit=1000):
+    conn = link_store.open_store(str(tmp_path))
+    queue = list(costs)
+    calls = []
+
+    def fetcher(target, lim):
+        calls.append(target)
+        return _ok(cost=queue.pop(0))
+
+    out = ls.run_fetch(conn, "acme.io", [f"t{i}.com" for i in range(len(costs))], "dataforseo",
+                       limit, max_cost, fetcher, unit_cost=ls.call_estimate(limit))
+    return out, calls
+
+
+def test_call_estimate_matches_the_dry_run_formula():
+    assert ls.call_estimate(1000) == 0.06 and ls.call_estimate(50) == 0.022
+
+
+def test_cap_equal_to_the_dry_run_estimate_is_never_exceeded(tmp_path):
+    for limit in (50, 250, 1000):
+        per_call = ls.call_estimate(limit)
+        for n in (1, 2, 3):
+            cap = round(per_call * n, 4)  # exactly what the dry run reports for n targets
+            out, calls = _run_with_costs(tmp_path / f"{limit}-{n}", [per_call] * n, cap, limit)
+            assert out["spent_usd"] <= cap + 1e-9 and len(calls) == n and out["stopped"] is None
+
+
+def test_live_costs_under_the_old_flat_cap_stay_within_the_cap(tmp_path):
+    # --max-cost 0.06 was exactly the OLD dry-run estimate. The old guard spent $0.0847 here.
+    out, calls = _run_with_costs(tmp_path, LIVE_COSTS, 0.06)
+    assert calls == ["t0.com"] and out["stopped"] == "max_cost_reached"
+    assert out["spent_usd"] <= 0.06
+
+
+def test_guard_uses_the_highest_actual_cost_seen(tmp_path):
+    # Calls cost 0.08, above the 0.06 estimate. With a 0.23 cap the old guard (0.16 + 0.06 <= 0.23)
+    # would start a third call and end at 0.24; the new guard assumes the next call costs 0.08 too.
+    out, calls = _run_with_costs(tmp_path, [0.08, 0.08, 0.08], 0.23)
+    assert len(calls) == 2 and out["spent_usd"] == 0.16 and out["stopped"] == "max_cost_reached"
+
+
+def test_cli_refuses_when_the_row_aware_estimate_exceeds_the_cap(tmp_path):
+    # 3 targets x 0.06 = 0.18 > 0.15, although the old flat estimate (0.06) would have passed.
+    refused = _cli(tmp_path, "fetch", "--project", "acme.io", "--targets", "acme.io", "r1.com",
+                   "r2.com", "--source", "dataforseo", "--max-cost", "0.15", "--json")
+    assert refused.returncode == 2 and "$0.18" in refused.stderr
+
+
+# ---- robustness: network errors, ledger failures, redaction, encodings, non-finite numbers ----
+
+def test_network_error_is_recorded_per_target_and_the_run_continues(tmp_path, monkeypatch):
+    import requests
+
+    def boom(url, **kwargs):
+        raise requests.ConnectionError("connection reset while calling https://api.dataforseo.com")
+
+    monkeypatch.setattr(requests, "post", boom)
+    with pytest.raises(ls.SourceError) as exc:
+        ls._dfs_post("https://api.dataforseo.com/x", [], ("user", "pw"))
+    assert "network error" in str(exc.value)
+
+    conn = link_store.open_store(str(tmp_path))
+    calls = []
+
+    def fetcher(target, limit):
+        calls.append(target)
+        if target == "b.com":
+            ls._dfs_post("https://api.dataforseo.com/x", [], ("user", "pw"))
+        return _ok()
+
+    out = ls.run_fetch(conn, "acme.io", ["acme.io", "b.com", "c.com"], "dataforseo", 10, 1.0, fetcher,
+                       unit_cost=0.02)
+    assert calls == ["acme.io", "b.com", "c.com"] and out["errors"] == 1
+    assert out["coverage"] == "2 of 3" and out["stopped"] is None
+    err = conn.execute("SELECT error FROM snapshots WHERE target = 'b.com'").fetchone()["error"]
+    assert "network error" in err
+
+
+def test_snapshot_is_saved_before_the_ledger_and_a_ledger_failure_is_a_warning(tmp_path):
+    conn = link_store.open_store(str(tmp_path))
+    order = []
+
+    def spend(amount, target, estimated):
+        order.append(conn.execute("SELECT COUNT(*) FROM snapshots WHERE target = ?",
+                                  (target,)).fetchone()[0])
+        raise RuntimeError("ledger lock failed")
+
+    out = ls.run_fetch(conn, "acme.io", ["acme.io"], "dataforseo", 10, 1.0, lambda t, n: _ok(),
+                       unit_cost=0.02, spend=spend)
+    assert order == [1]  # the paid data was already stored when the ledger was touched
+    assert out["coverage"] == "1 of 1" and out["spent_usd"] == 0.02
+    assert any("ledger" in w for w in out["warnings"])
+
+
+def test_credential_shaped_text_is_redacted_everywhere_it_is_stored(tmp_path):
+    assert "hunter22" not in ls.redact("bad login for me@x.com password=hunter22", ("hunter22",))
+    assert "dXNlcjpwdw==" not in ls.redact("Authorization: Basic dXNlcjpwdw==")
+    assert "me@x.com" not in ls.redact("rejected me@x.com", ("me@x.com",))
+    conn = link_store.open_store(str(tmp_path))
+
+    def fetcher(target, limit):
+        raise ls.SourceError("DataForSEO says: invalid login me@x.com / hunter22 (Basic dXNlcjpwdw==)")
+
+    out = ls.run_fetch(conn, "acme.io", ["acme.io"], "dataforseo", 10, 1.0, fetcher,
+                       unit_cost=0.02, secrets=("me@x.com", "hunter22"))
+    stored = conn.execute("SELECT error FROM snapshots").fetchone()["error"]
+    for text in (stored, out["targets"][0]["error"]):
+        assert "hunter22" not in text and "me@x.com" not in text and "dXNlcjpwdw" not in text
+
+
+def test_non_finite_numbers_are_not_data():
+    assert ls._num("nan") is None and ls._num("inf") is None and ls._num(float("inf")) is None
+    assert ls._num("-Infinity") is None and ls._num("12,5") == 125.0 and ls._num("7%") == 7.0
+    rec = ls.normalize_dataforseo_item({**ITEM_PUB, "backlink_spam_score": float("nan")})
+    assert rec["spam_score"] is None
+
+
+def test_import_utf16_tab_separated_ahrefs_export(tmp_path):
+    path = tmp_path / "ahrefs.csv"
+    text = "Domain\tDomain rating\tFirst seen\nnews.example.com\t72\t2025-01-02\nblog.example.net\t35\t2026-01-01\n"
+    path.write_bytes(b"\xff\xfe" + text.encode("utf-16-le"))  # how Ahrefs actually exports
+    recs = ls.import_csv(str(path), "ahrefs")
+    assert [(r["domain"], r["authority"]) for r in recs] == [("news.example.com", 72.0),
+                                                              ("blog.example.net", 35.0)]
+
+
+@pytest.mark.parametrize("delimiter", [";", "\t"])
+def test_import_semicolon_and_tab_separated_exports(tmp_path, delimiter):
+    path = tmp_path / "semrush.csv"
+    path.write_text(delimiter.join(["Domain", "Domain Ascore"]) + "\n"
+                    + delimiter.join(["x.example.org", "41"]) + "\n", encoding="utf-8-sig")
+    [rec] = ls.import_csv(str(path), "semrush")
+    assert rec["domain"] == "x.example.org" and rec["authority"] == 41.0
+
+
+def test_cli_import_reports_bad_files_instead_of_a_traceback(tmp_path):
+    bad = tmp_path / "latin1.csv"
+    bad.write_bytes(b"domain,authority\n\xe9\xe8.org,20\n")
+    proc = _cli(tmp_path, "import", "--project", "acme.io", "--target", "rival.com",
+                "--format", "generic", str(bad), "--json")
+    assert proc.returncode == 2 and "Traceback" not in proc.stderr and "UTF-8" in proc.stderr

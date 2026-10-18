@@ -90,7 +90,7 @@ COST_TABLE = {
     "on_page_lighthouse": 0.02,
     # Backlinks
     "backlinks_summary": 0.02,
-    "backlinks_backlinks": 0.02,
+    "backlinks_backlinks": 0.02,  # base per request; see estimate_backlinks_call() for rows
     "backlinks_anchors": 0.02,
     "backlinks_referring_domains": 0.02,
     "backlinks_bulk_spam_score": 0.01,
@@ -276,6 +276,19 @@ def _today_spend(ledger):
 def unit_cost(endpoint):
     """Budgeted USD cost per call for a known endpoint, or None when unknown."""
     return COST_TABLE.get(endpoint)
+
+
+# backlinks/backlinks/live is billed per request AND per row returned. The flat
+# COST_TABLE price above is only the base; a 1,000-row call costs about $0.06
+# (measured 2026-10-18: 19 rows $0.0247, 1,000 rows $0.06). Callers that fetch
+# many rows per call (link_sources.py) budget with estimate_backlinks_call().
+BACKLINKS_CALL_BASE_USD = 0.02
+BACKLINKS_CALL_PER_ROW_USD = 0.00004
+
+
+def estimate_backlinks_call(limit):
+    """Row-aware USD estimate for one backlinks/backlinks call asking for ``limit`` rows."""
+    return round(BACKLINKS_CALL_BASE_USD + BACKLINKS_CALL_PER_ROW_USD * max(int(limit), 0), 6)
 
 
 def record_spend(endpoint, cost, note=""):

@@ -9,17 +9,29 @@ link_store.py). link_gap.py scores from these snapshots; nothing here scores.
 
 Sources:
     dataforseo  POST /v3/backlinks/backlinks/live with mode one_per_domain: one
-                backlink per referring domain (URL, anchor, title, rank). Paid:
-                estimated with dataforseo_costs.py, hard-capped by --max-cost,
-                actual cost logged to the shared ledger. Insufficient funds stops
-                the run and keeps what was already collected.
+                backlink per referring domain (URL, anchor, title, rank). Paid.
+                A call costs about $0.02 + $0.00004 per requested row ($0.06 at
+                the 1,000-row default; dataforseo_costs.estimate_backlinks_call).
+                The dry run and the pre-run refusal use that estimate for every
+                target; during the run a call only starts if spent plus the
+                larger of the estimate and the highest real per-call cost seen
+                so far fits under --max-cost. Actual cost is logged to the
+                shared ledger. Insufficient funds stops the run and keeps what
+                was already collected.
     moz         Moz linking root domains (free tier: 50 rows per call, one
                 request per 10 s, 2,500 rows a month). No sample URL or anchor.
     csv-<fmt>   An export file: --format ahrefs | semrush | gsc | generic.
 
 Credentials: DataForSEO from DATAFORSEO_USERNAME / DATAFORSEO_PASSWORD, else the
 dataforseo MCP entry in ~/.claude.json (backlinks_auth.dataforseo_credentials);
-Moz from backlinks_auth.get_moz_api_key. Never printed.
+Moz from backlinks_auth.get_moz_api_key. Never printed: error messages are passed
+through redact() before they are stored or shown.
+
+Network: the DataForSEO and Moz hosts are fixed constants, so these fetches do not
+go through url_safety (no URL comes from user input or from fetched content).
+
+CSV exports: UTF-8 (with or without BOM) or UTF-16 (Ahrefs), comma, semicolon or
+tab separated. Columns that are not mapped are ignored.
 
 Usage:
     python link_sources.py status --json
@@ -36,7 +48,9 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import io
 import json
+import math
 import os
 import re
 import sys
@@ -47,7 +61,7 @@ if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
 from backlinks_auth import dataforseo_credentials, dataforseo_status, get_moz_api_key  # noqa: E402
-from dataforseo_costs import record_spend, unit_cost  # noqa: E402
+from dataforseo_costs import estimate_backlinks_call, record_spend  # noqa: E402
 from link_store import open_store, save_snapshot  # noqa: E402
 from seo_project import load_profile  # noqa: E402
 from seo_store import normalize_domain  # noqa: E402
@@ -59,7 +73,7 @@ DEFAULT_LIMIT = {"dataforseo": 1000, "moz": 50}
 CSV_FORMATS = ("ahrefs", "semrush", "gsc", "generic")
 
 # Header aliases per export format, matched case-insensitively. Only "domain"
-# is required; extra columns are ignored.
+# is required; columns that are not listed here are ignored.
 CSV_COLUMNS = {
     "ahrefs": {"domain": ("domain", "referring domain"), "authority": ("domain rating", "dr"),
                "first_seen": ("first seen",), "last_seen": ("last seen", "lost")},
@@ -89,6 +103,28 @@ class CsvFormatError(ValueError):
     """The file lacks the required domain column for its declared format."""
 
 
+def call_estimate(limit: int) -> float:
+    """Row-aware USD estimate for one DataForSEO backlinks call of ``limit`` rows."""
+    return estimate_backlinks_call(limit)
+
+
+_SECRET_PATTERNS = (
+    re.compile(r"(?i)\b(?:basic|bearer)\s+[A-Za-z0-9._~+/=-]{8,}"),
+    re.compile(r"(?i)\b(password|passwd|pwd|api[_-]?key|apikey|token|secret|login)\b(\s*[=:]\s*)"
+               r"[^\s,;&\"']+"),
+)
+
+
+def redact(text, secrets=()) -> str:
+    """Remove credential-shaped text (and the known secret values) from a message."""
+    out = str(text)
+    for secret in secrets or ():
+        if secret:
+            out = out.replace(str(secret), "[redacted]")
+    out = _SECRET_PATTERNS[0].sub("[redacted]", out)
+    return _SECRET_PATTERNS[1].sub(lambda m: f"{m.group(1)}{m.group(2)}[redacted]", out)
+
+
 def _tld(domain: str) -> str:
     return domain.rsplit(".", 1)[-1].lower() if "." in domain else ""
 
@@ -97,13 +133,15 @@ def _num(value) -> Optional[float]:
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        number = float(value)
+        return number if math.isfinite(number) else None
     if isinstance(value, str):
         text = value.strip().replace(",", "").rstrip("%")
         try:
-            return float(text)
+            number = float(text)
         except ValueError:
             return None
+        return number if math.isfinite(number) else None  # "nan" / "inf" are not data
     return None
 
 
@@ -160,12 +198,44 @@ def normalize_moz_item(item: dict) -> Optional[dict]:
                    scale="moz_da", spam=spam if spam is not None and spam >= 0 else None)
 
 
+def _read_export_text(path: str) -> str:
+    """Decode an export: UTF-16 (Ahrefs) or UTF-8, with or without a byte-order mark."""
+    with open(path, "rb") as handle:
+        raw = handle.read()
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        return raw.decode("utf-16")
+    try:
+        return raw.decode("utf-8-sig")
+    except UnicodeDecodeError as exc:
+        raise CsvFormatError(f"{path}: not UTF-8 or UTF-16 text ({exc.reason}); re-export it as "
+                             "CSV (UTF-8)") from exc
+
+
+def _detect_delimiter(text: str) -> str:
+    """The delimiter (comma, semicolon or tab) that splits the header line into most fields."""
+    header = text.lstrip("\ufeff").splitlines()[0] if text.strip() else ""
+    best, best_fields = ",", 1
+    for delimiter in (",", "\t", ";"):
+        try:
+            fields = len(next(csv.reader([header], delimiter=delimiter), []))
+        except csv.Error:
+            continue
+        if fields > best_fields:
+            best, best_fields = delimiter, fields
+    return best
+
+
 def import_csv(path: str, fmt: str) -> list:
-    """Read an export into normalized records. Raises CsvFormatError on a missing domain column."""
+    """Read an export into normalized records.
+
+    Raises CsvFormatError on a missing domain column or an unreadable encoding, and
+    csv.Error on malformed rows.
+    """
     if fmt not in CSV_COLUMNS:
         raise CsvFormatError(f"unknown format {fmt!r}; use one of {', '.join(CSV_FORMATS)}")
-    with open(path, newline="", encoding="utf-8-sig") as handle:
-        reader = csv.DictReader(handle)
+    text = _read_export_text(path)
+    with io.StringIO(text, newline="") as handle:
+        reader = csv.DictReader(handle, delimiter=_detect_delimiter(text))
         fieldnames = [h for h in (reader.fieldnames or []) if h]
         headers = {h.strip().lower(): h for h in fieldnames}
         mapping = {}
@@ -198,9 +268,14 @@ def _dfs_post(url: str, payload: list, credentials: tuple) -> tuple:
     """POST to the fixed DataForSEO API host; returns (http_status, json body or {})."""
     import requests  # local import: --help and the CSV path work without it
     token = base64.b64encode(f"{credentials[0]}:{credentials[1]}".encode()).decode()
-    resp = requests.post(url, json=payload, timeout=60,
-                         headers={"Authorization": f"Basic {token}",
-                                  "Content-Type": "application/json"})
+    try:
+        resp = requests.post(url, json=payload, timeout=60,
+                             headers={"Authorization": f"Basic {token}",
+                                      "Content-Type": "application/json"})
+    except requests.RequestException as exc:
+        # A dropped connection or a timeout is a fact about this target, not a crash.
+        raise SourceError(f"DataForSEO network error ({type(exc).__name__}): "
+                          f"{redact(exc, credentials[:2])}") from exc
     try:
         body = resp.json()
     except ValueError:
@@ -285,46 +360,62 @@ def resolve_targets(project: str, targets: Optional[list], data_dir: Optional[st
 
 
 def run_fetch(conn, project: str, targets: list, source: str, limit: int, max_cost: float,
-              fetcher: Callable, unit_cost: float = 0.0, spend: Optional[Callable] = None) -> dict:
+              fetcher: Callable, unit_cost: float = 0.0, spend: Optional[Callable] = None,
+              secrets: tuple = ()) -> dict:
     """Fetch each target into a snapshot.
 
-    Stops on InsufficientFunds, or before a call that would take the run past
-    ``max_cost`` (only when ``unit_cost`` > 0). ``spend(amount, target, estimated)``
-    is called once per paid call: the response's cost, or ``unit_cost`` flagged
-    as an estimate when the response carried none.
+    ``unit_cost`` is the per-call estimate (call_estimate(limit)). A call only starts
+    when ``spent`` plus the larger of that estimate and the highest real per-call cost
+    seen so far fits under ``max_cost``, so the cap holds even when real calls cost more
+    than estimated. Pass 0 to disable the guard (free sources).
+
+    ``spend(amount, target, estimated)`` is called once per paid call, after its snapshot
+    is saved: the response's cost, or ``unit_cost`` flagged as an estimate when the
+    response carried none. A ledger failure becomes a warning; the paid data is kept.
     """
     spent = 0.0
-    rows, stopped, errors = [], None, 0
+    worst = float(unit_cost or 0.0)
+    rows, stopped, errors, warnings = [], None, 0, []
     for target in targets:
-        if unit_cost and spent + unit_cost > max_cost + 1e-9:
+        if unit_cost and spent + worst > max_cost + 1e-9:
             stopped = "max_cost_reached"
             break
         try:
             got = fetcher(target, limit)
         except InsufficientFunds as exc:
-            sid = save_snapshot(conn, project, target, source, [], error=str(exc))
-            rows.append({"target": target, "snapshot_id": sid, "error": str(exc)})
+            message = redact(exc, secrets)
+            sid = save_snapshot(conn, project, target, source, [], error=message)
+            rows.append({"target": target, "snapshot_id": sid, "error": message})
             stopped = "insufficient_funds"
             break
         except SourceError as exc:
-            sid = save_snapshot(conn, project, target, source, [], error=str(exc))
-            rows.append({"target": target, "snapshot_id": sid, "error": str(exc)})
+            message = redact(exc, secrets)
+            sid = save_snapshot(conn, project, target, source, [], error=message)
+            rows.append({"target": target, "snapshot_id": sid, "error": message})
             errors += 1
             continue
         cost = got.get("cost")
+        sid = save_snapshot(conn, project, target, source, got["records"],
+                            row_cap_hit=got["row_cap_hit"], cost_usd=cost)
         if unit_cost:
             amount = cost if cost is not None else unit_cost
             spent += amount
+            worst = max(worst, amount)
             if spend:
-                spend(amount, target, cost is None)
-        sid = save_snapshot(conn, project, target, source, got["records"],
-                            row_cap_hit=got["row_cap_hit"], cost_usd=cost)
+                try:
+                    spend(amount, target, cost is None)
+                except Exception as exc:  # noqa: BLE001 - the data is saved; the ledger is a side record
+                    warnings.append(f"spend ledger not updated for {target} (${amount:.4f}): "
+                                    f"{redact(exc, secrets)}")
         rows.append({"target": target, "snapshot_id": sid, "rows": len(got["records"]),
                      "row_cap_hit": got["row_cap_hit"], "cost_usd": cost, "error": None})
     done = sum(1 for r in rows if not r.get("error"))
-    return {"project": normalize_domain(project), "source": source, "targets": rows,
-            "coverage": f"{done} of {len(targets)}", "spent_usd": round(spent, 4),
-            "stopped": stopped, "errors": errors}
+    result = {"project": normalize_domain(project), "source": source, "targets": rows,
+              "coverage": f"{done} of {len(targets)}", "spent_usd": round(spent, 4),
+              "stopped": stopped, "errors": errors}
+    if warnings:
+        result["warnings"] = warnings
+    return result
 
 
 def _emit(result: dict, as_json: bool) -> None:
@@ -332,8 +423,10 @@ def _emit(result: dict, as_json: bool) -> None:
         print(json.dumps(result, indent=2, default=str))
         return
     for key, value in result.items():
-        if key != "targets":
+        if key not in ("targets", "warnings"):
             print(f"{key}: {value}")
+    for warning in result.get("warnings", []):
+        print(f"WARNING: {warning}")
     for row in result.get("targets", []):
         if row.get("error"):
             print(f"  {row['target']}: ERROR {row['error']}")
@@ -359,23 +452,27 @@ def cmd_fetch(args) -> int:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     limit = args.limit or DEFAULT_LIMIT[args.source]
+    secrets: tuple = ()
     if args.source == "dataforseo":
-        unit = unit_cost(DFS_COST_KEY) or 0.02
-        estimate = round(unit * len(targets), 4)
+        per_call = call_estimate(limit)
+        estimate = round(per_call * len(targets), 4)
         if args.dry_run:
             _emit({"source": "dataforseo", "calls": len(targets), "targets_planned": targets,
-                   "unit_cost_usd": unit, "estimated_cost_usd": estimate,
-                   "max_cost_usd": args.max_cost, "rows_per_target": limit}, args.json)
+                   "per_call_estimate_usd": per_call, "estimated_cost_usd": estimate,
+                   "max_cost_usd": args.max_cost, "rows_per_target": limit,
+                   "cost_model": "$0.02 per call + $0.00004 per requested row"}, args.json)
             return 0
         if estimate > args.max_cost + 1e-9:
-            print(f"Error: estimated ${estimate:.2f} for {len(targets)} calls exceeds --max-cost "
-                  f"${args.max_cost:.2f}. Raise --max-cost or pass fewer --targets.", file=sys.stderr)
+            print(f"Error: estimated ${estimate:.2f} for {len(targets)} calls of {limit} rows "
+                  f"exceeds --max-cost ${args.max_cost:.2f}. Raise --max-cost, lower --limit or "
+                  "pass fewer --targets.", file=sys.stderr)
             return 2
         creds = dataforseo_credentials()
         if not creds:
             print("Error: no DataForSEO credentials found. Run /seo links setup "
                   "(backlinks_auth.py --check dataforseo).", file=sys.stderr)
             return 2
+        secrets = (creds[0], creds[1])
 
         def fetcher(target, lim):
             return fetch_dataforseo(target, lim, creds)
@@ -383,6 +480,8 @@ def cmd_fetch(args) -> int:
         def spend(amount, target, estimated):
             note = f"link_sources {target}" + (" (estimated)" if estimated else "")
             record_spend(DFS_COST_KEY, amount, note=note)
+
+        unit = per_call
     else:
         if args.dry_run:
             _emit({"source": "moz", "calls": len(targets), "targets_planned": targets,
@@ -395,13 +494,15 @@ def cmd_fetch(args) -> int:
                   file=sys.stderr)
             return 2
 
+        secrets = (key,)
+
         def fetcher(target, lim):
             return fetch_moz(target, lim, key)
 
         unit, spend = 0.0, None
     conn = open_store(args.data_dir)
     result = run_fetch(conn, args.project, targets, args.source, limit, args.max_cost, fetcher,
-                       unit_cost=unit, spend=spend)
+                       unit_cost=unit, spend=spend, secrets=secrets)
     if args.source == "moz":
         result["note"] = "Moz free tier: 2,500 rows a month; at most 50 rows per target"
     _emit(result, args.json)
@@ -413,7 +514,7 @@ def cmd_fetch(args) -> int:
 def cmd_import(args) -> int:
     try:
         records = import_csv(args.file, args.format)
-    except (CsvFormatError, OSError) as exc:
+    except (ValueError, csv.Error, OSError) as exc:  # CsvFormatError and UnicodeDecodeError are ValueErrors
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     source = f"csv-{args.format}"
