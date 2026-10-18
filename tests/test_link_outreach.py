@@ -217,3 +217,34 @@ def test_export_only_approved_by_default(conn):
     [exported] = lo.export_rows(conn, PROJECT)
     assert exported["to_address"] == "" and exported["subject"] == "Compliance training video studios"
     assert json.dumps(exported)
+
+
+# ---- CLI errors are exit 2 with a message, never a traceback ----
+
+def _cli_data(tmp_path):
+    import seo_project
+    data_dir = str(tmp_path)
+    profile = seo_project.new_profile("acme.in", "Acme", ["acme"], ["rival.com"])
+    seo_project.save_profile(profile, data_dir)
+    src = tmp_path / "projects" / "acme.in.json"
+    (tmp_path / "projects" / "other.io.json").write_text(src.read_text())  # belongs to acme.in
+    return data_dir
+
+
+@pytest.mark.parametrize("argv, projects", [
+    (["add", "--source", "csv-generic", "--no-sitemap"], ("other.io", "")),
+    (["brief", "--domain", "trainingmag.com"], ("other.io", "")),
+    (["board"], ("",)),  # board never loads a profile, so only the empty project is an error
+])
+def test_cli_mismatched_profile_and_empty_project_exit_2(tmp_path, capsys, argv, projects):
+    data_dir = _cli_data(tmp_path)
+    for project in projects:
+        assert lo.main([argv[0], "--project", project, "--data-dir", data_dir, *argv[1:]]) == 2
+        err = capsys.readouterr().err
+        assert err.startswith("Error:") and "Traceback" not in err
+
+
+def test_lint_survives_a_malformed_url(conn):
+    brief = lo.build_brief(PROFILE, row(conn), PROFILE["money_pages"])
+    problems = lo.lint_draft("Hello", "See https://[x for details", brief)
+    assert {"rule": "unbriefed_url", "url": "https://[x"} in problems

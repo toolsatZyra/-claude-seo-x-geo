@@ -188,3 +188,26 @@ def test_cli_prospects_and_kpis(tmp_path):
     assert seo_kpi.validate_envelope(env)["ok"]
     assert env["metrics"] == {"links.referring_domains": 1, "links.gap_domains": 2}
     assert env["source"] == "link_gap.py (csv-generic)"
+
+
+# ---- CLI errors are exit 2 with a message, never a traceback ----
+
+def _foreign_profile(tmp_path):
+    """A profile file for acme.in that was hand-renamed to other.io.json."""
+    data_dir = _store(tmp_path)
+    src = Path(data_dir) / "projects" / "acme.in.json"
+    (Path(data_dir) / "projects" / "other.io.json").write_text(src.read_text())
+    return data_dir
+
+
+@pytest.mark.parametrize("cmd", ["gap", "prospects", "kpis"])
+def test_cli_mismatched_profile_and_empty_project_exit_2(tmp_path, capsys, cmd):
+    data_dir = _foreign_profile(tmp_path)
+    for project in ("other.io", ""):
+        argv = [cmd, "--project", project, "--source", "csv-generic", "--no-sitemap",
+                "--data-dir", data_dir]
+        if cmd == "kpis":
+            argv += ["--emit-kpis", str(tmp_path / "k.json")]
+        assert lg.main(argv) == 2
+        err = capsys.readouterr().err
+        assert err.startswith("Error:") and "Traceback" not in err

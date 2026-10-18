@@ -46,7 +46,7 @@ if _SCRIPTS_DIR not in sys.path:
 from link_gap import GapError, analyze_project, fold_words  # noqa: E402
 from link_store import open_store  # noqa: E402
 from seo_kpi import EnvelopeError, write_envelope  # noqa: E402
-from seo_project import load_profile  # noqa: E402
+from seo_project import load_profile, slugify  # noqa: E402
 from seo_store import host_matches, normalize_domain, utc_now  # noqa: E402
 
 ACTIVE = ("new", "drafted", "approved", "contacted")
@@ -160,9 +160,14 @@ def add_prospects(conn, project: str, prospects: list, source: str,
     return {"added": added, "skipped": skipped}
 
 
-def _norm_url(url: str) -> str:
-    parsed = urlparse(url.strip())
-    return f"{parsed.scheme.lower()}://{normalize_domain(parsed.netloc)}{parsed.path.rstrip('/') or '/'}"
+def _norm_url(url: str) -> Optional[str]:
+    """scheme://host/path for comparison, or None when the text is not a parseable URL."""
+    try:
+        parsed = urlparse(url.strip())
+        host = normalize_domain(parsed.netloc)
+    except ValueError:  # e.g. "https://[x": an unterminated IPv6 literal
+        return None
+    return f"{parsed.scheme.lower()}://{host}{parsed.path.rstrip('/') or '/'}"
 
 
 def best_asset(client: str, pages: list, evidence: list) -> str:
@@ -240,9 +245,11 @@ def lint_draft(subject: str, body: str, brief: dict) -> list:
     allowed = {_norm_url(u) for u in [brief.get("asset_url"), brief.get("client_home"),
                                        brief.get("contact_path"),
                                        *[e.get("sample_url") for e in brief.get("evidence", [])]] if u}
+    allowed.discard(None)
     for url in re.findall(r"https?://[^\s<>()\"']+", f"{subject} {body}"):
         url = url.rstrip(".,;:!?")
-        if _norm_url(url) not in allowed:
+        norm = _norm_url(url)
+        if norm is None or norm not in allowed:  # an unparseable URL counts as unbriefed
             problems.append({"rule": "unbriefed_url", "url": url})
     words = len(body.split())
     if words > MAX_BODY_WORDS:
@@ -445,8 +452,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
-    project = normalize_domain(args.project)
-    conn = open_store(args.data_dir)
+    try:
+        project = slugify(args.project)  # rejects an empty or non-domain --project
+        conn = open_store(args.data_dir)
+    except (ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
     try:
         if args.cmd == "add":
             analysis = analyze_project(project, args.source, args.data_dir,
@@ -496,7 +507,7 @@ def main(argv: Optional[list] = None) -> int:
         else:
             result = write_envelope(args.emit_kpis, project, "link_outreach.py",
                                     outreach_kpis(conn, project))
-    except (TransitionError, GapError, EnvelopeError, OSError) as exc:
+    except (ValueError, EnvelopeError, OSError) as exc:  # TransitionError and GapError are ValueErrors
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     _emit(result, args.json)

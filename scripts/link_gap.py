@@ -421,7 +421,7 @@ def main(argv: Optional[list] = None) -> int:
     try:
         result = analyze_project(args.project, args.source, args.data_dir,
                                  use_sitemap=not args.no_sitemap)
-    except GapError as exc:
+    except ValueError as exc:  # GapError, a profile file that belongs to another domain, a bad --project
         print(f"Error: {exc}", file=sys.stderr)
         return 2
     if args.cmd == "gap":
