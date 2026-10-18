@@ -46,6 +46,7 @@ SERVICE_AUTH = {
     "bing": "api_key",
     "commoncrawl": "none",
     "verify": "none",
+    "dataforseo": "mcp_or_env",
 }
 
 # Human-readable service names
@@ -54,7 +55,16 @@ SERVICE_NAMES = {
     "bing": "Bing Webmaster Tools API",
     "commoncrawl": "Common Crawl Web Graph",
     "verify": "Backlink Verification Crawler",
+    "dataforseo": "DataForSEO API (MCP server or REST credentials)",
 }
+
+# Where Claude Code loads MCP servers from (user scope and per-project scopes).
+CLAUDE_JSON_PATH = os.path.expanduser("~/.claude.json")
+# Older installers wrote MCP servers here; Claude Code never loads them from it.
+LEGACY_SETTINGS_PATHS = (
+    os.path.expanduser("~/.claude/settings.json"),
+    os.path.expanduser("~/.claude/settings.local.json"),
+)
 
 
 def load_config() -> dict:
@@ -194,34 +204,91 @@ def check_credentials(service: str) -> dict:
             result["available"] = False
             result["error"] = f"Required script not found: {parse_script}"
 
+    elif service == "dataforseo":
+        status = dataforseo_status()
+        result["available"] = status["mcp_configured"] or status["rest_credentials"]
+        for key in ("mcp_configured", "stale_config", "rest_credentials", "rest_credentials_source"):
+            result[key] = status[key]
+        if status["fix"]:
+            result["error"] = status["fix"]
+        elif not result["available"]:
+            result["error"] = "DataForSEO is not configured. Run extensions/dataforseo/install.sh"
+
     else:
         result["error"] = f"Unknown service: {service}"
 
     return result
 
 
-def has_dataforseo_mcp() -> bool:
-    """
-    Detect whether the DataForSEO MCP server is configured for this user.
+def _read_json_file(path: str) -> Optional[dict]:
+    """Parse a JSON object from ``path``; None when missing, unreadable or not an object."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
 
-    DataForSEO supersedes Moz/Bing for backlink data, so a tier report that
-    ignores it tells an operator "Tier 0 -- Basic" while full premium backlink
-    data is in fact available. The MCP tools themselves are only reachable from
-    inside a Claude session, so config presence is the best signal a plain
-    script can read.
+
+def _dataforseo_entries(claude_json_path: Optional[str] = None) -> list:
+    """Every mcpServers.dataforseo entry Claude Code loads: user scope, then project scopes."""
+    data = _read_json_file(claude_json_path or CLAUDE_JSON_PATH) or {}
+    entries = []
+    user = (data.get("mcpServers") or {}).get("dataforseo")
+    if isinstance(user, dict):
+        entries.append(user)
+    for cfg in (data.get("projects") or {}).values():
+        if isinstance(cfg, dict):
+            entry = (cfg.get("mcpServers") or {}).get("dataforseo")
+            if isinstance(entry, dict):
+                entries.append(entry)
+    return entries
+
+
+def dataforseo_credentials(claude_json_path: Optional[str] = None) -> Optional[tuple]:
+    """(username, password, source) for DataForSEO REST calls, or None.
+
+    Order: the DATAFORSEO_USERNAME / DATAFORSEO_PASSWORD environment variables,
+    then the env block of the dataforseo MCP entry in ~/.claude.json. The legacy
+    ~/.claude/settings.json copy is never read. Callers must never print these.
     """
-    for rel in ("~/.claude/settings.json", "~/.claude/settings.local.json"):
-        path = os.path.expanduser(rel)
-        if not os.path.exists(path):
-            continue
-        try:
-            with open(path) as handle:
-                settings = json.load(handle)
-        except (json.JSONDecodeError, OSError):
-            continue
-        if "dataforseo" in settings.get("mcpServers", {}):
-            return True
-    return False
+    user = os.environ.get("DATAFORSEO_USERNAME", "").strip()
+    password = os.environ.get("DATAFORSEO_PASSWORD", "").strip()
+    if user and password:
+        return user, password, "env"
+    for entry in _dataforseo_entries(claude_json_path):
+        env = entry.get("env") or {}
+        user = str(env.get("DATAFORSEO_USERNAME", "")).strip()
+        password = str(env.get("DATAFORSEO_PASSWORD", "")).strip()
+        if user and password:
+            return user, password, "claude_json"
+    return None
+
+
+def dataforseo_status(claude_json_path: Optional[str] = None,
+                      legacy_paths: Optional[tuple] = None) -> dict:
+    """Where DataForSEO is configured, without revealing any credential."""
+    mcp = bool(_dataforseo_entries(claude_json_path))
+    stale = False
+    for path in legacy_paths if legacy_paths is not None else LEGACY_SETTINGS_PATHS:
+        data = _read_json_file(path) or {}
+        if "dataforseo" in (data.get("mcpServers") or {}):
+            stale = True
+    creds = dataforseo_credentials(claude_json_path)
+    fix = None
+    if stale and not mcp:
+        fix = ("DataForSEO is only in ~/.claude/settings.json, which Claude Code does not load. "
+               "Re-run extensions/dataforseo/install.sh (it writes ~/.claude.json and removes the stale copy).")
+    elif stale:
+        fix = ("A stale DataForSEO copy remains in ~/.claude/settings.json. Remove it with: "
+               "python3 extensions/mcp_config_cleanup.py dataforseo")
+    return {"mcp_configured": mcp, "stale_config": stale, "rest_credentials": creds is not None,
+            "rest_credentials_source": creds[2] if creds else None, "fix": fix}
+
+
+def has_dataforseo_mcp() -> bool:
+    """True only when ~/.claude.json configures the dataforseo MCP server."""
+    return dataforseo_status()["mcp_configured"]
 
 
 def detect_tier() -> dict:
@@ -241,7 +308,8 @@ def detect_tier() -> dict:
     has_moz = bool(config.get("moz_api_key"))
     has_bing = bool(config.get("bing_api_key"))
 
-    if has_dataforseo_mcp():
+    dfs = dataforseo_status()
+    if dfs["mcp_configured"] or dfs["rest_credentials"]:
         extras = []
         if has_moz:
             extras.append("Moz DA/PA/Spam Score")
@@ -249,7 +317,7 @@ def detect_tier() -> dict:
             extras.append("Bing inbound links (verified sites)")
         return {
             "tier": 3,
-            "description": "Premium (DataForSEO MCP + Common Crawl + Verify)",
+            "description": "Premium (DataForSEO + Common Crawl + Verify)",
             "capabilities": [
                 "DataForSEO backlink summary, anchors, referring domains",
                 "DataForSEO bulk spam score and toxic link detection",
@@ -436,7 +504,7 @@ def main():
         nargs="?",
         const="all",
         metavar="SERVICE",
-        help="Check credentials. Optionally specify: moz, bing, commoncrawl, verify",
+        help="Check credentials. Optionally specify: moz, bing, commoncrawl, verify, dataforseo",
     )
     parser.add_argument(
         "--setup",
