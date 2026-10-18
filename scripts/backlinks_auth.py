@@ -230,36 +230,66 @@ def _read_json_file(path: str) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
-def _dataforseo_entries(claude_json_path: Optional[str] = None) -> list:
-    """Every mcpServers.dataforseo entry Claude Code loads: user scope, then project scopes."""
+def _as_dict(value) -> dict:
+    """``value`` when it is a dict, else {}: Claude Code writes these files, but never trust a shape."""
+    return value if isinstance(value, dict) else {}
+
+
+def _server_entry(servers) -> Optional[dict]:
+    """The dataforseo entry of an mcpServers value, only if it is an object."""
+    entry = _as_dict(servers).get("dataforseo")
+    return entry if isinstance(entry, dict) else None
+
+
+def _contains_path(project_path: str, cwd: str) -> bool:
+    """True when ``cwd`` is the project directory or inside it (a real path boundary, not a prefix)."""
+    project = os.path.realpath(project_path).rstrip(os.sep)
+    here = os.path.realpath(cwd)
+    return here == project or here.startswith(project + os.sep)
+
+
+def _dataforseo_entries(claude_json_path: Optional[str] = None, cwd: Optional[str] = None,
+                        current_project_only: bool = False) -> list:
+    """The mcpServers.dataforseo entries Claude Code loads: user scope, then project scopes.
+
+    Detection (``current_project_only=False``) counts every project scope: the server is configured
+    somewhere. Credentials (``True``) come from the user scope, then only from project scopes whose
+    path contains ``cwd`` (deepest first), so another client's account is never used by accident.
+    """
     data = _read_json_file(claude_json_path or CLAUDE_JSON_PATH) or {}
     entries = []
-    user = (data.get("mcpServers") or {}).get("dataforseo")
-    if isinstance(user, dict):
+    user = _server_entry(data.get("mcpServers"))
+    if user:
         entries.append(user)
-    for cfg in (data.get("projects") or {}).values():
-        if isinstance(cfg, dict):
-            entry = (cfg.get("mcpServers") or {}).get("dataforseo")
-            if isinstance(entry, dict):
-                entries.append(entry)
+    projects = [(path, _as_dict(cfg)) for path, cfg in _as_dict(data.get("projects")).items()]
+    if current_project_only:
+        here = cwd if cwd is not None else os.getcwd()
+        projects = [(path, cfg) for path, cfg in projects if _contains_path(path, here)]
+        projects.sort(key=lambda item: len(os.path.realpath(item[0])), reverse=True)
+    for _, cfg in projects:
+        entry = _server_entry(cfg.get("mcpServers"))
+        if entry:
+            entries.append(entry)
     return entries
 
 
-def dataforseo_credentials(claude_json_path: Optional[str] = None) -> Optional[tuple]:
+def dataforseo_credentials(claude_json_path: Optional[str] = None,
+                           cwd: Optional[str] = None) -> Optional[tuple]:
     """(username, password, source) for DataForSEO REST calls, or None.
 
-    Order: the DATAFORSEO_USERNAME / DATAFORSEO_PASSWORD environment variables,
-    then the env block of the dataforseo MCP entry in ~/.claude.json. The legacy
+    Order: the DATAFORSEO_USERNAME / DATAFORSEO_PASSWORD environment variables, then the env block
+    of the dataforseo MCP entry in ~/.claude.json: user scope first, then only the project scope
+    that contains the current directory (``cwd``, default the process directory). The legacy
     ~/.claude/settings.json copy is never read. Callers must never print these.
     """
     user = os.environ.get("DATAFORSEO_USERNAME", "").strip()
     password = os.environ.get("DATAFORSEO_PASSWORD", "").strip()
     if user and password:
         return user, password, "env"
-    for entry in _dataforseo_entries(claude_json_path):
-        env = entry.get("env") or {}
-        user = str(env.get("DATAFORSEO_USERNAME", "")).strip()
-        password = str(env.get("DATAFORSEO_PASSWORD", "")).strip()
+    for entry in _dataforseo_entries(claude_json_path, cwd, current_project_only=True):
+        env = _as_dict(entry.get("env"))
+        user = str(env.get("DATAFORSEO_USERNAME") or "").strip()
+        password = str(env.get("DATAFORSEO_PASSWORD") or "").strip()
         if user and password:
             return user, password, "claude_json"
     return None
@@ -272,7 +302,7 @@ def dataforseo_status(claude_json_path: Optional[str] = None,
     stale = False
     for path in legacy_paths if legacy_paths is not None else LEGACY_SETTINGS_PATHS:
         data = _read_json_file(path) or {}
-        if "dataforseo" in (data.get("mcpServers") or {}):
+        if "dataforseo" in _as_dict(data.get("mcpServers")):
             stale = True
     creds = dataforseo_credentials(claude_json_path)
     fix = None

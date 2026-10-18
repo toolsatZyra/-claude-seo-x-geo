@@ -100,3 +100,103 @@ def test_unreadable_claude_json_is_not_configured(paths):
     claude_json.write_text("{not json", encoding="utf-8")
     assert ba.dataforseo_status()["mcp_configured"] is False
     assert ba.dataforseo_credentials() is None
+
+
+# ---- odd config shapes never crash the detector ----
+
+ODD_SHAPES = [
+    {"mcpServers": "x"}, {"mcpServers": ["dataforseo"]}, {"mcpServers": 5},
+    {"mcpServers": {"dataforseo": "x"}}, {"mcpServers": {"dataforseo": ["a"]}},
+    {"projects": "x"}, {"projects": ["a"]}, {"projects": {"/p": "x"}}, {"projects": {"/p": None}},
+    {"projects": {"/p": {"mcpServers": "x"}}}, {"projects": {"/p": {"mcpServers": ["dataforseo"]}}},
+    {"projects": {"/p": {"mcpServers": {"dataforseo": 3}}}}, [], "just a string", None,
+]
+
+
+@pytest.mark.parametrize("shape", ODD_SHAPES)
+def test_odd_claude_json_shapes_do_not_crash(paths, shape):
+    claude_json, legacy = paths
+    _write(claude_json, shape)
+    status = ba.dataforseo_status()
+    assert status["mcp_configured"] is False and status["rest_credentials"] is False
+    assert ba.dataforseo_credentials() is None
+    assert ba.check_credentials("dataforseo")["available"] is False
+    assert ba.detect_tier()["tier"] == 0
+
+
+@pytest.mark.parametrize("env", ["x", ["a"], 5, None,
+                                 {"DATAFORSEO_USERNAME": 5, "DATAFORSEO_PASSWORD": None}])
+def test_a_server_entry_with_a_malformed_env_is_configured_but_has_no_credentials(paths, env):
+    claude_json, _ = paths
+    _write(claude_json, {"mcpServers": {"dataforseo": {"command": "npx", "env": env}}})
+    status = ba.dataforseo_status()
+    assert status["mcp_configured"] is True and status["rest_credentials"] is False
+    assert ba.dataforseo_credentials() is None
+    assert ba.detect_tier()["tier"] == 3
+
+
+@pytest.mark.parametrize("shape", [{"mcpServers": "dataforseo"}, {"mcpServers": ["dataforseo"]},
+                                   {"mcpServers": None}, {"mcpServers": 7}])
+def test_odd_settings_json_shapes_are_not_a_stale_copy(paths, shape):
+    _, legacy = paths
+    _write(legacy, shape)
+    assert ba.dataforseo_status()["stale_config"] is False  # only a dict with the key counts
+
+
+# ---- project-scoped credentials are used only for the project you are in ----
+
+def test_a_foreign_projects_credentials_are_ignored(paths, tmp_path):
+    claude_json, _ = paths
+    _write(claude_json, {"projects": {str(tmp_path / "other-client"): {"mcpServers": {"dataforseo": ENTRY}}}})
+    here = tmp_path / "this-client"
+    here.mkdir()
+    assert ba.dataforseo_credentials(cwd=str(here)) is None
+    status = ba.dataforseo_status()
+    assert status["mcp_configured"] is True  # the MCP server exists, for that other project
+    assert status["rest_credentials"] is False
+
+
+def test_the_matching_project_scope_is_used(paths, tmp_path):
+    claude_json, _ = paths
+    project = tmp_path / "client"
+    (project / "sub" / "dir").mkdir(parents=True)
+    _write(claude_json, {"projects": {str(project): {"mcpServers": {"dataforseo": ENTRY}}}})
+    for cwd in (project, project / "sub" / "dir"):
+        assert ba.dataforseo_credentials(cwd=str(cwd)) == ("user@example.com", SECRET, "claude_json")
+
+
+def test_a_sibling_directory_with_the_same_prefix_does_not_match(paths, tmp_path):
+    claude_json, _ = paths
+    (tmp_path / "site").mkdir()
+    (tmp_path / "site-two").mkdir()
+    _write(claude_json, {"projects": {str(tmp_path / "site"): {"mcpServers": {"dataforseo": ENTRY}}}})
+    assert ba.dataforseo_credentials(cwd=str(tmp_path / "site-two")) is None
+
+
+def test_user_scope_wins_over_a_matching_project_scope(paths, tmp_path):
+    claude_json, _ = paths
+    other = {"command": "npx", "env": {"DATAFORSEO_USERNAME": "proj@example.com",
+                                       "DATAFORSEO_PASSWORD": "proj-pass"}}
+    _write(claude_json, {"mcpServers": {"dataforseo": ENTRY},
+                         "projects": {str(tmp_path): {"mcpServers": {"dataforseo": other}}}})
+    assert ba.dataforseo_credentials(cwd=str(tmp_path))[0] == "user@example.com"
+
+
+def test_the_deepest_matching_project_scope_wins(paths, tmp_path):
+    claude_json, _ = paths
+    inner = tmp_path / "mono" / "app"
+    inner.mkdir(parents=True)
+    deep = {"env": {"DATAFORSEO_USERNAME": "app@example.com", "DATAFORSEO_PASSWORD": "app-pass"}}
+    _write(claude_json, {"projects": {str(tmp_path / "mono"): {"mcpServers": {"dataforseo": ENTRY}},
+                                      str(inner): {"mcpServers": {"dataforseo": deep}}}})
+    assert ba.dataforseo_credentials(cwd=str(inner))[0] == "app@example.com"
+
+
+def test_default_cwd_is_the_process_directory(paths, tmp_path, monkeypatch):
+    claude_json, _ = paths
+    _write(claude_json, {"projects": {str(tmp_path): {"mcpServers": {"dataforseo": ENTRY}}}})
+    monkeypatch.chdir(tmp_path)
+    assert ba.dataforseo_credentials() is not None
+    elsewhere = tmp_path.parent
+    monkeypatch.chdir(elsewhere)
+    assert ba.dataforseo_credentials() is None
