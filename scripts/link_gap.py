@@ -4,8 +4,11 @@ Competitor link gap and prospect scoring for the seo-links skill.
 
 Reads the latest referring-domain snapshot per target from ONE source (see
 link_sources.py), segments every referring domain, removes non-prospects, then
-classifies and scores the rest. Deterministic: no network, except the optional
-read of the client's sitemap used to derive topic terms when the profile has none.
+classifies and scores the rest. Deterministic: no network, except that
+prospects (and link_outreach.py add) may read the client's sitemap ONCE to derive topic terms
+when the profile has none. Derived terms are stored in the links store and reused, so every
+later run ranks identically; they are never written to the profile. gap and kpis never read
+the sitemap.
 
 Segments (competitors = profile competitors that have a snapshot from the source):
     gap     links to >= 2 competitors and not to the client
@@ -19,6 +22,7 @@ Prospect score (0-100), see skills/seo-links/references/prospect-scoring.md:
 Usage:
     python link_gap.py gap --project acme.io --source dataforseo --json
     python link_gap.py prospects --project acme.io --source dataforseo --top 50 --json
+    python link_gap.py prospects --project acme.io --source dataforseo --refresh-topics --json
     python link_gap.py prospects --project acme.io --source csv-ahrefs --no-sitemap --csv prospects.csv
     python link_gap.py kpis --project acme.io --source dataforseo --emit-kpis kpis-links-gap.json
 """
@@ -41,11 +45,12 @@ if _SCRIPTS_DIR not in sys.path:
 
 from competitor_gap import crawl_domain, slug_tokens  # noqa: E402
 from keyword_research import fold_token  # noqa: E402
-from link_store import latest_snapshots, open_store, snapshot_records  # noqa: E402
+from link_store import (latest_snapshots, load_topics, open_store, save_topics,  # noqa: E402
+                        snapshot_records)
 from seo_kpi import EnvelopeError, write_envelope  # noqa: E402
 from seo_metrics import STOPWORDS  # noqa: E402
 from seo_project import all_brand_terms, load_profile  # noqa: E402
-from seo_store import host_matches, normalize_domain, registrable_domain  # noqa: E402
+from seo_store import host_matches, normalize_domain, registrable_domain, utc_now  # noqa: E402
 
 SPAM_THRESHOLD = 60.0
 GENERIC_TLDS = frozenset({"com", "org", "net", "io", "co", "ai"})
@@ -396,7 +401,7 @@ def load_targets(conn, project: str, source: str, client: str, competitors: list
 
 
 def analyze(client: str, profile: dict, competitors: list, data: dict, topics: list,
-            topics_source: str, source: str) -> dict:
+            topics_source: str, source: str, topics_derived_at: Optional[str] = None) -> dict:
     warnings = []
     if data["missing"]:
         warnings.append(f"no {source} snapshot for: {', '.join(data['missing'])} "
@@ -407,9 +412,6 @@ def analyze(client: str, profile: dict, competitors: list, data: dict, topics: l
     if data["row_cap_hit"]:
         warnings.append(f"row cap hit for: {', '.join(data['row_cap_hit'])}; "
                         "lower-authority referring domains are missing")
-    if not topics:
-        warnings.append("no topic terms: topic fit is neutral (0.5) for every prospect; "
-                        "set them with seo_project.py set <domain> topics '[...]'")
     country = (profile.get("markets") or {}).get("country", "")
     network = link_network_domains(data["competitors"])
     merged = segment_domains(data["client"] or [], data["competitors"])
@@ -448,21 +450,83 @@ def analyze(client: str, profile: dict, competitors: list, data: dict, topics: l
             "coverage": {"client": data["client"] is not None,
                          "competitors_with_data": sorted(data["competitors"]),
                          "missing": data["missing"], "row_cap_hit": data["row_cap_hit"]},
-            "topics": topics, "topics_source": topics_source,
+            "topics": topics, "topics_source": topics_source, "topics_derived_at": topics_derived_at,
             "segments": {s: counts.get(s, 0) for s in SEGMENTS},
             "buckets": {b: buckets.get(b, 0) for b in BUCKETS},
             "warnings": warnings,
             "domains": [{"domain": d, "segment": merged[d]["segment"],
                          "competitors": merged[d]["competitors"]} for d in sorted(merged)],
-            "prospects": prospects, "excluded": excluded,
+            "prospects": prospects,
+            "gap_prospects": [p for p in prospects if p["segment"] == "gap"],
+            "excluded": excluded,
             "excluded_counts": dict(sorted(Counter(e["reason"] for e in excluded).items())),
             "kpis": {"links.referring_domains": len(data["client"] or []),
                      "links.gap_domains": counts.get("gap", 0)}}
 
 
+def _profile_topics(profile: dict) -> list:
+    return [t.strip().lower() for t in (profile.get("topics") or []) if isinstance(t, str) and t.strip()]
+
+
+def resolve_project_topics(conn, client: str, profile: dict, may_crawl: bool,
+                           crawl: Optional[Callable] = None, refresh: bool = False) -> dict:
+    """The topic terms to score with: {"terms", "origin", "derived_at", "notes"}.
+
+    Order: the profile's ``topics`` (origin "profile"); else the terms stored in the links store
+    for this project (origin "sitemap"); else, only when ``may_crawl``, the 10 commonest sitemap
+    slug tokens, which are stored for every later run. ``refresh`` re-reads the sitemap even when
+    terms are stored; if that read yields nothing the stored terms are kept. The profile file is
+    never written.
+    """
+    notes: list = []
+    terms = _profile_topics(profile)
+    if terms:
+        return {"terms": terms, "origin": "profile", "derived_at": None, "notes": notes}
+    stored = load_topics(conn, client)
+    if stored and not (refresh and may_crawl):
+        return {**stored, "notes": notes}
+    if may_crawl:
+        try:
+            urls = (crawl or crawl_domain)(client).get("urls") or []
+        except Exception as exc:  # noqa: BLE001 - an unreadable sitemap must not stop the analysis
+            urls = []
+            notes.append(f"the sitemap could not be read ({type(exc).__name__}: {exc})")
+        derived, origin = resolve_topics(profile, urls)
+        if origin == "sitemap":
+            at = utc_now()
+            save_topics(conn, client, derived, "sitemap", at)
+            return {"terms": derived, "origin": "sitemap", "derived_at": at, "notes": notes}
+        if stored:
+            notes.append(f"topic refresh found no sitemap URLs; keeping the terms stored on "
+                         f"{stored['derived_at']}")
+            return {**stored, "notes": notes}
+        notes.append("the sitemap gave no usable topic terms")
+    return {"terms": [], "origin": "none", "derived_at": None, "notes": notes}
+
+
+def topic_warnings(domain: str, resolved: dict) -> list:
+    """What the user should know about where the topic terms came from."""
+    out = list(resolved["notes"])
+    if resolved["origin"] == "sitemap":
+        out.append(f"topic terms come from the sitemap ({', '.join(resolved['terms'])}; derived "
+                   f"{resolved['derived_at']}). Sitemap tokens are noisy: confirm or set the real service "
+                   f"terms with seo_project.py set {domain} topics '[\"term one\", \"term two\"]' "
+                   "(the profile always wins). --refresh-topics re-reads the sitemap.")
+    elif resolved["origin"] == "none":
+        out.append("no topic terms: topic fit is neutral (0.5) for every prospect; set them with "
+                   f"seo_project.py set {domain} topics '[...]'")
+    return out
+
+
 def analyze_project(project: str, source: str, data_dir: Optional[str] = None,
-                    use_sitemap: bool = True, crawl: Optional[Callable] = None) -> dict:
-    """Load profile and snapshots for one source, then analyze. Raises GapError."""
+                    use_sitemap: bool = True, crawl: Optional[Callable] = None,
+                    refresh_topics: bool = False, derive_topics: bool = True) -> dict:
+    """Load profile and snapshots for one source, then analyze. Raises GapError.
+
+    ``derive_topics=False`` (gap, kpis) never reads the sitemap or the stored topics: those
+    commands do not depend on topic fit. ``use_sitemap=False`` (--no-sitemap) still uses stored
+    topics but does not read the sitemap now.
+    """
     client = normalize_domain(project)
     profile = load_profile(client, data_dir)
     if not profile:
@@ -476,11 +540,16 @@ def analyze_project(project: str, source: str, data_dir: Optional[str] = None,
     if data["client"] is None:
         raise GapError(f"no {source} snapshot for the client {client}: run link_sources.py "
                        "fetch (or import) for the client first")
-    sitemap_urls = None
-    if use_sitemap and not profile.get("topics"):
-        sitemap_urls = (crawl or crawl_domain)(client).get("urls") or []
-    topics, topics_source = resolve_topics(profile, sitemap_urls)
-    return analyze(client, profile, competitors, data, topics, topics_source, source)
+    if derive_topics:
+        resolved = resolve_project_topics(conn, client, profile, use_sitemap, crawl, refresh_topics)
+    else:
+        terms = _profile_topics(profile)
+        resolved = {"terms": terms, "origin": "profile" if terms else "none", "derived_at": None, "notes": []}
+    result = analyze(client, profile, competitors, data, resolved["terms"], resolved["origin"], source,
+                     resolved["derived_at"])
+    if derive_topics:
+        result["warnings"] += topic_warnings(client, resolved)
+    return result
 
 
 CSV_COLUMNS = ("domain", "score", "bucket", "effort", "type", "matched_rule", "segment", "k",
@@ -511,9 +580,18 @@ def _print(result: dict, as_json: bool) -> None:
             print(f"{key}: {result[key]}")
     for warning in result.get("warnings", []):
         print(f"WARNING: {warning}")
-    for p in result.get("prospects", []):
+    def line(p):
         print(f"  {p['score']:3d}  {p['bucket']:10s} {p['effort']:6s} {p['type']:12s} "
               f"{p['domain']}  <- {', '.join(p['competitors'])}")
+
+    if result.get("gap_prospects"):
+        print("GAP PROSPECTS (link to 2+ competitors, not to you):")
+        for p in result["gap_prospects"]:
+            line(p)
+    if result.get("prospects"):
+        print("ALL SEGMENTS (ranked by score):")
+        for p in result["prospects"]:
+            line(p)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -522,7 +600,8 @@ def build_parser() -> argparse.ArgumentParser:
     common.add_argument("--source", required=True,
                         help="Snapshot source: dataforseo | moz | csv-ahrefs | csv-semrush | csv-gsc | csv-generic")
     common.add_argument("--no-sitemap", action="store_true",
-                        help="Do not read the client sitemap to derive topic terms")
+                        help="Do not read the client sitemap now (stored topic terms are still used; "
+                             "gap and kpis never read it)")
     common.add_argument("--data-dir", help="Storage root (default $CLAUDE_SEO_DATA_DIR or ~/.cache/claude-seo)")
     common.add_argument("--json", action="store_true", help="Output JSON")
     parser = argparse.ArgumentParser(description="Competitor link gap and prospect scoring (seo-links)")
@@ -530,6 +609,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("gap", parents=[common], help="Segment referring domains: gap/single/shared/moat")
     p = sub.add_parser("prospects", parents=[common], help="Classify, score and rank prospects")
     p.add_argument("--top", type=int, default=50, help="How many prospects to print (default 50)")
+    p.add_argument("--refresh-topics", action="store_true",
+                   help="Re-read the sitemap and replace the stored topic terms (profile topics still win)")
     p.add_argument("--csv", help="Also write the ranked prospects to this CSV file")
     k = sub.add_parser("kpis", parents=[common], help="Write links.referring_domains and links.gap_domains")
     k.add_argument("--emit-kpis", required=True, help="Path for the KPI envelope (performance_tracker.py ingest)")
@@ -540,7 +621,9 @@ def main(argv: Optional[list] = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         result = analyze_project(args.project, args.source, args.data_dir,
-                                 use_sitemap=not args.no_sitemap)
+                                 use_sitemap=not args.no_sitemap,
+                                 refresh_topics=getattr(args, "refresh_topics", False),
+                                 derive_topics=args.cmd == "prospects")
     except ValueError as exc:  # GapError, a profile file that belongs to another domain, a bad --project
         print(f"Error: {exc}", file=sys.stderr)
         return 2
@@ -552,9 +635,11 @@ def main(argv: Optional[list] = None) -> int:
         if args.csv:
             _write_csv(args.csv, result["prospects"])
         shown = {k: result[k] for k in ("project", "source", "collected", "coverage", "topics",
-                                        "topics_source", "segments", "buckets", "warnings",
-                                        "excluded_counts", "excluded")}
+                                        "topics_source", "topics_derived_at", "segments", "buckets",
+                                        "warnings", "excluded_counts", "excluded")}
         shown["total_prospects"] = len(result["prospects"])
+        shown["total_gap_prospects"] = len(result["gap_prospects"])
+        shown["gap_prospects"] = result["gap_prospects"][:args.top]  # present these first
         shown["prospects"] = result["prospects"][:args.top]
         _print(shown, args.json)
         return 0

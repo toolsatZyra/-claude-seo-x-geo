@@ -411,3 +411,164 @@ def test_footprint_counts_distinct_organizations_not_country_domains():
                          "glassdoor.sg")]
     assert lg.link_network_domains({"superside.com": one_org}) == {}
     assert len(lg.link_network_domains({"superside.com": _farm(5)})) == 5
+
+
+# ---- topics: derived once, stored in the links store, never written to the profile ----
+
+SITEMAP_URLS = ["https://acme.in/solutions/compliance-training-video",
+                "https://acme.in/solutions/safety-training-video", "https://acme.in/acme-story"]
+
+
+def _no_topics_store(tmp_path):
+    data_dir = _store(tmp_path)
+    profile = seo_project.load_profile("acme.in", data_dir)
+    profile["topics"] = []
+    seo_project.save_profile(profile, data_dir)
+    return data_dir
+
+
+def _exploding_crawl(domain):
+    raise AssertionError("the sitemap must not be read here")
+
+
+def test_sitemap_topics_are_persisted_in_the_store_not_the_profile(tmp_path):
+    data_dir = _no_topics_store(tmp_path)
+    profile_file = Path(data_dir) / "projects" / "acme.in.json"
+    before = profile_file.read_bytes()
+    out = lg.analyze_project("acme.in", "csv-generic", data_dir,
+                             crawl=lambda d: {"urls": SITEMAP_URLS})
+    assert out["topics_source"] == "sitemap" and out["topics"][:2] == ["training", "video"]
+    assert out["topics_derived_at"]
+    assert any("sitemap" in w and "topics" in w for w in out["warnings"])
+    stored = link_store.load_topics(link_store.open_store(data_dir), "acme.in")
+    assert stored["terms"] == out["topics"] and stored["origin"] == "sitemap"
+    assert profile_file.read_bytes() == before  # the user's profile file is never touched
+
+
+def test_stored_topics_are_reused_so_rankings_do_not_depend_on_a_live_crawl(tmp_path):
+    data_dir = _no_topics_store(tmp_path)
+    first = lg.analyze_project("acme.in", "csv-generic", data_dir, crawl=lambda d: {"urls": SITEMAP_URLS})
+    for kwargs in ({"crawl": _exploding_crawl}, {"use_sitemap": False},
+                   {"crawl": lambda d: {"urls": []}}):
+        again = lg.analyze_project("acme.in", "csv-generic", data_dir, **kwargs)
+        assert again["topics"] == first["topics"] and again["topics_source"] == "sitemap"
+        assert [(p["domain"], p["score"]) for p in again["prospects"]] == [
+            (p["domain"], p["score"]) for p in first["prospects"]]
+
+
+def test_a_failing_crawl_degrades_to_neutral_topics_with_a_warning(tmp_path):
+    data_dir = _no_topics_store(tmp_path)
+
+    def failing(domain):
+        raise OSError("network down")
+
+    out = lg.analyze_project("acme.in", "csv-generic", data_dir, crawl=failing)
+    assert out["topics"] == [] and out["topics_source"] == "none"
+    assert any("neutral" in w for w in out["warnings"])
+    assert link_store.load_topics(link_store.open_store(data_dir), "acme.in") is None  # nothing stored
+
+
+def test_refresh_topics_rereads_the_sitemap_and_keeps_stored_on_failure(tmp_path):
+    data_dir = _no_topics_store(tmp_path)
+    lg.analyze_project("acme.in", "csv-generic", data_dir, crawl=lambda d: {"urls": SITEMAP_URLS})
+    kept = lg.analyze_project("acme.in", "csv-generic", data_dir, refresh_topics=True,
+                              crawl=lambda d: {"urls": []})
+    assert kept["topics"][:2] == ["training", "video"]
+    assert any("refresh" in w for w in kept["warnings"])
+    new = lg.analyze_project("acme.in", "csv-generic", data_dir, refresh_topics=True,
+                             crawl=lambda d: {"urls": ["https://acme.in/a/brand-film-studio",
+                                                       "https://acme.in/b/brand-film-india"]})
+    assert new["topics"][:2] == ["brand", "film"]
+    assert link_store.load_topics(link_store.open_store(data_dir), "acme.in")["terms"] == new["topics"]
+
+
+def test_profile_topics_win_over_stored_ones(tmp_path):
+    data_dir = _no_topics_store(tmp_path)
+    lg.analyze_project("acme.in", "csv-generic", data_dir, crawl=lambda d: {"urls": SITEMAP_URLS})
+    profile = seo_project.load_profile("acme.in", data_dir)
+    profile["topics"] = ["training video"]
+    seo_project.save_profile(profile, data_dir)
+    out = lg.analyze_project("acme.in", "csv-generic", data_dir, crawl=_exploding_crawl)
+    assert out["topics"] == ["training video"] and out["topics_source"] == "profile"
+    assert not out["warnings"]
+
+
+@pytest.mark.parametrize("argv", [["gap"], ["kpis", "--emit-kpis", "KPIS"]])
+def test_gap_and_kpis_never_read_the_sitemap(tmp_path, monkeypatch, argv):
+    data_dir = _no_topics_store(tmp_path)
+    monkeypatch.setattr(lg, "crawl_domain", _exploding_crawl)
+    argv = [a if a != "KPIS" else str(tmp_path / "k.json") for a in argv]
+    with redirect_stdout(io.StringIO()):
+        rc = lg.main([argv[0], "--project", "acme.in", "--source", "csv-generic", "--data-dir", data_dir,
+                      "--json", *argv[1:]])  # no --no-sitemap: the command itself must not crawl
+    assert rc == 0
+
+
+def test_prospects_crawls_once_then_add_ranks_identically(tmp_path, monkeypatch):
+    import link_outreach as lo
+    data_dir = _no_topics_store(tmp_path)
+    calls = []
+
+    def crawl(domain):
+        calls.append(domain)
+        return {"urls": SITEMAP_URLS}
+
+    monkeypatch.setattr(lg, "crawl_domain", crawl)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        assert lg.main(["prospects", "--project", "acme.in", "--source", "csv-generic",
+                        "--data-dir", data_dir, "--json"]) == 0
+    ranked = [p["domain"] for p in json.loads(buf.getvalue())["prospects"]]
+    monkeypatch.setattr(lg, "crawl_domain", _exploding_crawl)  # a failed or skipped crawl changes nothing
+    with redirect_stdout(io.StringIO()):
+        assert lo.main(["add", "--project", "acme.in", "--source", "csv-generic", "--buckets", "all",
+                        "--data-dir", data_dir, "--json"]) == 0
+    conn = link_store.open_store(data_dir)
+    added = [r["domain"] for r in conn.execute("SELECT domain FROM prospects ORDER BY score DESC, domain")]
+    assert calls == ["acme.in"] and added == ranked
+
+
+# ---- gap first: gap_prospects lists the gap segment alone, in the unchanged ranking ----
+
+def _single_outranks_gap_store(tmp_path):
+    data_dir = str(tmp_path)
+    profile = seo_project.new_profile("acme.in", "Acme", ["acme"], ["rival.com", "other.in"],
+                                      topics=["training video"], markets={"country": "IN", "language": "en"})
+    seo_project.save_profile(profile, data_dir)
+    conn = link_store.open_store(data_dir)
+    link_store.save_snapshot(conn, "acme.in", "acme.in", "csv-generic", [{"domain": "partner.in"}])
+    link_store.save_snapshot(conn, "acme.in", "rival.com", "csv-generic",
+                             [{"domain": "plain.org"}, {"domain": "bignews.com", "authority": 95.0,
+                                                        "dofollow": True}])
+    link_store.save_snapshot(conn, "acme.in", "other.in", "csv-generic", [{"domain": "plain.org"}])
+    return data_dir
+
+
+def test_gap_prospects_hold_only_the_gap_segment_in_the_same_order(tmp_path):
+    data_dir = _single_outranks_gap_store(tmp_path)
+    out = lg.analyze_project("acme.in", "csv-generic", data_dir, use_sitemap=False)
+    # The score formula is untouched: a strong single still outranks a weak gap domain...
+    assert [(p["domain"], p["segment"]) for p in out["prospects"]] == [("bignews.com", "single"),
+                                                                       ("plain.org", "gap")]
+    # ...so the gap list is presented separately, in the same relative order.
+    assert [p["domain"] for p in out["gap_prospects"]] == ["plain.org"]
+    assert all(p["segment"] == "gap" for p in out["gap_prospects"])
+
+
+def test_cli_prospects_prints_gap_prospects_first_and_counts_them(tmp_path):
+    data_dir = _single_outranks_gap_store(tmp_path)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        rc = lg.main(["prospects", "--project", "acme.in", "--source", "csv-generic", "--no-sitemap",
+                      "--top", "1", "--data-dir", data_dir, "--json"])
+    assert rc == 0
+    out = json.loads(buf.getvalue())
+    assert [p["domain"] for p in out["gap_prospects"]] == ["plain.org"]
+    assert out["total_gap_prospects"] == 1 and out["total_prospects"] == 2
+    assert [p["domain"] for p in out["prospects"]] == ["bignews.com"]
+    text = io.StringIO()
+    with redirect_stdout(text):
+        lg.main(["prospects", "--project", "acme.in", "--source", "csv-generic", "--no-sitemap",
+                 "--data-dir", data_dir])
+    body = text.getvalue()
+    assert body.index("GAP PROSPECTS") < body.index("plain.org") < body.index("ALL SEGMENTS")

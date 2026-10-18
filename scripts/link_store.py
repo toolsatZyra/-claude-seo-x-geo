@@ -91,6 +91,12 @@ CREATE TABLE IF NOT EXISTS prospects (
     updated_at TEXT NOT NULL,
     PRIMARY KEY (project, domain)
 );
+CREATE TABLE IF NOT EXISTS topics (
+    project TEXT PRIMARY KEY,
+    terms_json TEXT NOT NULL,
+    origin TEXT NOT NULL,
+    derived_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project TEXT NOT NULL,
@@ -110,6 +116,30 @@ RECORD_FIELDS = ("domain", "authority", "authority_scale", "spam_score", "dofoll
 def open_store(data_dir: Optional[str] = None) -> sqlite3.Connection:
     """Open (creating if needed) the links store."""
     return connect(STORE, SCHEMA, data_dir)
+
+
+def save_topics(conn: sqlite3.Connection, project: str, terms: Iterable[str], origin: str,
+                derived_at: Optional[str] = None) -> None:
+    """Remember the topic terms derived for a project (e.g. from its sitemap), replacing older ones.
+
+    These live in the links store only. They are never written to the user's profile file, which
+    holds what the user chose; a profile ``topics`` list always wins over what is stored here.
+    """
+    conn.execute(
+        "INSERT INTO topics (project, terms_json, origin, derived_at) VALUES (?, ?, ?, ?)"
+        " ON CONFLICT(project) DO UPDATE SET terms_json = excluded.terms_json,"
+        " origin = excluded.origin, derived_at = excluded.derived_at",
+        (normalize_domain(project), json.dumps(list(terms)), origin, derived_at or utc_now()))
+    conn.commit()
+
+
+def load_topics(conn: sqlite3.Connection, project: str) -> Optional[dict]:
+    """{"terms", "origin", "derived_at"} stored for a project, or None."""
+    row = conn.execute("SELECT * FROM topics WHERE project = ?", (normalize_domain(project),)).fetchone()
+    if row is None:
+        return None
+    return {"terms": json.loads(row["terms_json"]), "origin": row["origin"],
+            "derived_at": row["derived_at"]}
 
 
 def _unique_records(records: Iterable[dict]) -> list:
@@ -184,7 +214,7 @@ def main() -> int:
     args = parser.parse_args()
     conn = open_store(args.data_dir)
     counts = {table: conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-              for table in ("snapshots", "referring_domains", "prospects", "events")}
+              for table in ("snapshots", "referring_domains", "prospects", "topics", "events")}
     result = {"path": str(db_path(STORE, args.data_dir)), "tables": counts}
     if args.json:
         print(json.dumps(result, indent=2))

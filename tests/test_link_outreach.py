@@ -248,3 +248,43 @@ def test_lint_survives_a_malformed_url(conn):
     brief = lo.build_brief(PROFILE, row(conn), PROFILE["money_pages"])
     problems = lo.lint_draft("Hello", "See https://[x for details", brief)
     assert {"rule": "unbriefed_url", "url": "https://[x"} in problems
+
+
+# ---- add --segment: gap ahead within the selection ----
+
+def _ranked(domain, segment, score, bucket="backlog"):
+    return {**prospect(domain, score, bucket), "segment": segment, "k": 2 if segment == "gap" else 1}
+
+
+def test_select_for_add_puts_gap_ahead_and_filters_by_segment():
+    ranked = [_ranked("big.com", "single", 64), _ranked("a.org", "gap", 55), _ranked("b.org", "single", 50),
+              _ranked("c.org", "gap", 40)]
+    doms = lambda sel: [p["domain"] for p in sel]  # noqa: E731
+    assert doms(lo.select_for_add(ranked, "all", None, 0, 10)) == ["a.org", "c.org", "big.com", "b.org"]
+    assert doms(lo.select_for_add(ranked, "all", None, 0, 3)) == ["a.org", "c.org", "big.com"]
+    assert doms(lo.select_for_add(ranked, "gap", None, 0, 10)) == ["a.org", "c.org"]
+    assert doms(lo.select_for_add(ranked, "single", None, 0, 10)) == ["big.com", "b.org"]
+    assert doms(lo.select_for_add(ranked, "all", None, 45, 10)) == ["a.org", "big.com", "b.org"]
+    only_hv = [_ranked("h.org", "single", 80, "high_value"), *ranked]
+    assert doms(lo.select_for_add(only_hv, "all", {"high_value"}, 0, 10)) == ["h.org"]
+
+
+def test_cli_add_segment_option(tmp_path):
+    import link_gap
+    import seo_project
+    data_dir = str(tmp_path)
+    profile = seo_project.new_profile("acme.in", "Acme", ["acme"], ["rival.com", "other.in"],
+                                      topics=["training video"])
+    seo_project.save_profile(profile, data_dir)
+    c = link_store.open_store(data_dir)
+    link_store.save_snapshot(c, "acme.in", "acme.in", "csv-generic", [{"domain": "partner.in"}])
+    link_store.save_snapshot(c, "acme.in", "rival.com", "csv-generic",
+                             [{"domain": "plain.org"}, {"domain": "bignews.com", "authority": 95.0,
+                                                        "dofollow": True}])
+    link_store.save_snapshot(c, "acme.in", "other.in", "csv-generic", [{"domain": "plain.org"}])
+    common = ["add", "--project", "acme.in", "--source", "csv-generic", "--no-sitemap", "--buckets", "all",
+              "--data-dir", data_dir, "--json"]
+    assert link_gap and lo.main(common + ["--segment", "gap", "--top", "5"]) == 0
+    assert [r["domain"] for r in c.execute("SELECT domain FROM prospects")] == ["plain.org"]
+    assert lo.main(common + ["--top", "5"]) == 0  # default: all segments, the gap domain already tracked
+    assert {r["domain"] for r in c.execute("SELECT domain FROM prospects")} == {"plain.org", "bignews.com"}

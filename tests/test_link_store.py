@@ -60,3 +60,31 @@ def test_store_is_owner_only(tmp_path):
     db = tmp_path / "links" / "links.db"
     assert stat.S_IMODE(db.stat().st_mode) == 0o600
     assert stat.S_IMODE(db.parent.stat().st_mode) == 0o700
+
+
+def test_topics_roundtrip_and_replace(tmp_path):
+    conn = link_store.open_store(str(tmp_path))
+    assert link_store.load_topics(conn, "acme.io") is None
+    link_store.save_topics(conn, "https://www.acme.io", ["video", "training"], "sitemap",
+                           derived_at="2026-10-18T10:00:00Z")
+    got = link_store.load_topics(conn, "acme.io")
+    assert got == {"terms": ["video", "training"], "origin": "sitemap",
+                   "derived_at": "2026-10-18T10:00:00Z"}
+    link_store.save_topics(conn, "acme.io", ["brand film"], "sitemap", derived_at="2026-10-19T10:00:00Z")
+    assert link_store.load_topics(conn, "acme.io")["terms"] == ["brand film"]
+    assert link_store.load_topics(conn, "other.io") is None
+
+
+def test_existing_stores_gain_the_topics_table(tmp_path):
+    import sqlite3
+    path = tmp_path / "links" / "links.db"
+    path.parent.mkdir(parents=True)
+    old = sqlite3.connect(str(path))
+    old.execute("CREATE TABLE snapshots (id INTEGER PRIMARY KEY, project TEXT NOT NULL, target TEXT NOT NULL,"
+                " source TEXT NOT NULL, collected_at TEXT NOT NULL, row_count INTEGER NOT NULL DEFAULT 0,"
+                " row_cap_hit INTEGER NOT NULL DEFAULT 0, cost_usd REAL, error TEXT)")
+    old.commit()
+    old.close()
+    conn = link_store.open_store(str(tmp_path))
+    link_store.save_topics(conn, "acme.io", ["x"], "sitemap")
+    assert link_store.load_topics(conn, "acme.io")["terms"] == ["x"]

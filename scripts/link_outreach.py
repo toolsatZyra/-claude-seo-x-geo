@@ -160,6 +160,24 @@ def add_prospects(conn, project: str, prospects: list, source: str,
     return {"added": added, "skipped": skipped}
 
 
+SEGMENT_CHOICES = ("all", "gap", "single")
+
+
+def select_for_add(ranked: list, segment: str, buckets: Optional[set], min_score: int, top: int) -> list:
+    """The prospects `add` should track, from link_gap's score-ranked list.
+
+    ``segment`` limits the choice to gap (links to 2+ competitors) or single (1 competitor) domains;
+    "all" keeps both. Within the selection gap domains come first, then singles, each group in the
+    unchanged ranking (score, k, domain), so --top N never spends slots on single-competitor
+    domains while real gap domains are waiting.
+    """
+    picked = [p for p in ranked
+              if (segment == "all" or p["segment"] == segment)
+              and (buckets is None or p["bucket"] in buckets) and p["score"] >= min_score]
+    picked.sort(key=lambda p: p["segment"] != "gap")  # stable: ranking order survives inside each group
+    return picked[:top]
+
+
 def _norm_url(url: str) -> Optional[str]:
     """scheme://host/path for comparison, or None when the text is not a parseable URL."""
     try:
@@ -421,7 +439,13 @@ def build_parser() -> argparse.ArgumentParser:
     a.add_argument("--buckets", default="high_value,quick_win",
                    help="Comma-separated buckets, or 'all' (default high_value,quick_win)")
     a.add_argument("--min-score", type=int, default=0)
-    a.add_argument("--no-sitemap", action="store_true")
+    a.add_argument("--segment", choices=SEGMENT_CHOICES, default="all",
+                   help="gap = links to 2+ competitors, single = 1 competitor, all = both with gap "
+                        "ranked first (default all)")
+    a.add_argument("--no-sitemap", action="store_true",
+                   help="Do not read the client sitemap now (stored topic terms are still used)")
+    a.add_argument("--refresh-topics", action="store_true",
+                   help="Re-read the sitemap and replace the stored topic terms (profile topics still win)")
     b = sub.add_parser("brief", parents=[common], help="Build and store the brief for one prospect")
     b.add_argument("--domain", required=True)
     b.add_argument("--pages", nargs="*", default=None, help="Client pages to choose the asset from")
@@ -461,11 +485,11 @@ def main(argv: Optional[list] = None) -> int:
     try:
         if args.cmd == "add":
             analysis = analyze_project(project, args.source, args.data_dir,
-                                       use_sitemap=not args.no_sitemap)
+                                       use_sitemap=not args.no_sitemap,
+                                       refresh_topics=args.refresh_topics)
             wanted = None if args.buckets == "all" else set(args.buckets.split(","))
-            picked = [p for p in analysis["prospects"]
-                      if (wanted is None or p["bucket"] in wanted) and p["score"] >= args.min_score]
-            result = add_prospects(conn, project, picked[:args.top], args.source)
+            picked = select_for_add(analysis["prospects"], args.segment, wanted, args.min_score, args.top)
+            result = add_prospects(conn, project, picked, args.source)
             result["warnings"] = analysis["warnings"]
         elif args.cmd == "brief":
             profile = load_profile(project, args.data_dir)
