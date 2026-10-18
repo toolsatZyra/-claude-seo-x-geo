@@ -67,6 +67,9 @@ RESERVED_METRICS: dict[str, str] = {
     "aeo.content_eeat": "score", "aeo.crawler_access": "score", "aeo.schema": "score",
     "aeo.platform": "score",
     "seo.health": "score",
+    "links.referring_domains": "count", "links.gap_domains": "count", "links.prospects": "count",
+    "links.contacted": "count", "links.won": "count", "links.won_verified": "count",
+    "links.win_rate": "fraction",
     "leads.total": "count", "leads.organic": "count",
 }
 RESERVED_PREFIXES = frozenset(name.split(".")[0] for name in RESERVED_METRICS)

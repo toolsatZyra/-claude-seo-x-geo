@@ -56,6 +56,7 @@ DEFAULT_PROFILE: dict[str, Any] = {
     "business_type": "",          # saas | ecommerce | local | publisher | agency | other
     "brand_terms": [],            # strings that identify the client in queries / AI answers
     "competitors": [],            # [{"name", "domain", "aliases": []}]
+    "topics": [],                 # service/topic terms for link relevance (seo-links), e.g. "training video"
     "audiences": [],              # free-text personas
     "markets": {"country": "US", "language": "en"},
     "gsc_property": "",           # exact string, e.g. "sc-domain:example.com"
@@ -183,6 +184,9 @@ def validate_profile(profile: dict) -> list[dict]:
     content = profile.get("content") if isinstance(profile.get("content"), dict) else {}
     if content.get("default_status") not in ("draft", "pending", "publish"):
         out.append({"level": "error", "message": "content.default_status must be draft|pending|publish"})
+    topics = profile.get("topics")
+    if isinstance(topics, list) and any(not isinstance(t, str) or not t.strip() for t in topics):
+        out.append({"level": "error", "message": "topics must be a list of non-empty strings"})
     return out
 
 

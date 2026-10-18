@@ -273,6 +273,27 @@ def _today_spend(ledger):
     )
 
 
+def unit_cost(endpoint):
+    """Budgeted USD cost per call for a known endpoint, or None when unknown."""
+    return COST_TABLE.get(endpoint)
+
+
+def record_spend(endpoint, cost, note=""):
+    """Append one completed call's actual cost to the shared ledger; returns the entry."""
+    entry = {
+        "timestamp": datetime.now().isoformat(),
+        "endpoint": endpoint,
+        "cost": float(cost),
+    }
+    if note:
+        entry["note"] = note
+    # Read and write inside one lock, so a concurrent log cannot overwrite this
+    # entry with a ledger it read before this one was appended.
+    with _locked_ledger(write=True) as ledger:
+        ledger["entries"].append(entry)
+    return entry
+
+
 def cmd_estimate(args):
     """Estimate cost for an API call."""
     endpoint = args.endpoint
@@ -392,22 +413,11 @@ def cmd_check(args):
 
 def cmd_log(args):
     """Log a completed API call cost."""
-    entry = {
-        "timestamp": datetime.now().isoformat(),
-        "endpoint": args.endpoint,
-        "cost": args.cost,
-    }
-    if args.note:
-        entry["note"] = args.note
-    # Read and write inside one lock, so a concurrent log cannot overwrite this
-    # entry with a ledger it read before this one was appended.
-    with _locked_ledger(write=True) as ledger:
-        ledger["entries"].append(entry)
-
+    entry = record_spend(args.endpoint, args.cost, args.note or "")
     result = {
         "status": "logged",
         "entry": entry,
-        "today_total_usd": round(_today_spend(ledger), 4),
+        "today_total_usd": round(_today_spend(_ledger_snapshot()), 4),
     }
     json.dump(result, sys.stdout, indent=2)
 
