@@ -37,6 +37,7 @@ The user asked for the skill to "study competitor backlinks and earn relevant li
 | Unit | Purpose | Depends on |
 |---|---|---|
 | `scripts/link_sources.py` | Fetch or import referring domains into normalized, dated snapshots | `url_safety`, `seo_store`, `dataforseo_costs`, `moz_api` |
+| `scripts/link_store.py` | Shared `links` store schema plus snapshot read and write, used by all three scripts | `seo_store` |
 | `scripts/link_gap.py` | Segment, exclude, classify and score prospects from snapshots (no network) | `seo_store`, `seo_project`, `seo_kpi` |
 | `scripts/link_outreach.py` | Tracker, briefs, draft storage and lint, approvals, status, verification, export, KPIs | `seo_store`, `verify_backlinks`, `seo_kpi` |
 | `skills/seo-links/SKILL.md` | Routes `/seo links ...`, orchestrates, writes drafts from briefs | the three scripts |
@@ -76,6 +77,7 @@ Every script has a docstring, an argparse CLI and JSON output (with `--json`), p
   - Field names are checked against the API docs and confirmed by the recorded live-smoke response, which becomes a sanitized test fixture.
 - **Moz:** `moz_api.get_linking_domains` gives the domain, Domain Authority and spam score, capped at 50 rows per call. It has no sample URL, anchor or title, so topic fit and link quality fall back to neutral and type classification uses the domain only.
 - **CSV import:** formats `ahrefs`, `semrush`, `gsc` (Search Console "Top linking sites") and `generic`. Each has an explicit column map. Unknown columns are an error that lists the expected columns.
+- **CSV source names.** CSV snapshots are stored with source `csv-<format>` (for example `csv-ahrefs`), so the single-source rule in §5.3 applies to them too.
 - **Credentials:**
   - DataForSEO: the environment variables `DATAFORSEO_USERNAME`/`DATAFORSEO_PASSWORD` first, then `~/.claude.json` → `mcpServers.dataforseo.env`, read-only and never printed or logged. `~/.claude/settings.json` is never read for credentials.
   - Moz: the existing `backlinks_auth` loader.
@@ -86,7 +88,7 @@ All tables live in the `links` store (`seo_store.connect("links", ...)`; directo
 
 - `snapshots(id, project, target, source, collected_at, row_count, row_cap_hit, cost_usd, error)`
 - `referring_domains(snapshot_id, domain, authority, authority_scale, spam_score, dofollow, attributes, first_seen, last_seen, sample_url, sample_anchor, sample_title, tld)`
-- `prospects(project, domain, status, segment, type, matched_rule, score, effort, tactic, evidence_json, brief_hash, draft_subject, draft_body, reviewed_by, reviewed_at, contacted_at, followup_at, outcome_at, link_url, verified_at, verified_status, link_rel, cooldown_until, notes, updated_at)`, with UNIQUE(project, domain)
+- `prospects(project, domain, status, source, segment, type, matched_rule, score, effort, bucket, tactic, evidence_json, brief_json, brief_hash, draft_subject, draft_body, reviewed_by, reviewed_at, contacted_at, followup_at, outcome_at, link_url, verified_at, verified_status, link_rel, cooldown_until, notes, created_at, updated_at)`, with UNIQUE(project, domain)
 - `events(project, domain, at, from_status, to_status, actor, note)`: an audit trail
 
 ### 5.3 Flow
@@ -116,7 +118,7 @@ These are applied in order and reported with a reason. They are never prospects.
 3. Spam: a spam score of 60 or more, on DataForSEO's 0–100 scale or Moz's percentage.
 4. Paid or link-scheme signals:
    - a `sponsored` attribute;
-   - URL or title tokens: `sponsored`, `advertorial`, `write-for-us`, `guest-post-pricing`, `buy-backlinks`, `link-insertion`.
+   - URL or title tokens: `sponsored`, `advertorial`, `guest-post-pricing`, `buy-backlinks`, `link-insertion`, `paid-post`. `write-for-us` is not a paid signal; §7.1 uses such pages as contact paths.
 
 ### 6.2 Classification
 
@@ -175,7 +177,7 @@ score = round_half_up(30*O + 20*A + 20*T + 10*M + 10*Q + 10*V)
 ### 7.2 Draft and lint
 
 Claude writes `subject` plus `body` (at most 150 words, one ask, personalized from the evidence). `save-draft` lints the draft deterministically and rejects it when:
-- **Banned asks:** it contains any of these terms (case-insensitive, whole words): `pay`, `payment`, `paid`, `sponsor`, `sponsored`, `link exchange`, `swap links`, `reciprocal`, `guest post fee`, `dofollow`, `do-follow`;
+- **Banned asks:** it contains any of these terms (case-insensitive, whole words): `pay`, `payment`, `paid`, `sponsor`, `sponsored`, `sponsorship`, `link exchange`, `swap links`, `reciprocal`, `guest post fee`, `dofollow`, `do-follow`;
 - **Unbriefed URLs:** it contains any URL not present in the brief;
 - **Length:** the body is over 150 words or the subject is over 90 characters;
 - **Hash mismatch:** the brief hash differs from the stored prospect's (a stale brief).
