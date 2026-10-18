@@ -3,10 +3,11 @@ End-to-end contract test for /seo links, run as real CLI subprocesses.
 
 profile -> CSV imports (client + 3 competitors) -> gap -> prospects -> gap KPIs
 -> outreach add -> brief -> save-draft (lint) -> approve -> contacted -> won
--> outreach KPIs -> performance_tracker ingest/report.
+-> verify (mocked checker, in-process) -> outreach KPIs -> performance_tracker ingest/report.
 
 No network: CSV fixtures, --no-sitemap, and HOME pointed at a temp dir so no
-real credential file can be read.
+real credential file can be read. verify runs in-process with a fake checker because
+the real one fetches the linking page.
 """
 from __future__ import annotations
 
@@ -17,6 +18,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 SCRIPTS = REPO / "scripts"
+sys.path.insert(0, str(SCRIPTS))
+
+import link_outreach  # noqa: E402
+import link_store  # noqa: E402
+
 DOMAIN = "acme.in"
 SRC = "csv-generic"
 
@@ -73,6 +79,9 @@ def test_links_loop_contracts(tmp_path: Path) -> None:
     assert [(p["domain"], p["score"], p["bucket"]) for p in pros["prospects"]] == [
         ("trainingmag.com", 74, "high_value"), ("clutch.co", 55, "quick_win"),
         ("hrweekly.in", 53, "backlog"), ("blogger.net", 36, "backlog")]
+    # gap domains are listed on their own, and every exclusion is counted by reason
+    assert [p["domain"] for p in pros["gap_prospects"]] == ["trainingmag.com", "clutch.co"]
+    assert pros["total_gap_prospects"] == 2 and pros["excluded_counts"] == {"social_ugc": 1, "spam": 1}
 
     gap_kpis = tmp_path / "kpis-links-gap.json"
     run(tmp_path, "link_gap.py", "kpis", "--project", DOMAIN, "--source", SRC, "--no-sitemap",
@@ -108,10 +117,26 @@ def test_links_loop_contracts(tmp_path: Path) -> None:
         "--status", "won", "--link-url", "https://trainingmag.com/2025/03/best-training-video-studios/",
         "--json")
 
+    # verify: the real checker fetches the linking page, so a fake one stands in for it
+    conn = link_store.open_store(str(tmp_path / "data"))
+    seen = []
+
+    def fake_checker(source_url, target_url):
+        seen.append((source_url, target_url))
+        return {"status": "verified", "rel_attributes": ["nofollow"]}
+
+    [checked] = link_outreach.verify(conn, DOMAIN, verifier=fake_checker)
+    assert seen == [("https://trainingmag.com/2025/03/best-training-video-studios/", "https://acme.in/")]
+    assert checked["verified_status"] == "live" and checked["link_rel"] == "nofollow"
+    board = json.loads(run(tmp_path, "link_outreach.py", "board", "--project", DOMAIN, "--json").stdout)
+    won = next(p for p in board["prospects"] if p["domain"] == "trainingmag.com")
+    assert won["status"] == "won" and won["verified_status"] == "live" and won["link_rel"] == "nofollow"
+
     out_kpis = tmp_path / "kpis-links.json"
     run(tmp_path, "link_outreach.py", "kpis", "--project", DOMAIN, "--emit-kpis", str(out_kpis), "--json")
     env = json.loads(out_kpis.read_text())
     assert env["metrics"]["links.won"] == 1 and env["metrics"]["links.win_rate"] is None
+    assert env["metrics"]["links.won_verified"] == 1  # counted only after the page was checked
 
     run(tmp_path, "performance_tracker.py", "ingest", str(gap_kpis), str(out_kpis))
     rep = json.loads(run(tmp_path, "performance_tracker.py", "report", "--project", DOMAIN,

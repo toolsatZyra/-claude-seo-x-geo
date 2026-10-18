@@ -572,3 +572,28 @@ def test_cli_prospects_prints_gap_prospects_first_and_counts_them(tmp_path):
                  "--data-dir", data_dir])
     body = text.getvalue()
     assert body.index("GAP PROSPECTS") < body.index("plain.org") < body.index("ALL SEGMENTS")
+
+
+# ---- CSV cells from third parties cannot become spreadsheet formulas ----
+
+@pytest.mark.parametrize("value, expected", [
+    ("=HYPERLINK(\"http://evil\")", "'=HYPERLINK(\"http://evil\")"), ("+1+1", "'+1+1"), ("-2+3", "'-2+3"),
+    ("@SUM(A1)", "'@SUM(A1)"), ("\tx", "'\tx"), ("\rx", "'\rx"),
+    ("Normal title", "Normal title"), ("", ""), (74, 74), (None, None), ("a=b", "a=b"),
+])
+def test_csv_safe(value, expected):
+    assert lg.csv_safe(value) == expected
+
+
+def test_prospects_csv_escapes_anchors_and_titles(tmp_path):
+    prospect = {"domain": "x.org", "score": 50, "bucket": "backlog", "effort": "medium", "type": "unclassified",
+                "matched_rule": "rule9", "segment": "single", "k": 1, "competitors": ["rival.com"],
+                "tactic": "Review", "evidence": [{"sample_url": "https://x.org/a",
+                                                  "sample_anchor": "=cmd|' /C calc'!A0",
+                                                  "sample_title": "@title"}]}
+    path = tmp_path / "p.csv"
+    lg._write_csv(str(path), [prospect])
+    import csv as csvmod
+    [row] = list(csvmod.DictReader(path.open(encoding="utf-8")))
+    assert row["sample_anchor"].startswith("'=") and row["sample_title"] == "'@title"
+    assert row["domain"] == "x.org" and row["score"] == "50"

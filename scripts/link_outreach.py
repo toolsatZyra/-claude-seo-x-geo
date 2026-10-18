@@ -52,7 +52,7 @@ _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from link_gap import GapError, analyze_project, fold_words  # noqa: E402
+from link_gap import GapError, analyze_project, csv_safe, fold_words  # noqa: E402
 from link_store import open_store  # noqa: E402
 from seo_kpi import EnvelopeError, write_envelope  # noqa: E402
 from seo_project import load_profile, slugify  # noqa: E402
@@ -508,6 +508,18 @@ def export_rows(conn, project: str, include_all: bool = False) -> list:
     return out
 
 
+EXPORT_COLUMNS = ["domain", "contact_path", "to_address", "subject", "body", "status", "reviewed_by"]
+
+
+def write_export_csv(path: str, rows: list) -> int:
+    """Write export rows for the person's own email tool; cells that start like a formula are escaped."""
+    with open(path, "w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=EXPORT_COLUMNS)
+        writer.writeheader()
+        writer.writerows([{key: csv_safe(value) for key, value in row.items()} for row in rows])
+    return len(rows)
+
+
 def _public(row: dict) -> dict:
     out = {k: v for k, v in dict(row).items() if k not in ("evidence_json", "brief_json")}
     out["evidence_count"] = len(json.loads(dict(row).get("evidence_json") or "[]"))
@@ -630,12 +642,7 @@ def main(argv: Optional[list] = None) -> int:
             result = board(conn, project)
         elif args.cmd == "export":
             rows = export_rows(conn, project, include_all=args.all)
-            with open(args.out, "w", newline="", encoding="utf-8") as handle:
-                writer = csv.DictWriter(handle, fieldnames=["domain", "contact_path", "to_address",
-                                                            "subject", "body", "status", "reviewed_by"])
-                writer.writeheader()
-                writer.writerows(rows)
-            result = {"out": args.out, "rows": len(rows)}
+            result = {"out": args.out, "rows": write_export_csv(args.out, rows)}
         else:
             result = write_envelope(args.emit_kpis, project, "link_outreach.py",
                                     outreach_kpis(conn, project))

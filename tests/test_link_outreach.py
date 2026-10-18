@@ -547,3 +547,81 @@ def test_lint_flags_email_addresses(conn, text):
     problems = _lint(conn, text)
     assert "email_address" in {p["rule"] for p in problems}
     assert not [p for p in problems if p["rule"] == "unbriefed_url"]  # the domain part is not a link
+
+
+# ---- the export CSV is safe to open in a spreadsheet ----
+
+def test_export_csv_escapes_formula_cells(conn, tmp_path):
+    drafted(conn)
+    conn.execute("UPDATE prospects SET draft_subject = '=1+1', draft_body = '-cmd' WHERE domain = 'trainingmag.com'")
+    conn.execute("UPDATE prospects SET status = 'approved' WHERE domain = 'trainingmag.com'")
+    conn.commit()
+    out = tmp_path / "out.csv"
+    n = lo.write_export_csv(str(out), lo.export_rows(conn, PROJECT))
+    import csv as csvmod
+    [r] = list(csvmod.DictReader(out.open(encoding="utf-8")))
+    assert n == 1 and r["subject"] == "'=1+1" and r["body"] == "'-cmd" and r["to_address"] == ""
+
+
+# ---- every (from, to) transition, pinned against the spec ----
+
+ALL_STATUSES = ("new", "drafted", "approved", "contacted", "won", "lost", "no_reply", "skipped",
+                "do_not_contact")
+OUTCOME_STATUSES = {"won", "lost", "no_reply"}
+SPEC_LEGAL = {  # written out by hand from the spec (section 7.3), not derived from lo.TRANSITIONS
+    "new": {"drafted", "skipped", "do_not_contact"},
+    "drafted": {"drafted", "approved", "skipped", "do_not_contact"},
+    "approved": {"drafted", "contacted", "skipped", "do_not_contact"},
+    "contacted": {"drafted", "won", "lost", "no_reply", "skipped", "do_not_contact"},
+    "won": {"do_not_contact"}, "lost": {"do_not_contact"}, "no_reply": {"do_not_contact"},
+    "skipped": {"do_not_contact"}, "do_not_contact": set(),
+}
+
+
+@pytest.mark.parametrize("was_contacted", [False, True])
+@pytest.mark.parametrize("frm", ALL_STATUSES)
+def test_transition_table_is_exactly_the_spec(conn, frm, was_contacted):
+    for to in ALL_STATUSES:
+        conn.execute("UPDATE prospects SET status = ?, contacted_at = ?, updated_at = 'x' WHERE domain = ?",
+                     (frm, "2026-10-01T09:00:00Z" if was_contacted else None, "trainingmag.com"))
+        conn.commit()
+        events_before = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+        legal = set(SPEC_LEGAL[frm])
+        if frm in ("drafted", "approved") and was_contacted:
+            legal |= OUTCOME_STATUSES  # a reply can arrive while a follow-up draft is pending
+        if legal >= {to}:
+            lo.transition(conn, PROJECT, "trainingmag.com", to, actor="test")
+            assert row(conn)["status"] == to
+            assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == events_before + 1
+        else:
+            with pytest.raises(lo.TransitionError):
+                lo.transition(conn, PROJECT, "trainingmag.com", to, actor="test")
+            assert row(conn)["status"] == frm  # an illegal transition changes nothing
+            assert conn.execute("SELECT COUNT(*) FROM events").fetchone()[0] == events_before
+
+
+@pytest.mark.parametrize("frm", [s for s in ALL_STATUSES if s != "drafted"])
+def test_approve_only_from_drafted(conn, frm):
+    conn.execute("UPDATE prospects SET status = ? WHERE domain = 'trainingmag.com'", (frm,))
+    conn.commit()
+    with pytest.raises(lo.TransitionError):
+        lo.approve(conn, PROJECT, "trainingmag.com", "Riya")
+    assert row(conn)["status"] == frm
+
+
+@pytest.mark.parametrize("frm", [s for s in ALL_STATUSES if s != "approved"])
+def test_contacted_only_from_approved(conn, frm):
+    conn.execute("UPDATE prospects SET status = ? WHERE domain = 'trainingmag.com'", (frm,))
+    conn.commit()
+    with pytest.raises(lo.TransitionError):
+        lo.mark(conn, PROJECT, "trainingmag.com", "contacted")
+    assert row(conn)["status"] == frm
+
+
+def test_mark_rejects_unknown_statuses_and_untracked_domains(conn):
+    with pytest.raises(lo.TransitionError):
+        lo.mark(conn, PROJECT, "trainingmag.com", "teleported")
+    with pytest.raises(lo.TransitionError):
+        lo.mark(conn, PROJECT, "untracked.org", "skipped")
+    with pytest.raises(lo.TransitionError):
+        lo.approve(conn, PROJECT, "untracked.org", "Riya")

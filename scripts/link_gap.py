@@ -552,6 +552,14 @@ def analyze_project(project: str, source: str, data_dir: Optional[str] = None,
     return result
 
 
+def csv_safe(value):
+    """Neutralize spreadsheet formulas: a text cell that starts with = + - @ (or a tab or carriage
+    return) gets a leading apostrophe. Anchors and titles come from third-party pages."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 CSV_COLUMNS = ("domain", "score", "bucket", "effort", "type", "matched_rule", "segment", "k",
                "competitors", "tactic", "sample_url", "sample_anchor", "sample_title")
 
@@ -562,13 +570,14 @@ def _write_csv(path: str, prospects: list) -> None:
         writer.writeheader()
         for p in prospects:
             first = next((e for e in p["evidence"] if e.get("sample_url")), p["evidence"][0])
-            writer.writerow({"domain": p["domain"], "score": p["score"], "bucket": p["bucket"],
-                             "effort": p["effort"], "type": p["type"],
-                             "matched_rule": p["matched_rule"], "segment": p["segment"], "k": p["k"],
-                             "competitors": ";".join(p["competitors"]), "tactic": p["tactic"],
-                             "sample_url": first.get("sample_url") or "",
-                             "sample_anchor": first.get("sample_anchor") or "",
-                             "sample_title": first.get("sample_title") or ""})
+            row = {"domain": p["domain"], "score": p["score"], "bucket": p["bucket"],
+                   "effort": p["effort"], "type": p["type"],
+                   "matched_rule": p["matched_rule"], "segment": p["segment"], "k": p["k"],
+                   "competitors": ";".join(p["competitors"]), "tactic": p["tactic"],
+                   "sample_url": first.get("sample_url") or "",
+                   "sample_anchor": first.get("sample_anchor") or "",
+                   "sample_title": first.get("sample_title") or ""}
+            writer.writerow({key: csv_safe(value) for key, value in row.items()})
 
 
 def _print(result: dict, as_json: bool) -> None:
