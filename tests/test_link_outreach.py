@@ -461,3 +461,89 @@ def test_an_old_store_without_the_column_is_migrated(tmp_path):
     c = link_store.open_store(str(tmp_path))
     cols = {r["name"] for r in c.execute("PRAGMA table_info(prospects)")}
     assert "draft_brief_hash" in cols
+
+
+# ---- lint: normalization, inflections, case-insensitive and bare URLs, emails ----
+
+def _lint(conn, body, subject="Hello"):
+    brief = lo.build_brief(PROFILE, row(conn), PROFILE["money_pages"])
+    return lo.lint_draft(subject, body, brief)
+
+
+def _rules(problems):
+    return [(p["rule"], p.get("term") or p.get("url")) for p in problems]
+
+
+@pytest.mark.parametrize("text, term", [
+    # every term the spec lists, in plain form
+    ("We can pay you", "pay"), ("a payment of $50", "pay"), ("it was paid", "paid"),
+    ("a sponsor", "sponsor"), ("sponsored post", "sponsor"), ("open to sponsorship", "sponsor"),
+    ("a link exchange", "link exchange"), ("we could swap links", "swap links"),
+    ("a reciprocal arrangement", "reciprocal"), ("a guest post fee", "guest post fee"),
+    ("a dofollow link", "dofollow"), ("a do-follow link", "dofollow"),
+    # the bypasses the final review reproduced
+    ("a link-exchange?", "link exchange"), ("link exchanges are fine", "link exchange"),
+    ("we are paying for it", "pay"), ("payments, payouts", "pay"), ("it pays well", "pay"),
+    ("Is it do follow?", "dofollow"), ("Please exchange links with us", "link exchange"),
+    ("a quick link swap", "swap links"), ("link swapping is common", "swap links"),
+    ("swapping links", "swap links"), ("a guest-post fee applies", "guest post fee"),
+    ("guest post fees", "guest post fee"), ("reciprocal links", "reciprocal"),
+    ("some compensation", "compensation"), ("sponsors welcome", "sponsor"),
+    ("A DOFOLLOW LINK", "dofollow"), ("link_exchange", "link exchange"),
+    # Unicode tricks: fullwidth letters, soft hyphen, zero-width space, non-breaking hyphen
+    ("Ｐａｙ you well", "pay"), ("pa­y you", "pay"), ("do​follow", "dofollow"),
+    ("do‑follow", "dofollow"),
+])
+def test_lint_catches_banned_asks_in_every_form(conn, text, term):
+    problems = _lint(conn, text)
+    assert ("banned_term", term) in _rules(problems), problems
+
+
+@pytest.mark.parametrize("text", [
+    "PayPal and Payroll teams liked it.", "Repay and display are fine words.",
+    "Payne and Paylocity are names.", "We followed up on your list.", "An unpaid hobby site.",
+    "Unsponsored content and a nonreciprocal arrangement are fine words.",
+])
+def test_lint_has_no_false_positives_on_whole_words(conn, text):
+    # "do follow" as two English words IS flagged on purpose: the ask "do follow" is a common bypass.
+    assert [p for p in _lint(conn, text) if p["rule"] == "banned_term"] == []
+
+
+def test_lint_paypal_and_payroll_alone_are_clean(conn):
+    assert _lint(conn, "PayPal and payroll teams liked your list.") == []
+
+
+@pytest.mark.parametrize("text, url", [
+    ("See HTTPS://evil.com/x today", "HTTPS://evil.com/x"),
+    ("See www.evil.com/promo today", "www.evil.com/promo"),
+    ("See evil.com/offer today", "evil.com/offer"),
+    ("Visit evil.com for details", "evil.com"),
+    ("Visit evil.xyz.", "evil.xyz"),
+    ("Visit http://evil.com:8080/a?b=1.", "http://evil.com:8080/a?b=1"),
+    ("A page at https://acme.in/other-page", "https://acme.in/other-page"),  # not the briefed asset
+])
+def test_lint_finds_unbriefed_urls_in_every_form(conn, text, url):
+    assert ("unbriefed_url", url) in _rules(_lint(conn, text))
+
+
+@pytest.mark.parametrize("text", [
+    "More at https://acme.in/", "More at HTTPS://ACME.IN", "More at acme.in", "More at www.acme.in/",
+    "More at http://acme.in", "More at acme.in/solutions/compliance-training-video",
+    "More at https://acme.in/solutions/compliance-training-video/",
+    "We use Node.js, e.g. for tooling, i.e. daily.", "Version 3.5 shipped in Q3.",
+])
+def test_lint_allows_briefed_urls_and_ordinary_text(conn, text):
+    assert [p for p in _lint(conn, text) if p["rule"] == "unbriefed_url"] == []
+
+
+def test_lint_reads_a_name_that_looks_like_a_domain_as_a_url(conn):
+    # Conservative on purpose: "ASP.NET" cannot be told from a host, so the writer rephrases it.
+    assert ("unbriefed_url", "ASP.NET") in _rules(_lint(conn, "We build on ASP.NET."))
+
+
+@pytest.mark.parametrize("text", ["Write to bob@example.com please", "mailto:bob@example.com",
+                                  "bob.smith+x@mail.example.co.uk"])
+def test_lint_flags_email_addresses(conn, text):
+    problems = _lint(conn, text)
+    assert "email_address" in {p["rule"] for p in problems}
+    assert not [p for p in problems if p["rule"] == "unbriefed_url"]  # the domain part is not a link

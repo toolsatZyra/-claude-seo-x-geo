@@ -43,6 +43,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 from datetime import date, datetime, timedelta, timezone
 from typing import Callable, Optional
 from urllib.parse import urlparse
@@ -77,8 +78,35 @@ COOLDOWN_DAYS = 90
 MAX_BODY_WORDS = 150
 MAX_SUBJECT_CHARS = 90
 MIN_CONTACTS_FOR_RATE = 5
-BANNED_TERMS = ("pay", "payment", "paid", "sponsor", "sponsored", "sponsorship", "link exchange",
-                "swap links", "reciprocal", "guest post fee", "dofollow", "do-follow")
+# Banned asks as patterns over the NORMALIZED text (see normalize_for_lint): NFKC, invisible format
+# characters removed, every dash and underscore read as a space. Each pattern starts at a word start
+# and ends at a word end, so "payroll", "PayPal", "repay" and "unpaid" pass. The key is reported as `term`.
+BANNED_PATTERNS = {
+    "pay": r"pay(?:s|ing|ment|ments|out|outs)?",
+    "paid": r"paid",
+    "sponsor": r"sponsor\w*",
+    "link exchange": r"link exchanges?|exchang(?:e|es|ing) links?",
+    "swap links": r"swap(?:s|ping)? links?|link swap(?:s|ping)?",
+    "reciprocal": r"reciprocal\w*",
+    "guest post fee": r"guest post(?:ing)? fees?",
+    "dofollow": r"do ?follow",
+    "compensation": r"compensat\w*",
+}
+BANNED_RES = {term: re.compile(r"(?<![a-z0-9])(?:" + pattern + r")(?![a-z0-9])")
+              for term, pattern in BANNED_PATTERNS.items()}
+# TLDs recognised on a bare host with no path ("evil.com"). A host WITH a path is recognised for any
+# TLD, so "evil.zip/offer" is caught too; this list only keeps "Node.js" and "e.g." out.
+BARE_HOST_TLDS = ("com", "org", "net", "io", "co", "ai", "in", "uk", "us", "app", "dev", "studio", "info",
+                  "biz", "edu", "gov", "me", "tv", "xyz", "online", "site", "tech", "agency", "media",
+                  "news", "blog", "shop", "store", "page", "link", "ly")
+_URL_TAIL = r"[^\s<>()\"']*"
+URL_RES = (
+    re.compile(r"(?i)(?:https?://|www\.)[^\s<>()\"']+"),
+    re.compile(r"(?i)(?<![@\w.-])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,24}/" + _URL_TAIL),
+    re.compile(r"(?i)(?<![@\w.-])[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:" + "|".join(BARE_HOST_TLDS)
+               + r")(?![\w@-])"),
+)
+EMAIL_RE = re.compile(r"(?i)[a-z0-9._%+-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 REL_ORDER = ("sponsored", "ugc", "nofollow")
 # checker status -> verified_status. unverifiable: the page answered but the link cannot be confirmed
 # over plain HTTP (JS-rendered, redirected, or only existence was checked). Anything else, e.g. a
@@ -229,13 +257,26 @@ def select_for_add(ranked: list, segment: str, buckets: Optional[set], min_score
 
 
 def _norm_url(url: str) -> Optional[str]:
-    """scheme://host/path for comparison, or None when the text is not a parseable URL."""
+    """host/path for comparison (scheme, www, case and a trailing slash ignored), or None when the
+    text is not a parseable URL. A bare "host/path" is read as https."""
+    text = url.strip()
+    if "://" not in text:
+        text = "https://" + text
     try:
-        parsed = urlparse(url.strip())
+        parsed = urlparse(text)
         host = normalize_domain(parsed.netloc)
     except ValueError:  # e.g. "https://[x": an unterminated IPv6 literal
         return None
-    return f"{parsed.scheme.lower()}://{host}{parsed.path.rstrip('/') or '/'}"
+    return f"{host}{parsed.path.lower().rstrip('/') or '/'}" if host else None
+
+
+def normalize_for_lint(text: str) -> str:
+    """NFKC, invisible format characters (soft hyphen, zero-width space) removed, lowercase,
+    every dash and underscore read as a space, whitespace collapsed."""
+    text = unicodedata.normalize("NFKC", text)
+    text = "".join(" " if unicodedata.category(ch) == "Pd" or ch == "_" else ch
+                   for ch in text if unicodedata.category(ch) != "Cf")
+    return " ".join(text.lower().split())
 
 
 def best_asset(client: str, pages: list, evidence: list) -> str:
@@ -302,23 +343,30 @@ def store_brief(conn, project: str, domain: str, brief: dict) -> None:
 
 
 def lint_draft(subject: str, body: str, brief: dict) -> list:
-    """Deterministic draft checks: banned asks, unbriefed URLs, length."""
+    """Deterministic draft checks: banned asks, unbriefed URLs, email addresses, length."""
     problems = []
-    text = f"{subject}\n{body}".lower()
-    for term in BANNED_TERMS:
-        pattern = r"(?<![a-z0-9])" + r"\s+".join(re.escape(w) for w in term.split()) + r"(?![a-z0-9])"
-        for m in re.finditer(pattern, text):
-            span = text[max(0, m.start() - 25): m.end() + 25].replace("\n", " ")
+    text = normalize_for_lint(f"{subject}\n{body}")
+    for term, pattern in BANNED_RES.items():
+        for m in pattern.finditer(text):
+            span = text[max(0, m.start() - 25): m.end() + 25]
             problems.append({"rule": "banned_term", "term": term, "span": span})
     allowed = {_norm_url(u) for u in [brief.get("asset_url"), brief.get("client_home"),
                                        brief.get("contact_path"),
                                        *[e.get("sample_url") for e in brief.get("evidence", [])]] if u}
     allowed.discard(None)
-    for url in re.findall(r"https?://[^\s<>()\"']+", f"{subject} {body}"):
-        url = url.rstrip(".,;:!?")
-        norm = _norm_url(url)
-        if norm is None or norm not in allowed:  # an unparseable URL counts as unbriefed
-            problems.append({"rule": "unbriefed_url", "url": url})
+    raw = f"{subject} {body}"
+    seen = set()
+    for url_re in URL_RES:
+        for m in url_re.finditer(raw):
+            url = m.group(0).rstrip(".,;:!?")
+            norm = _norm_url(url)
+            if (m.start(), url) in seen:
+                continue
+            seen.add((m.start(), url))
+            if norm is None or norm not in allowed:  # an unparseable URL counts as unbriefed
+                problems.append({"rule": "unbriefed_url", "url": url})
+    for m in EMAIL_RE.finditer(raw):
+        problems.append({"rule": "email_address", "span": m.group(0)})
     words = len(body.split())
     if words > MAX_BODY_WORDS:
         problems.append({"rule": "body_too_long", "words": words, "max": MAX_BODY_WORDS})
