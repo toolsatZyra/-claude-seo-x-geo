@@ -97,7 +97,7 @@ claude-seo/
     geo-ai-visibility.md, geo-platform-analysis.md   # AEO specialists
   hooks/                           # Quality gate hooks
     hooks.json                   # PostToolUse schema validation
-  scripts/                         # Python execution scripts (75)
+  scripts/                         # Python execution scripts (79)
     # --- v3.1 hub core (shared, deterministic; import, don't copy) ---
     seo_metrics.py               # Intent/funnel/lead value, CTR curve, opportunity score, stats, cannibalization
     seo_store.py                 # Storage root ($CLAUDE_SEO_DATA_DIR) + SQLite access (0700/0600)

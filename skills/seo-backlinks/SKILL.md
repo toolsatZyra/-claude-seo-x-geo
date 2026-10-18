@@ -34,7 +34,7 @@ If no sources are configured beyond the always-available tier:
 | Command | Purpose |
 |---------|---------|
 | `/seo backlinks <url>` | Full backlink profile analysis (uses all available sources) |
-| `/seo backlinks gap <url1> <url2>` | Competitor backlink gap analysis |
+| `/seo links gap <domain>` | Competitor link gap and link earning (routed to the `seo-links` skill; there is no separate `/seo backlinks gap`) |
 | `/seo backlinks toxic <url>` | Toxic link detection and disavow recommendations |
 | `/seo backlinks new <url>` | New and lost backlinks (DataForSEO only) |
 | `/seo backlinks verify <url> --links <file>` | Verify known backlinks still exist |

@@ -624,13 +624,20 @@ Competitor link gap and white-hat link earning (`seo-links`):
 - **Gap:** referring domains of the client and its 3-7 profile competitors, from
   one source (DataForSEO, Moz or a CSV export), segmented as gap / single /
   shared / moat.
-- **Prospects:** exclusions (own, competitor, social, spam ≥ 60, paid signals),
-  a rule-based type and a deterministic 0-100 score; high-value, quick-win and
-  backlog buckets.
+- **Prospects:** exclusions (own, competitor, social and portfolio platforms,
+  staging hosts, spam ≥ 60, link-selling words, link-farm footprints), a
+  rule-based type and a deterministic 0-100 score; high-value, quick-win and
+  backlog buckets. Sites that link to two or more competitors are listed first
+  (`gap_prospects`). Confirm the profile `topics` first: the score uses them.
 - **Drafts:** written from a brief and linted against payment, sponsorship,
   link-swap and dofollow asks. A named person approves; nothing is ever sent.
 - **Track:** contacted → won/lost/no-reply, one follow-up, a 90-day cooldown,
-  won links verified on the page, `links.*` KPIs for `/seo track`.
+  do-not-contact and cooldown by whole organization, won links verified on the
+  page (live / missing / unverifiable / unreachable), `links.*` KPIs for
+  `/seo track`.
+- **Cost:** DataForSEO is about $0.02 per call plus $0.00004 per requested row
+  ($0.06 per 1,000-row target); `--dry-run` shows the estimate and `--max-cost`
+  is a hard cap.
 
 Runs `scripts/link_sources.py`, `scripts/link_gap.py` and
 `scripts/link_outreach.py`.

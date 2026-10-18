@@ -25,11 +25,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Tracking:** a pipeline tracker with one follow-up, a 90-day cooldown and
     do-not-contact; won links are verified on the page; `links.*` KPIs.
 - **Profile `topics` field** (service terms used for link relevance).
-- **`dataforseo_costs.unit_cost` / `record_spend`** for scripts that budget
-  paid calls.
+- **`dataforseo_costs.unit_cost` / `record_spend` / `estimate_backlinks_call`**
+  for scripts that budget paid calls. A backlinks call is billed per request
+  plus per row ($0.02 + $0.00004 x rows, $0.06 at 1,000 rows); `COST_TABLE`
+  keeps the flat base price.
+- **`seo_store.registrable_domain()` / `same_organization()`**: the
+  organization-level domain of a host (understands `co.uk`-style suffixes and
+  shared hosting such as `blogspot.com`).
+- **`link_gap.py prospects`** also returns `gap_prospects` (the gap segment
+  alone), `excluded_counts` and the topic origin; **`link_outreach.py add`**
+  gains `--segment gap|single|all`, `--include-skipped` and `--refresh-topics`.
+- **A `topics` table in the links store** that holds sitemap-derived topic
+  terms per project (never the user's profile file).
 
 ### Fixed
 
+- **`/seo links` hardening after the final branch review** (no Critical
+  findings; 9 Important, 17 Minor). The score formula is unchanged.
+  - **The cost cap now holds.** The dry run, the refusal and the in-run guard
+    use the row-aware estimate ($0.06 per 1,000-row target, so a 3-target dry
+    run reads $0.18, not $0.06), and a call starts only if spent plus the larger
+    of the estimate and the costliest call so far fits under `--max-cost`. The
+    live run showed `--max-cost 0.06` spending $0.0847.
+  - **Fetch robustness.** A dropped connection or timeout is recorded as that
+    target's error and the run continues; the snapshot is saved before the spend
+    ledger is touched (a ledger failure is a warning); error text is redacted;
+    `nan`/`inf` are not data; CSV imports accept UTF-16 (the real Ahrefs
+    format), a BOM, and comma, semicolon or tab separators.
+  - **Prospects are no longer polluted.** Staging and preview hosts, Behance
+    and Dribbble, link-selling words (whole-word matching on URL, title and
+    anchor) and link-farm footprints (the same page path or title on five or
+    more unrelated sites) are excluded and counted by reason. Classification
+    reads the first path segment only, treats profile pages and hosts (company,
+    wiki, apps, CB Insights, Golden, Dealroom, ...) as directories, ignores
+    title words except the `top N ... companies` listicle, and no longer calls
+    `...digitalmedia.com` a publication.
+  - **Gap domains come first.** Sitemap-derived topic terms are derived once,
+    stored, and reused (with a warning that they are noisy), so `prospects` and
+    `add` rank identically and `gap` and `kpis` never read the sitemap. The
+    live gap domains had ranked 15 to 701 under noisy topics.
+  - **Pipeline guardrails.** Do-not-contact, active status and cooldown cover
+    the whole registrable domain; leaving the pipeline as `skipped` or
+    `do_not_contact` after contact starts the 90-day cooldown; skipped
+    prospects are not re-added without `--include-skipped`; a reply can be
+    recorded while a follow-up draft is pending; `approve` refuses a draft
+    checked against an older brief; `verify` reports `unverifiable` for
+    JS-rendered or redirected pages instead of `unreachable`.
+  - **Draft lint.** Text is normalized (Unicode forms, invisible characters,
+    dashes) and banned asks match inflections (`paying`, `link-exchange`,
+    `do follow`, `link swap`, ...); URLs are found in any case, with or without
+    a scheme; email addresses are rejected.
+  - **No tracebacks.** `link_gap.py` and `link_outreach.py` exit 2 with a
+    message for a profile that belongs to another domain, an empty `--project`
+    or an unparseable URL. `backlinks_auth.py` tolerates odd config shapes and
+    takes project-scoped DataForSEO credentials only from the project you are in.
+  - **CSV exports** neutralize cells that start with `=`, `+`, `-` or `@`.
 - **DataForSEO detection.** `backlinks_auth.py` reported "Tier 3, Premium"
   whenever `~/.claude/settings.json` had a dataforseo MCP entry, but Claude Code
   never loads MCP servers from that file. It now reads `~/.claude.json` (user
