@@ -211,3 +211,203 @@ def test_cli_mismatched_profile_and_empty_project_exit_2(tmp_path, capsys, cmd):
         assert lg.main(argv) == 2
         err = capsys.readouterr().err
         assert err.startswith("Error:") and "Traceback" not in err
+
+
+# ---- exclusions found by the live run (staging hosts, UGC portfolios, link-selling networks) ----
+
+EXCLUDE = ("acme.in", ["rival.com", "other.in"])
+
+
+@pytest.mark.parametrize("domain", [
+    "agilityprstage.wpengine.com", "env-userp-newstaging.kinsta.cloud", "site.netlify.app",
+    "site.vercel.app", "app.herokuapp.com", "site.pages.dev", "lightgreen-squid-731429.hostingersite.com",
+    "staging.worklife.news", "stage.client.org", "dev.client.org", "dev2.client.org",
+    "test.client.org", "uat.bank.in", "preview.client.io", "acme-staging.com", "new-stage-site.com",
+])
+def test_staging_and_dev_hosts_are_excluded(domain):
+    assert lg.exclusion_reason(sig(domain, f"https://{domain}/post"), *EXCLUDE) == "staging_or_dev_host"
+
+
+@pytest.mark.parametrize("domain", [
+    "dev.to", "devops.com", "stage.com", "backstage.io", "testimonial.com", "latest.com",
+    "blog.client.org", "developer.client.org", "stagecoach.co.uk",
+])
+def test_ordinary_hosts_that_only_look_like_staging_are_kept(domain):
+    assert lg.exclusion_reason(sig(domain, f"https://{domain}/post"), *EXCLUDE) is None
+
+
+@pytest.mark.parametrize("domain", ["behance.net", "dribbble.com"])
+def test_portfolio_and_job_platforms_are_social_ugc(domain):
+    assert lg.exclusion_reason(sig(domain, f"https://www.{domain}/joblist/1"), *EXCLUDE) == "social_ugc"
+
+
+@pytest.mark.parametrize("url, title, anchor", [
+    ("https://x.net/dir/website-ranking-links-78674", "Premium SEO Links for Websites", None),
+    ("https://x.net/tg-seo-linkk-order-seo-backlinks-homepage-links-4", None, None),
+    ("https://x.net/quarterlinks-dofollow-article-links-just-for-25", None, None),
+    ("https://x.net/employer/high-quality-backlinks-158", None, None),
+    ("https://x.net/a", "Buy Links from real sites", None),
+    ("https://x.net/a", "Our link building services", None),
+    ("https://x.net/a", "Guest post service: publish on 50 blogs", None),
+    ("https://x.net/a", None, "Expert SEO Backlink Services galleri5.com"),
+    ("https://x.net/a", None, "SEO links"),
+    ("https://x.net/a", "Cheap DoFollow placements", None),
+    ("https://x.net/advertorial-rates", None, None),
+])
+def test_link_scheme_tokens_are_excluded(url, title, anchor):
+    s = sig("x.net", url, title=title, anchor=anchor)
+    assert lg.exclusion_reason(s, *EXCLUDE) == "paid_or_scheme"
+
+
+@pytest.mark.parametrize("url, title", [
+    ("https://good.org/write-for-us", "Write for us"),
+    ("https://good.org/blog/why-content-marketing-works", "Why content marketing works"),
+    ("https://good.org/unsponsored-reviews", "Honest reviews"),  # "sponsored" only as a whole word
+    ("https://good.org/our-links-page", "Our links page"),
+])
+def test_ordinary_pages_are_not_scheme_signals(url, title):
+    assert lg.exclusion_reason(sig("good.org", url, title=title), *EXCLUDE) is None
+
+
+def _farm(n, path="/dir/website-ranking-links-78674", title="Premium SEO Links for Websites Order Now"):
+    return [{"domain": f"farm{i}.com", "sample_url": f"https://farm{i}.com{path}",
+             "sample_title": title} for i in range(n)]
+
+
+def test_footprint_rule_flags_five_or_more_domains_sharing_a_path_or_a_title():
+    flagged = lg.link_network_domains({"rival.com": _farm(5)})
+    assert set(flagged) == {f"farm{i}.com" for i in range(5)}
+    assert lg.link_network_domains({"rival.com": _farm(4)}) == {}
+    by_title = [{"domain": f"t{i}.com", "sample_url": f"https://t{i}.com/page-{i}-unique-slug",
+                 "sample_title": "Premium SEO Links for Websites Order Now"} for i in range(5)]
+    assert set(lg.link_network_domains({"rival.com": by_title})) == {f"t{i}.com" for i in range(5)}
+
+
+def test_footprint_rule_is_per_snapshot_and_ignores_generic_pages():
+    # 3 domains in one competitor's snapshot + 3 in another's: no snapshot reaches 5
+    split = {"rival.com": _farm(3), "other.in": [{**r, "domain": r["domain"].replace("farm", "farmb")}
+                                                  for r in _farm(3)]}
+    assert lg.link_network_domains(split) == {}
+    generic = ([{"domain": f"g{i}.com", "sample_url": f"https://g{i}.com/privacy-policy",
+                 "sample_title": "Privacy Policy"} for i in range(8)]
+               + [{"domain": f"w{i}.com", "sample_url": f"https://w{i}.com/en/privacy-policy",
+                   "sample_title": "Just another WordPress site"} for i in range(8)]
+               + [{"domain": f"h{i}.com", "sample_url": f"https://h{i}.com/",
+                   "sample_title": "Home"} for i in range(8)])
+    assert lg.link_network_domains({"rival.com": generic}) == {}
+
+
+def test_analyze_drops_a_link_farm_and_reports_it_by_reason(tmp_path):
+    data_dir = _store(tmp_path)
+    conn = link_store.open_store(data_dir)
+    neutral_farm = _farm(6, path="/dir/curated-pages-78674", title="Curated Website Hub Online Now")
+    link_store.save_snapshot(conn, "acme.in", "rival.com", "csv-farm", neutral_farm
+                             + [{"domain": "trainingmag.com", "authority": 80.0, "dofollow": True,
+                                 "sample_url": "https://trainingmag.com/2025/03/best-training-video-studios/",
+                                 "tld": "com"}])
+    link_store.save_snapshot(conn, "acme.in", "acme.in", "csv-farm", [{"domain": "partner.in"}])
+    out = lg.analyze_project("acme.in", "csv-farm", data_dir, use_sitemap=False)
+    assert [p["domain"] for p in out["prospects"]] == ["trainingmag.com"]
+    assert out["excluded_counts"] == {"link_network": 6}
+    assert {e["reason"] for e in out["excluded"]} == {"link_network"}
+    assert "curated-pages-78674" in out["excluded"][0]["detail"]
+
+
+# ---- classification: first path segment, profile pages and hosts, no title tokens ----
+
+LIVE_CLASSIFICATION = [
+    # the 12 live quick wins that were wrong, as the review recorded them
+    ("webnode.com", "https://webnode.com/blog/social-media-integration/",
+     "Social Media Integration: Boost Your Website Success", "blog"),
+    ("techwyse.com", "https://www.techwyse.com/blog/social-media-marketing/detecting-social-media-scams-how-"
+     "marketers-can-protect-their-brands-and-customers", "Detecting Social Media Scams | TechWyse", "blog"),
+    ("kingnewswire.com", "https://kingnewswire.com/gold-coast-city-lifestyle-magazine-welcomes-annette-patko-"
+     "of-bordeaux-studio-as-featured-photographer-creative-partner-25071730823/",
+     "Gold Coast City Lifestyle Magazine Welcomes Annette Patko - King Newswire", "publication"),
+    ("teamwork.com", "https://www.teamwork.com/blog/kpis-content-marketing/",
+     "12 content marketing KPIs agencies track | Teamwork.com", "blog"),
+    ("planable.io", "https://planable.io/blog/social-media-management-tools-for-agencies/?ref=x.blog",
+     "12 social media management tools for agencies in 2026", "blog"),
+    ("learn.g2.com", "https://learn.g2.com/building-a-brand", "Building a Brand: The 7 Essential Steps", "blog"),
+    ("sortlist.com", "https://www.sortlist.com/blog/importance-of-graphic-design/",
+     "The Importance of Graphic Design", "blog"),
+    ("antillesdigitalmedia.com", "https://antillesdigitalmedia.com/how-to-choose-brand-colors-that-convert/",
+     "How To Choose Brand Colors | Antilles Digital Media", "unclassified"),
+    ("socialmediawidget.home.blog", "https://socialmediawidget.home.blog/2025/08/01/best-ai-instagram-ads-generators/",
+     "10 Best AI Instagram Ads Generators in 2025", "unclassified"),
+    # the real gap domains: profile and listing pages
+    ("cbinsights.com", "https://www.cbinsights.com/company/galleri5", "galleri5 - Products, Competitors", "directory"),
+    ("uplers.com", "https://www.uplers.com/company/galleri5-9507", "Galleri5 Jobs & Careers", "directory"),
+    ("golden.com", "https://golden.com/wiki/galleri5-NMMMND9", "galleri5 | Golden", "directory"),
+    ("webcatalog.io", "https://webcatalog.io/id/apps/galleri5", "WebCatalog", "directory"),
+    ("webcatalog.io", "https://webcatalog.io/en/apps/superside", "Superside - Desktop App", "directory"),
+    ("yourstory.com", "https://yourstory.com/companies/galleri5", "galleri5 Company Profile", "directory"),
+    ("crunchbase.com", "https://www.crunchbase.com/organization/galleri5", "galleri5 - Crunchbase", "directory"),
+    ("oncely.com", "https://oncely.com/products/galleri5-discount", "Galleri5 Discount | Oncely", "unclassified"),
+]
+
+
+@pytest.mark.parametrize("domain, url, title, expected", LIVE_CLASSIFICATION)
+def test_live_urls_classify_correctly(domain, url, title, expected):
+    kind, _ = lg.classify(sig(domain, url, title=title))
+    assert kind == expected
+
+
+@pytest.mark.parametrize("url, title, expected", [
+    ("https://x.org/profile/acme", None, "directory"),
+    ("https://x.org/organizations/acme", None, "directory"),
+    ("https://x.org/startups/acme", None, "directory"),
+    ("https://x.org/en/resources/compliance", None, "resource"),
+    ("https://x.org/useful-links", None, "resource"),
+    ("https://x.org/recommended-tools", None, "resource"),
+    ("https://x.org/links", None, "resource"),
+    ("https://x.org/our-partners", None, "partner"),
+    ("https://x.org/integrations", None, "partner"),
+    ("https://x.org/podcast/episode-9", None, "event"),
+    ("https://x.org/members/directory", None, "unclassified"),  # a token must be the first segment
+    ("https://x.org/useful-tips", None, "unclassified"),         # "useful" alone is not a resource page
+    ("https://x.org/blog/social-media-integration/", None, "blog"),
+    ("https://x.org/blog/building-a-community", None, "blog"),
+    ("https://x.org/how-to-pick-an-integration-partner-for-your-business", None, "unclassified"),  # long slug
+    ("https://x.org/a", "Top 10 Video Production Companies in India", "directory"),
+    ("https://x.org/a", "Top 10 tools for agencies", "unclassified"),
+    ("https://x.org/a", "How agencies and companies pick vendors", "unclassified"),
+    ("https://x.org/blog/top-10-ai-video-companies", None, "directory"),
+    ("https://x.org/blog/top-10-tools-for-agencies", None, "blog"),
+])
+def test_first_segment_and_title_rules(url, title, expected):
+    kind, _ = lg.classify(sig("x.org", url, title=title))
+    assert kind == expected
+
+
+@pytest.mark.parametrize("domain, kind", [
+    ("dealroom.co", "directory"), ("wellfound.com", "directory"), ("tracxn.com", "directory"),
+    ("owler.com", "directory"), ("zaubacorp.com", "directory"), ("cbinsights.com", "directory"),
+    ("golden.com", "directory"),
+])
+def test_profile_hosts_are_directories(domain, kind):
+    assert lg.classify(sig(domain, f"https://{domain}/x"))[0] == kind
+
+
+def test_directory_host_blog_and_learn_pages_are_editorial():
+    assert lg.classify(sig("g2.com", "https://www.g2.com/blog/best-tools"))[0] == "blog"
+    assert lg.classify(sig("learn.g2.com", "https://learn.g2.com/x"))[0] == "blog"
+    assert lg.classify(sig("g2.com", "https://www.g2.com/categories/video"))[0] == "directory"
+
+
+def test_publication_domain_match_uses_label_boundaries():
+    assert lg.classify(sig("hindustantimes.com", "https://hindustantimes.com/x"))[0] == "publication"
+    assert lg.classify(sig("my-media.com", "https://my-media.com/x"))[0] == "publication"
+    assert lg.classify(sig("antillesdigitalmedia.com", "https://antillesdigitalmedia.com/x"))[0] != "publication"
+    assert lg.classify(sig("socialmediawidget.com", "https://socialmediawidget.com/x"))[0] != "publication"
+
+
+def test_footprint_counts_distinct_organizations_not_country_domains():
+    # Glassdoor serves the same company page on nine country domains: one organization.
+    path = "/overview/working-at-superside-ei_ie1397130.11,20.htm"
+    one_org = [{"domain": d, "sample_url": f"https://www.{d}{path}", "sample_title": "Working at Superside"}
+               for d in ("glassdoor.ca", "glassdoor.co.in", "glassdoor.co.nz", "glassdoor.co.uk",
+                         "glassdoor.com", "glassdoor.com.au", "glassdoor.com.hk", "glassdoor.ie",
+                         "glassdoor.sg")]
+    assert lg.link_network_domains({"superside.com": one_org}) == {}
+    assert len(lg.link_network_domains({"superside.com": _farm(5)})) == 5

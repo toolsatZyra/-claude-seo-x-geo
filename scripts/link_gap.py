@@ -45,28 +45,58 @@ from link_store import latest_snapshots, open_store, snapshot_records  # noqa: E
 from seo_kpi import EnvelopeError, write_envelope  # noqa: E402
 from seo_metrics import STOPWORDS  # noqa: E402
 from seo_project import all_brand_terms, load_profile  # noqa: E402
-from seo_store import host_matches, normalize_domain  # noqa: E402
+from seo_store import host_matches, normalize_domain, registrable_domain  # noqa: E402
 
 SPAM_THRESHOLD = 60.0
 GENERIC_TLDS = frozenset({"com", "org", "net", "io", "co", "ai"})
 COUNTRY_TLD_OVERRIDES = {"GB": "uk"}
 SOCIAL_UGC_HOSTS = ("linkedin.com", "facebook.com", "x.com", "twitter.com", "instagram.com",
-                    "youtube.com", "pinterest.com", "tiktok.com", "medium.com", "threads.net", "t.co")
+                    "youtube.com", "pinterest.com", "tiktok.com", "medium.com", "threads.net", "t.co",
+                    "behance.net", "dribbble.com")  # last two: portfolios and job posts
+# Hosting platforms whose subdomains are staging or preview sites, never editorial prospects.
+STAGING_PLATFORM_HOSTS = ("wpengine.com", "kinsta.cloud", "netlify.app", "vercel.app", "herokuapp.com",
+                          "pages.dev", "hostingersite.com")
+# A subdomain label that starts with one of these (followed by a non-letter): staging.x.com, dev2.x.com.
+STAGING_LABEL = re.compile(r"^(?:staging|stage|dev|test|uat|preview)(?![a-z])")
+# stage/staging as a hyphenated part of a label: acme-staging.com, new-stage-site.com.
+STAGING_PART = re.compile(r"(?:^|-)(?:stage|staging)(?:-|$)")
 COMMUNITY_HOSTS = ("reddit.com", "quora.com", "stackexchange.com", "stackoverflow.com")
 DIRECTORY_HOSTS = ("clutch.co", "goodfirms.co", "designrush.com", "g2.com", "capterra.com",
                    "sortlist.com", "themanifest.com", "upcity.com", "trustpilot.com", "crunchbase.com",
-                   "indiamart.com", "justdial.com", "sulekha.com", "tradeindia.com")
-PAID_TOKENS = ("sponsored", "advertorial", "guest-post-pricing", "buy-backlinks", "link-insertion",
-               "paid-post")
-DIRECTORY_TOKENS = frozenset({"directory", "listing", "listings", "companies", "vendors", "agencies"})
+                   "indiamart.com", "justdial.com", "sulekha.com", "tradeindia.com",
+                   "cbinsights.com", "golden.com", "dealroom.co", "wellfound.com", "tracxn.com",
+                   "owler.com", "zaubacorp.com")
+# Link-selling and link-scheme signals, matched as whole words on the normalized URL, title and anchor
+# (lowercase, every run of non-alphanumerics read as one space, so "buy-backlinks" == "buy backlinks").
+SCHEME_PATTERNS = (r"sponsored", r"advertorials?", r"guest post(?:ing)? pricing", r"buy backlinks?",
+                   r"link insertions?", r"paid posts?", r"backlinks?", r"seo links", r"buy links",
+                   r"do ?follow", r"link building services?", r"guest post services?")
+SCHEME_RE = re.compile(r"\b(?:" + "|".join(SCHEME_PATTERNS) + r")\b")
+# Rules 1-6 look at the FIRST path segment (after a language prefix) and at the domain's own words,
+# never at titles or deeper path segments, so blog posts that mention a word are not mistaken for pages of it.
+DIRECTORY_TOKENS = frozenset({"directory", "directories", "listing", "listings", "companies", "vendors",
+                              "agencies"})
+DIRECTORY_SEGMENTS = DIRECTORY_TOKENS | frozenset({"company", "organization", "organizations", "profile",
+                                                   "profiles", "wiki", "apps", "startups"})
 ASSOCIATION_TOKENS = frozenset({"association", "society", "council", "chamber", "institute"})
 COMMUNITY_TOKENS = frozenset({"forum", "forums", "community"})
 EVENT_TOKENS = frozenset({"podcast", "podcasts", "episode", "episodes", "conference", "summit",
                           "webinar", "webinars", "expo", "awards", "event", "events"})
-RESOURCE_TOKENS = frozenset({"resources", "resource", "links", "tools", "useful", "recommended"})
+RESOURCE_TOKENS = frozenset({"resources", "resource", "links", "tools", "recommended"})
 PARTNER_TOKENS = frozenset({"partners", "partner", "integrations", "integration", "marketplace",
                             "customers", "clients"})
-PUBLICATION_LABEL_PARTS = ("news", "magazine", "journal", "times", "media")
+EDITORIAL_LABELS = frozenset({"blog", "blogs", "learn"})
+PUBLICATION_STRONG_PARTS = ("news", "magazine", "journal", "times")
+PUBLICATION_WORD_PARTS = ("media",)  # only as a whole label or hyphen part: "my-media", never "digitalmedia"
+LOCALE_SEGMENT = re.compile(r"^[a-z]{2}(?:[-_][a-z]{2,4})?$")  # en, id, en-us, pt-br
+# "top 10 video production companies": a ranking list where agencies get listed. "tools for agencies"
+# and "software for companies" are not.
+LISTICLE_RE = re.compile(r"\btop\b (?:\d+ )?(?:(?!for\b|tools?\b|software\b)[a-z0-9]+ ){0,6}?"
+                         r"(?:companies|agencies)\b")
+# Link-network footprint: the same path or title on this many distinct organizations in one snapshot.
+NETWORK_MIN_DOMAINS = 5
+GENERIC_TITLES = frozenset({"just another wordpress site", "apache2 ubuntu default page: it works",
+                            "welcome to nginx!", "index of /", "default web site page"})
 EVIDENCE_FIELDS = ("authority", "spam_score", "dofollow", "attributes", "sample_url",
                    "sample_anchor", "sample_title", "tld")
 
@@ -108,39 +138,83 @@ def _host_in(domain: str, hosts) -> bool:
     return any(domain == h or domain.endswith("." + h) for h in hosts)
 
 
+def _norm_words(text: str) -> str:
+    """Lowercase text with every run of non-alphanumerics read as one space."""
+    return " ".join(_words(text))
+
+
+def _segments(path: str) -> list:
+    """Non-empty path segments, minus a leading language prefix (/en/, /id/, /pt-br/)."""
+    segs = [x for x in (path or "").split("/") if x]
+    if len(segs) > 1 and LOCALE_SEGMENT.match(segs[0]):
+        segs = segs[1:]
+    return segs
+
+
+def _lead_words(segs: list) -> set:
+    """Words of the first path segment when it is a short slug (at most 2 words), else none.
+
+    A long first segment is an article slug ("how-to-pick-an-integration-partner"), not a section.
+    """
+    words = _words(segs[0]) if segs else []
+    return set(words) if 0 < len(words) <= 2 else set()
+
+
+def is_staging_host(domain: str) -> bool:
+    """Staging, preview or dev hosting: a platform subdomain, or a staging-style host label."""
+    if _host_in(domain, STAGING_PLATFORM_HOSTS):
+        return True
+    reg = registrable_domain(domain)
+    sub = [x for x in domain[: -len(reg)].strip(".").split(".") if x] if reg and domain != reg else []
+    if any(STAGING_LABEL.match(lab) or STAGING_PART.search(lab) for lab in sub):
+        return True
+    label = reg.split(".")[0]
+    return "-" in label and bool(STAGING_PART.search(label))  # acme-staging.com, not stage.com
+
+
 def classify(sig: dict) -> tuple:
     """(type, matched_rule) for one prospect; first matching rule wins. Always INFERRED."""
     dom = sig["domain"]
     url = (sig.get("sample_url") or "").lower()
     path = urlparse(url).path if url else ""
-    path_words = set(_words(path))
-    text_words = path_words | set(_words(sig.get("sample_title") or ""))
+    segs = _segments(path)
+    lead = _lead_words(segs)
     dom_words = set(_words(dom))
-    if (_host_in(dom, DIRECTORY_HOSTS) or DIRECTORY_TOKENS & (text_words | dom_words)
-            or re.search(r"top-[a-z0-9-]*-(?:companies|agencies)", path)):
+    host_labels = dom.split(".")
+    editorial = bool((segs and segs[0] in EDITORIAL_LABELS) or EDITORIAL_LABELS & set(host_labels[:-2]))
+    path_text = _norm_words(path)
+    title_text = _norm_words(sig.get("sample_title") or "")
+    if ((_host_in(dom, DIRECTORY_HOSTS) and not editorial) or DIRECTORY_SEGMENTS & lead
+            or DIRECTORY_TOKENS & dom_words or LISTICLE_RE.search(path_text)
+            or LISTICLE_RE.search(title_text)):
         return "directory", "rule1:directory-or-review"
     if (re.search(r"\.(?:edu|gov|mil)$|\.(?:ac|gov|edu)\.[a-z]{2}$", dom)
-            or ASSOCIATION_TOKENS & (text_words | dom_words)):
+            or ASSOCIATION_TOKENS & (lead | dom_words)):
         return "association", "rule2:association-edu-gov"
-    if _host_in(dom, COMMUNITY_HOSTS) or COMMUNITY_TOKENS & (text_words | dom_words):
+    if _host_in(dom, COMMUNITY_HOSTS) or COMMUNITY_TOKENS & (lead | dom_words):
         return "community", "rule3:community"
-    if EVENT_TOKENS & (text_words | dom_words):
+    if EVENT_TOKENS & (lead | dom_words):
         return "event", "rule4:event-or-podcast"
-    if RESOURCE_TOKENS & path_words:
+    if RESOURCE_TOKENS & lead:
         return "resource", "rule5:resource-page"
-    if PARTNER_TOKENS & path_words:
+    if PARTNER_TOKENS & lead:
         return "partner", "rule6:partner-or-integration"
     article = re.search(r"/(?:news|article|articles)/|/(?:19|20)\d{2}/\d{1,2}/", path)
-    label = dom.rsplit(".", 1)[0]
-    if ((sig.get("authority") or 0) >= 60 and article) or any(p in label for p in PUBLICATION_LABEL_PARTS):
+    labels = host_labels[:-1]
+    strong = any(part in lab for lab in labels for part in PUBLICATION_STRONG_PARTS)
+    word = any(part in lab.split("-") for lab in labels for part in PUBLICATION_WORD_PARTS)
+    if ((sig.get("authority") or 0) >= 60 and article) or strong or word:
         return "publication", "rule7:publication"
-    if dom.startswith("blog.") or "/blog/" in path:
+    if EDITORIAL_LABELS & set(host_labels[:-2]) or "/blog/" in path:
         return "blog", "rule8:blog"
     return "unclassified", "rule9:no-rule-matched"
 
 
-def exclusion_reason(sig: dict, client: str, competitors: list) -> Optional[str]:
-    """Why a referring domain is not a prospect, or None."""
+def exclusion_reason(sig: dict, client: str, competitors: list,
+                     network: Optional[dict] = None) -> Optional[str]:
+    """Why a referring domain is not a prospect, or None. The order is fixed:
+    own_property, competitor_property, social_ugc, staging_or_dev_host, spam, paid_or_scheme,
+    link_network. ``network`` is link_network_domains() output for the same snapshots."""
     dom = sig["domain"]
     if host_matches(dom, client):
         return "own_property"
@@ -148,13 +222,54 @@ def exclusion_reason(sig: dict, client: str, competitors: list) -> Optional[str]
         return "competitor_property"
     if _host_in(dom, SOCIAL_UGC_HOSTS):
         return "social_ugc"
+    if is_staging_host(dom):
+        return "staging_or_dev_host"
     spam = sig.get("spam_score")
     if isinstance(spam, (int, float)) and spam >= SPAM_THRESHOLD:
         return "spam"
-    blob = " ".join(sig.get("texts") or []).lower()
-    if "sponsored" in (sig.get("attributes") or []) or any(t in blob for t in PAID_TOKENS):
+    blob = _norm_words(" ".join(sig.get("texts") or []))
+    if "sponsored" in (sig.get("attributes") or []) or SCHEME_RE.search(blob):
         return "paid_or_scheme"
+    if network and dom in network:
+        return "link_network"
     return None
+
+
+def _footprint_path(url) -> str:
+    """A path distinctive enough to fingerprint a network: 2+ segments, a long last one, no language prefix."""
+    try:
+        path = urlparse((url or "").lower()).path
+    except ValueError:
+        return ""
+    segs = _segments(path)
+    return "/" + "/".join(segs) if len(segs) >= 2 and len(segs[-1]) >= 10 else ""
+
+
+def _footprint_title(title) -> str:
+    text = " ".join((title or "").lower().split())
+    if len(text) < 20 or len(text.split()) < 3 or text in GENERIC_TITLES:
+        return ""
+    return text
+
+
+def link_network_domains(competitor_records: dict) -> dict:
+    """{domain: detail} for domains that share a distinctive sample path or title with at least
+    NETWORK_MIN_DOMAINS distinct referring domains in ONE competitor snapshot: a link farm's footprint."""
+    flagged: dict = {}
+    for comp in sorted(competitor_records):
+        groups: dict = {}
+        for rec in competitor_records[comp]:
+            for kind, key in (("path", _footprint_path(rec.get("sample_url"))),
+                              ("title", _footprint_title(rec.get("sample_title")))):
+                if key:
+                    groups.setdefault((kind, key), set()).add(rec["domain"])
+        for (kind, key), domains in sorted(groups.items()):
+            # Count organizations, not domains: one company on nine country TLDs is not a network.
+            orgs = {registrable_domain(d).split(".")[0] for d in domains}
+            if len(orgs) >= NETWORK_MIN_DOMAINS:
+                for dom in domains:
+                    flagged.setdefault(dom, f"same {kind} {key!r} on {len(domains)} domains in {comp}")
+    return flagged
 
 
 def segment_domains(client_records: list, competitor_records: dict) -> dict:
@@ -296,6 +411,7 @@ def analyze(client: str, profile: dict, competitors: list, data: dict, topics: l
         warnings.append("no topic terms: topic fit is neutral (0.5) for every prospect; "
                         "set them with seo_project.py set <domain> topics '[...]'")
     country = (profile.get("markets") or {}).get("country", "")
+    network = link_network_domains(data["competitors"])
     merged = segment_domains(data["client"] or [], data["competitors"])
     counts = Counter(e["segment"] for e in merged.values())
     prospects, excluded = [], []
@@ -304,10 +420,13 @@ def analyze(client: str, profile: dict, competitors: list, data: dict, topics: l
         if entry["segment"] not in ("gap", "single"):
             continue
         sig = merged_signals(entry)
-        reason = exclusion_reason(sig, client, competitors)
+        reason = exclusion_reason(sig, client, competitors, network)
         if reason:
-            excluded.append({"domain": dom, "reason": reason, "segment": entry["segment"],
-                             "competitors": entry["competitors"]})
+            item = {"domain": dom, "reason": reason, "segment": entry["segment"],
+                    "competitors": entry["competitors"]}
+            if reason == "link_network":
+                item["detail"] = network[dom]
+            excluded.append(item)
             continue
         type_, rule = classify(sig)
         if not sig["texts"] or not topics:
@@ -336,6 +455,7 @@ def analyze(client: str, profile: dict, competitors: list, data: dict, topics: l
             "domains": [{"domain": d, "segment": merged[d]["segment"],
                          "competitors": merged[d]["competitors"]} for d in sorted(merged)],
             "prospects": prospects, "excluded": excluded,
+            "excluded_counts": dict(sorted(Counter(e["reason"] for e in excluded).items())),
             "kpis": {"links.referring_domains": len(data["client"] or []),
                      "links.gap_domains": counts.get("gap", 0)}}
 
@@ -386,7 +506,7 @@ def _print(result: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(result, indent=2, default=str))
         return
-    for key in ("project", "source", "topics_source", "segments", "buckets", "coverage"):
+    for key in ("project", "source", "topics_source", "segments", "buckets", "excluded_counts", "coverage"):
         if key in result:
             print(f"{key}: {result[key]}")
     for warning in result.get("warnings", []):
@@ -433,7 +553,7 @@ def main(argv: Optional[list] = None) -> int:
             _write_csv(args.csv, result["prospects"])
         shown = {k: result[k] for k in ("project", "source", "collected", "coverage", "topics",
                                         "topics_source", "segments", "buckets", "warnings",
-                                        "excluded")}
+                                        "excluded_counts", "excluded")}
         shown["total_prospects"] = len(result["prospects"])
         shown["prospects"] = result["prospects"][:args.top]
         _print(shown, args.json)

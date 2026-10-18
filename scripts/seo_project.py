@@ -41,7 +41,7 @@ _SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _SCRIPTS_DIR not in sys.path:
     sys.path.insert(0, _SCRIPTS_DIR)
 
-from seo_store import data_root, normalize_domain, utc_now  # noqa: E402
+from seo_store import TWO_PART_SUFFIX_SLD, data_root, normalize_domain, utc_now  # noqa: E402
 
 SCHEMA_VERSION = 1
 MAX_COMPETITORS = 10
@@ -272,7 +272,7 @@ def set_field(profile: dict, dotted_key: str, raw_value: str) -> dict:
 
 
 # Second-level labels that sit under a country code (example.co.uk).
-_TWO_PART_SUFFIX_SLD = frozenset({"co", "com", "net", "org", "gov", "ac", "edu", "ne", "or", "ltd", "plc"})
+_TWO_PART_SUFFIX_SLD = TWO_PART_SUFFIX_SLD  # shared with seo_store.registrable_domain
 # Subdomain-ish labels that are ordinary words: never derive a brand term
 # from them ("shop.globex.com" must not turn every "shop" into a mention).
 GENERIC_LABELS = frozenset({"www", "app", "apps", "shop", "store", "blog", "get", "try", "go", "my",
