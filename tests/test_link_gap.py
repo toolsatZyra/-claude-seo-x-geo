@@ -228,8 +228,10 @@ def test_staging_and_dev_hosts_are_excluded(domain):
     assert lg.exclusion_reason(sig(domain, f"https://{domain}/post"), *EXCLUDE) == "staging_or_dev_host"
 
 
+# dev.to used to be in this list; it is still not a staging host, but since 2026-10-26 it is
+# excluded as user-generated hosting (like Medium), so "devshop.io" covers the dev-prefix case.
 @pytest.mark.parametrize("domain", [
-    "dev.to", "devops.com", "stage.com", "backstage.io", "testimonial.com", "latest.com",
+    "devshop.io", "devops.com", "stage.com", "backstage.io", "testimonial.com", "latest.com",
     "blog.client.org", "developer.client.org", "stagecoach.co.uk",
 ])
 def test_ordinary_hosts_that_only_look_like_staging_are_kept(domain):

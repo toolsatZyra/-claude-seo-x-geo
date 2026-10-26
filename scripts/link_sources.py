@@ -322,8 +322,10 @@ def fetch_dataforseo(target: str, limit: int, credentials: tuple,
     cost = _num(task.get("cost"))
     if cost is None:
         cost = _num(body.get("cost"))
-    return {"records": records, "cost": cost,
-            "row_cap_hit": isinstance(total, int) and total > len(items), "total_count": total}
+    # In one_per_domain mode total_count counts every backlink, not referring domains, so it
+    # cannot tell whether domains were cut off. Fewer rows than the limit means the list is complete.
+    return {"records": records, "cost": cost, "row_cap_hit": len(items) >= int(limit),
+            "total_count": total}
 
 
 def fetch_moz(target: str, limit: int, api_key: str, get: Optional[Callable] = None) -> dict:

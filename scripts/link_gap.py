@@ -45,6 +45,7 @@ if _SCRIPTS_DIR not in sys.path:
 
 from competitor_gap import crawl_domain, slug_tokens  # noqa: E402
 from keyword_research import fold_token  # noqa: E402
+from link_hosts import excluded_category, known_type  # noqa: E402
 from link_store import (latest_snapshots, load_topics, open_store, save_topics,  # noqa: E402
                         snapshot_records)
 from seo_kpi import EnvelopeError, write_envelope  # noqa: E402
@@ -100,6 +101,8 @@ LISTICLE_RE = re.compile(r"\btop\b (?:\d+ )?(?:(?!for\b|tools?\b|software\b)[a-z
                          r"(?:companies|agencies)\b")
 # Link-network footprint: the same path or title on this many distinct organizations in one snapshot.
 NETWORK_MIN_DOMAINS = 5
+# Paths many unrelated sites share for ordinary reasons: pagination and date archives.
+NOT_FOOTPRINT_PATH = re.compile(r"(?:^|/)(?:page|p)/\d+$|^\d{4}(?:/\d{1,2}){0,2}$")
 GENERIC_TITLES = frozenset({"just another wordpress site", "apache2 ubuntu default page: it works",
                             "welcome to nginx!", "index of /", "default web site page"})
 EVIDENCE_FIELDS = ("authority", "spam_score", "dofollow", "attributes", "sample_url",
@@ -189,7 +192,9 @@ def classify(sig: dict) -> tuple:
     editorial = bool((segs and segs[0] in EDITORIAL_LABELS) or EDITORIAL_LABELS & set(host_labels[:-2]))
     path_text = _norm_words(path)
     title_text = _norm_words(sig.get("sample_title") or "")
-    if ((_host_in(dom, DIRECTORY_HOSTS) and not editorial) or DIRECTORY_SEGMENTS & lead
+    hint = known_type(dom)
+    if (((_host_in(dom, DIRECTORY_HOSTS) or hint == "directory") and not editorial)
+            or DIRECTORY_SEGMENTS & lead
             or DIRECTORY_TOKENS & dom_words or LISTICLE_RE.search(path_text)
             or LISTICLE_RE.search(title_text)):
         return "directory", "rule1:directory-or-review"
@@ -198,7 +203,7 @@ def classify(sig: dict) -> tuple:
         return "association", "rule2:association-edu-gov"
     if _host_in(dom, COMMUNITY_HOSTS) or COMMUNITY_TOKENS & (lead | dom_words):
         return "community", "rule3:community"
-    if EVENT_TOKENS & (lead | dom_words):
+    if hint == "event" or EVENT_TOKENS & (lead | dom_words):
         return "event", "rule4:event-or-podcast"
     if RESOURCE_TOKENS & lead:
         return "resource", "rule5:resource-page"
@@ -208,6 +213,8 @@ def classify(sig: dict) -> tuple:
     labels = host_labels[:-1]
     strong = any(part in lab for lab in labels for part in PUBLICATION_STRONG_PARTS)
     word = any(part in lab.split("-") for lab in labels for part in PUBLICATION_WORD_PARTS)
+    if hint == "publication":
+        return "publication", "rule7:publication-known-host"
     if ((sig.get("authority") or 0) >= 60 and article) or strong or word:
         return "publication", "rule7:publication"
     if EDITORIAL_LABELS & set(host_labels[:-2]) or "/blog/" in path:
@@ -218,8 +225,10 @@ def classify(sig: dict) -> tuple:
 def exclusion_reason(sig: dict, client: str, competitors: list,
                      network: Optional[dict] = None) -> Optional[str]:
     """Why a referring domain is not a prospect, or None. The order is fixed:
-    own_property, competitor_property, social_ugc, staging_or_dev_host, spam, paid_or_scheme,
-    link_network. ``network`` is link_network_domains() output for the same snapshots."""
+    own_property, competitor_property, social_ugc, staging_or_dev_host, then the link_hosts
+    categories (invalid_host, url_shortener, press_release_wire, data_broker, content_farm,
+    site_stats, job_board, social_ugc), spam, paid_or_scheme, link_network. ``network`` is
+    link_network_domains() output for the same snapshots."""
     dom = sig["domain"]
     if host_matches(dom, client):
         return "own_property"
@@ -229,6 +238,9 @@ def exclusion_reason(sig: dict, client: str, competitors: list,
         return "social_ugc"
     if is_staging_host(dom):
         return "staging_or_dev_host"
+    category = excluded_category(dom, sig.get("sample_url"))
+    if category:
+        return category
     spam = sig.get("spam_score")
     if isinstance(spam, (int, float)) and spam >= SPAM_THRESHOLD:
         return "spam"
@@ -241,13 +253,25 @@ def exclusion_reason(sig: dict, client: str, competitors: list,
 
 
 def _footprint_path(url) -> str:
-    """A path distinctive enough to fingerprint a network: 2+ segments, a long last one, no language prefix."""
+    """A path distinctive enough to fingerprint a network (language prefix dropped), or "".
+
+    Two kinds qualify: a path carrying a numeric id, the usual link-farm page
+    (/directory-website-list-1410/, /all/166/7.html, /report/21009), and a 2+ segment path
+    with a long last segment. Pagination and date archives are not footprints.
+    """
     try:
         path = urlparse((url or "").lower()).path
     except ValueError:
         return ""
     segs = _segments(path)
-    return "/" + "/".join(segs) if len(segs) >= 2 and len(segs[-1]) >= 10 else ""
+    if not segs:
+        return ""
+    joined = "/".join(segs)
+    if NOT_FOOTPRINT_PATH.search(joined):
+        return ""
+    if re.search(r"\d", joined) or (len(segs) >= 2 and len(segs[-1]) >= 10):
+        return "/" + joined
+    return ""
 
 
 def _footprint_title(title) -> str:
