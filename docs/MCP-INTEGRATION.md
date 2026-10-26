@@ -67,7 +67,7 @@ The MCP ecosystem for SEO has matured significantly. These are production-ready 
 
 | Tool | Package / Endpoint | Type | Notes |
 |------|-------------------|------|-------|
-| **Ahrefs** | `@ahrefs/mcp` | Official | Launched July 2025. Supports local and remote modes. Backlinks, keywords, site audit data. |
+| **Ahrefs** | `https://api.ahrefs.com/mcp/mcp` | Official (remote) | Hosted server with browser sign-in; needs a paid Lite plan or higher. The local `@ahrefs/mcp` package was archived on 2026-02-24. Not bundled: this plugin's Ahrefs extension was retired on 2026-10-26 (see `extensions/ahrefs/docs/AHREFS-SETUP.md`). Ahrefs CSV exports still import through `/seo links` and `/seo keywords`. |
 | **Semrush** | `https://mcp.semrush.com/v1/mcp` | Official (remote) | Full API access via remote MCP endpoint. Domain analytics, keyword research, backlink data. |
 | **Google Search Console** | `mcp-server-gsc` | Community | By ahonn. Search performance, URL inspection, sitemaps. |
 | **PageSpeed Insights** | `mcp-server-pagespeed` | Community | By enemyrr. Lighthouse audits, CWV metrics, performance scoring. |

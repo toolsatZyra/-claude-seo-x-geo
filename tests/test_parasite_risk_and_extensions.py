@@ -101,7 +101,6 @@ def test_audit_page_counts_pattern_hits() -> None:
 @pytest.mark.parametrize(
     "name,skill_dir",
     [
-        ("ahrefs", "seo-ahrefs"),
         ("seranking", "seo-seranking"),
         ("profound", "seo-profound"),
         ("bing-webmaster", "seo-bing"),
@@ -154,7 +153,6 @@ def test_every_extension_install_and_uninstall_is_executable() -> None:
 @pytest.mark.parametrize(
     "name,skill_dir",
     [
-        ("ahrefs", "seo-ahrefs"),
         ("seranking", "seo-seranking"),
         ("profound", "seo-profound"),
         ("bing-webmaster", "seo-bing"),

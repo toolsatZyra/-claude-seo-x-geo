@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Removed
+
+- **The Ahrefs extension is retired.**
+  - **Why:** it never worked. The installer saved the key as `AHREFS_API_TOKEN`, but `@ahrefs/mcp@0.0.11` reads `API_KEY`, so the server always started without a key. Ahrefs also archived that package on 2026-02-24, and its hosted replacement (`https://api.ahrefs.com/mcp/mcp`) needs a paid Lite plan or higher.
+  - **What changed:** the `seo-ahrefs` skill is gone. `extensions/ahrefs/install.sh` and `install.ps1` now only print a notice: they install nothing and point to DataForSEO, Moz, and Ahrefs CSV imports.
+  - **The uninstaller is safer:** it removes the old setup but keeps an `mcpServers.ahrefs` entry that isn't the old local package, such as a hosted connector a user added themselves.
+  - **Still supported:** Ahrefs CSV exports import through `/seo links` and `/seo keywords`. The bundled extension count is now 7.
+
 ### Fixed (seo-links, from the live Zyra and Probbit runs)
 
 - **False "row cap hit" warnings.** `link_sources.py` compared DataForSEO's `total_count`, which counts every backlink, with the referring domains returned, so a site that returned 32 domains against a 1,000 limit was reported as capped. The cap is now hit only when the rows returned reach the requested limit.

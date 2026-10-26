@@ -132,8 +132,13 @@ def test_uninstaller_removes_the_live_and_the_stale_entry(tmp_path: Path, ext: s
     home = tmp_path / "home"
     live = home / ".claude.json"
     legacy = home / ".claude" / "settings.json"
+    entry = {"env": {"K": "secret"}}
+    if ext == "ahrefs":
+        # The retired Ahrefs uninstaller removes only its own old local server and keeps any other
+        # "ahrefs" entry (tests/test_ahrefs_retired.py), so the live entry here is the old one.
+        entry.update({"command": "npx", "args": ["--yes", "--package=@ahrefs/mcp", "mcp"]})
     _write(live, {"projects": {"/x": {"allowedTools": []}},
-                  "mcpServers": {name: {"env": {"K": "secret"}}, "keep": {"command": "y"}}})
+                  "mcpServers": {name: entry, "keep": {"command": "y"}}})
     _write(legacy, {"theme": "dark", "mcpServers": {name: {"env": {"K": "secret"}}}})
     result = _run_uninstaller(tmp_path, ext)
     assert result.returncode == 0, result.stderr
@@ -155,7 +160,9 @@ def test_uninstaller_leaves_a_malformed_claude_json_alone(tmp_path: Path, ext: s
     assert live.read_text(encoding="utf-8") == original
 
 
-@pytest.mark.parametrize("ext", sorted(SERVERS))
+# The retired Ahrefs installer changes nothing; its uninstaller cleans the stale settings entry
+# (covered by test_uninstaller_removes_the_live_and_the_stale_entry above).
+@pytest.mark.parametrize("ext", sorted(set(SERVERS) - {"ahrefs"}))
 def test_installers_clean_the_stale_settings_entry(ext: str) -> None:
     text = (ROOT / "extensions" / ext / "install.sh").read_text(encoding="utf-8")
     assert "mcp_config_cleanup.py" in text
