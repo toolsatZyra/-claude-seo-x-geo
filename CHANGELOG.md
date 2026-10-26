@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Fixed (seo-links, from the live Zyra and Probbit runs)
+
+- **False "row cap hit" warnings.** `link_sources.py` compared DataForSEO's `total_count`, which counts every backlink, with the referring domains returned, so a site that returned 32 domains against a 1,000 limit was reported as capped. The cap is now hit only when the rows returned reach the requested limit.
+- **Link farms slipped through.** The link-network footprint rejected one-segment and short numeric paths, the commonest farm pages (`/directory-website-list-1410/`, `/all/166/7.html`, `/report/21009`). Any path with a numeric id now counts. Pagination and date archives never do. On Zyra's data this removed 38 farm domains from the gap list.
+- **Non-prospect hosts ranked as prospects.** A new `scripts/link_hosts.py` excludes, with a reason:
+  - press-release wires (137 pages on Probbit's data);
+  - data brokers, content and statistics farms, site-statistics pages, job boards and URL shorteners;
+  - user-generated hosting, and IP or example hosts.
+- **Trade press and L&D publications were "unclassified".** `link_hosts.py` adds:
+  - known publications (advertising and marketing, learning and HR, business and tech press);
+  - company databases;
+  - podcast platforms.
+
+  Gap lists now lead with the publications and profile sites a person would pick by hand. `link_hosts.py check <domain>` explains how a host is treated.
+
 ### Added
 
 - **`/seo links`: competitor link gap and white-hat link earning** (new

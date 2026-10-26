@@ -84,7 +84,7 @@ Then run `python3 scripts/link_gap.py prospects --project <domain> --source <sou
 - **Quick wins** (low effort, score ≥ 50);
 - **Backlog**.
 
-For each prospect, show its score, type, the rule that matched, the competitors it links to, and one evidence line (sample URL plus anchor). Types come from rules, so they are INFERRED; say so. The formula and the classification rules are in `references/prospect-scoring.md`.
+For each prospect, show its score, type, the rule that matched, the competitors it links to, and one evidence line (sample URL plus anchor). Types come from rules, so they are INFERRED; say so. The formula and the classification rules are in `references/prospect-scoring.md`. To see why a host was excluded or how it is typed, run `python3 scripts/link_hosts.py check <domain> [url]`; to fix a miss, add the host to the matching list in `scripts/link_hosts.py` with a test.
 
 **Exclusions.** Show `excluded_counts`, then name the notable domains. The reasons: `own_property`, `competitor_property`, `social_ugc` (incl. Behance and Dribbble), `staging_or_dev_host`, `spam`, `paid_or_scheme` (link-selling words), `link_network` (the same page path or title on five or more unrelated sites, a link farm; the entry's `detail` says which). If the client is an SEO business, real articles about backlinks can land in `paid_or_scheme`; check that list before dismissing it.
 

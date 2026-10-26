@@ -62,7 +62,8 @@ def test_fetch_dataforseo_payload_cost_and_cap():
     task = seen["payload"][0]
     assert task["target"] == "rival.com" and task["mode"] == "one_per_domain" and task["limit"] == 1000
     assert [r["domain"] for r in got["records"]] == ["trainingmag.com", "clutch.co"]
-    assert got["cost"] == 0.0215 and got["row_cap_hit"] is True and got["total_count"] == 3
+    # 2 domains back against a 1,000 limit: complete, even though total_count (backlinks) is 3
+    assert got["cost"] == 0.0215 and got["row_cap_hit"] is False and got["total_count"] == 3
 
 
 @pytest.mark.parametrize("http_status, body", [

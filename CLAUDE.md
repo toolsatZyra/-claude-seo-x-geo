@@ -97,7 +97,7 @@ claude-seo/
     geo-ai-visibility.md, geo-platform-analysis.md   # AEO specialists
   hooks/                           # Quality gate hooks
     hooks.json                   # PostToolUse schema validation
-  scripts/                         # Python execution scripts (79)
+  scripts/                         # Python execution scripts (80)
     # --- v3.1 hub core (shared, deterministic; import, don't copy) ---
     seo_metrics.py               # Intent/funnel/lead value, CTR curve, opportunity score, stats, cannibalization
     seo_store.py                 # Storage root ($CLAUDE_SEO_DATA_DIR) + SQLite access (0700/0600)
@@ -116,6 +116,7 @@ claude-seo/
     link_store.py                # links store: referring-domain snapshots, prospects, events
     link_sources.py              # DataForSEO / Moz / CSV referring domains, cost-capped
     link_gap.py                  # Competitor link gap, prospect classification and scoring
+    link_hosts.py                # Never-a-prospect hosts and known publications/databases/podcasts
     link_outreach.py             # Approval-gated outreach tracker, draft lint, verification, KPIs
     aeo_score.py                 # The single AEO Readiness Score + AI crawler access sub-score
     # --- AEO / GEO (v3.0) ---
