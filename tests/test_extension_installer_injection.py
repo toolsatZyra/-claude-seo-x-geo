@@ -28,7 +28,6 @@ INSTALLERS = {
     "extensions/dataforseo/install.sh": (["field.json"], "CLAUDE_SEO_SECRET"),
     "extensions/firecrawl/install.sh": ([], "CLAUDE_SEO_SECRET"),
     "extensions/banana/install.sh": ([], "CLAUDE_SEO_SECRET"),
-    "extensions/ahrefs/install.sh": ([], "CLAUDE_SEO_SECRET"),
     "extensions/profound/install.sh": ([], "CLAUDE_SEO_SECRET"),
     "extensions/seranking/install.sh": ([], "CLAUDE_SEO_SECRET"),
     "extensions/bing-webmaster/install.sh": (["https://e.test/key.txt"], "CLAUDE_SEO_SECRET"),

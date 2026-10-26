@@ -26,7 +26,6 @@ WRITERS = {
     "extensions/firecrawl/install.ps1": ("$McpConfigFile", "$TempConfigFile"),
     "extensions/firecrawl/uninstall.ps1": ("$McpConfigFile", "$TempConfigFile"),
     "extensions/dataforseo/install.ps1": ("$McpConfigFile", "$TempConfigFile"),
-    "extensions/ahrefs/install.ps1": ("$McpConfigJson", "$TempConfigJson"),
 }
 
 
@@ -58,20 +57,12 @@ def test_ps1_uses_depth_100(rel: str) -> None:
     assert "ConvertTo-Json -Depth 10\n" not in text, f"{rel}: still uses the shallower -Depth 10"
 
 
-def test_dataforseo_and_ahrefs_no_longer_shell_out_to_python_for_the_merge() -> None:
-    # Before v2.3.1 both installers piped a heredoc into `python -` to merge
+def test_dataforseo_no_longer_shells_out_to_python_for_the_merge() -> None:
+    # Before v2.3.1 the installer piped a heredoc into `python -` to merge
     # the MCP entry, so the write's atomicity (and its -Depth control)
     # depended on hand-rolled `tempfile.mkstemp` + `os.replace` logic instead
     # of the same ConvertTo-Json/Move-Item pattern every other writer uses.
-    for rel in ("extensions/dataforseo/install.ps1", "extensions/ahrefs/install.ps1"):
+    for rel in ("extensions/dataforseo/install.ps1",):
         text = (ROOT / rel).read_text(encoding="utf-8")
         assert "tempfile.mkstemp" not in text, f"{rel}: still merges via an embedded Python script"
         assert "| python -" not in text, f"{rel}: still pipes a heredoc into python"
-
-
-def test_ahrefs_install_ps1_no_longer_requires_python() -> None:
-    # The merge script was the only reason install.ps1 needed Python; the
-    # native ConvertTo-Json merge needs only Node/npx.
-    text = (ROOT / "extensions/ahrefs/install.ps1").read_text(encoding="utf-8")
-    assert 'Test-Cmd python' not in text
-    assert 'throw "Python 3 is required."' not in text

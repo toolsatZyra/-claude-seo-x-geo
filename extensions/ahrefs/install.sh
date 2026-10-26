@@ -1,103 +1,27 @@
 #!/usr/bin/env bash
-# Claude SEO: Ahrefs extension installer.
+# Claude SEO: Ahrefs extension (retired 2026-10-26).
 #
-# Wires the official @ahrefs/mcp server into ~/.claude.json and
-# copies the seo-ahrefs mirror skill into ~/.claude/skills/.
-#
-# Prereq: an Ahrefs API token. Get one at https://ahrefs.com/api.
+# This extension is retired and installs nothing. It never worked: it saved
+# the key as AHREFS_API_TOKEN while the archived local package reads API_KEY,
+# and Ahrefs archived that package on 2026-02-24. Ahrefs' hosted replacement
+# needs a paid plan. See extensions/ahrefs/docs/AHREFS-SETUP.md.
 set -euo pipefail
 
-main() {
-    SKILL_DIR="${HOME}/.claude/skills"
-    # MCP servers live in ~/.claude.json (the file `claude mcp add` writes).
-    # NOT ~/.claude/settings.json - `mcpServers` is not a key Claude Code reads
-    # there, so entries written to settings.json silently never load.
-    MCP_CONFIG_JSON="${HOME}/.claude.json"
+cat <<'EOF'
+The Claude SEO Ahrefs extension is retired. Nothing was installed or changed.
 
-    echo "════════════════════════════════════════"
-    echo "║   Claude SEO: Ahrefs extension       ║"
-    echo "════════════════════════════════════════"
+Why: Ahrefs archived the local @ahrefs/mcp package this extension used
+(2026-02-24), and the extension never passed its key to that package.
 
-    command -v python3 >/dev/null 2>&1 || {
-        echo "✗ Python 3 required."; exit 1;
-    }
-    command -v npx >/dev/null 2>&1 || {
-        echo "✗ Node 18+ / npx required."; exit 1;
-    }
+Instead:
+  - Backlink data: DataForSEO (./extensions/dataforseo/install.sh) or Moz's
+    free tier (/seo backlinks setup).
+  - Ahrefs data you already have: export a CSV from Ahrefs and give it to
+    /seo links (it runs link_sources.py import --format ahrefs) or to
+    /seo keywords.
+  - Ahrefs' own hosted connector (paid Lite plan or higher; not supported by
+    this plugin): https://docs.ahrefs.com/mcp/docs/claude-code.md
 
-    if [ ! -d "${SKILL_DIR}/seo" ]; then
-        echo "✗ claude-seo base plugin not installed."
-        echo "  Install it first: curl -fsSL https://raw.githubusercontent.com/toolsatZyra/-claude-seo-x-geo/main/install.sh | bash"
-        exit 1
-    fi
-
-    # Locate this script's directory so the call works for both
-    # `./install.sh` and `curl | bash` invocations.
-    SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" >/dev/null 2>&1 && pwd)"
-
-    read -rsp "Ahrefs API token: " AHREFS_TOKEN
-    echo
-    if [ -z "${AHREFS_TOKEN}" ]; then
-        echo "✗ No token provided."; exit 1;
-    fi
-
-    # Pre-warm the package so the first MCP invocation isn't slow.
-    echo "→ Pre-warming @ahrefs/mcp..."
-    npx --yes --package=@ahrefs/mcp@0.0.11 mcp --help >/dev/null 2>&1 || true
-
-    mkdir -p "${SKILL_DIR}/seo-ahrefs"
-    cp "${SOURCE_DIR}/skills/seo-ahrefs/SKILL.md" "${SKILL_DIR}/seo-ahrefs/SKILL.md"
-    echo "✓ Installed skill: ${SKILL_DIR}/seo-ahrefs/SKILL.md"
-
-    # Merge MCP config into ~/.claude.json atomically.
-    mkdir -p "$(dirname "${MCP_CONFIG_JSON}")"
-    CLAUDE_SEO_SECRET="${AHREFS_TOKEN}" python3 - "${MCP_CONFIG_JSON}" <<'PY'
-import json
-import os
-import sys
-import tempfile
-
-# The token arrives in the environment, not argv: argv is visible to other
-# local users through ps, the environment is not.
-path, token = sys.argv[1], os.environ["CLAUDE_SEO_SECRET"]
-data = {}
-if os.path.exists(path):
-    try:
-        with open(path) as fh:
-            data = json.load(fh)
-    except json.JSONDecodeError:
-        sys.exit(f"✗ {path} is not valid JSON. Nothing was changed; fix it and rerun.")
-data.setdefault("mcpServers", {})["ahrefs"] = {
-    "command": "npx",
-    "args": ["--yes", "--package=@ahrefs/mcp@0.0.11", "mcp"],
-    "env": {"AHREFS_API_TOKEN": token},
-}
-fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path) or ".",
-                          prefix=".settings.", suffix=".json")
-try:
-    with os.fdopen(fd, "w") as fh:
-        json.dump(data, fh, indent=2)
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, path)
-except Exception:
-    if os.path.exists(tmp):
-        os.unlink(tmp)
-    raise
-print(f"✓ Wrote mcpServers.ahrefs to {path}")
-PY
-
-    # Older releases wrote this server, with its credential, to
-    # ~/.claude/settings.json, which Claude Code never reads for MCP servers.
-    # Remove that stale copy now that ~/.claude.json holds the live entry.
-    # The helper never rewrites a settings file that does not parse.
-    LEGACY_CLEANUP="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/mcp_config_cleanup.py"
-    [ -f "${LEGACY_CLEANUP}" ] && python3 "${LEGACY_CLEANUP}" ahrefs || true
-
-    echo
-    echo "Done. Open a new Claude Code session and run:"
-    echo "  /seo ahrefs metrics https://example.com"
-    echo
-    echo "Full docs: extensions/ahrefs/docs/AHREFS-SETUP.md"
-}
-
-main "$@"
+To remove an earlier install of this extension, run:
+  ./extensions/ahrefs/uninstall.sh
+EOF

@@ -424,9 +424,8 @@ Full-site crawling and URL discovery via the [Firecrawl](https://www.firecrawl.d
 /seo firecrawl crawl https://example.com
 ```
 
-### Ahrefs, SE Ranking, Profound, Bing Webmaster, Unlighthouse
+### SE Ranking, Profound, Bing Webmaster, Unlighthouse
 
-- **Ahrefs:** official `@ahrefs/mcp` server with backlink and organic data
 - **SE Ranking:** AI Share-of-Voice across ChatGPT, Gemini, Perplexity, AI Overviews, AI Mode
 - **Profound:** LLM citation tracker with time-series data
 - **Bing Webmaster:** Bing Webmaster Tools plus IndexNow unified

@@ -1,71 +1,25 @@
-# Claude SEO - Ahrefs extension installer (Windows / PowerShell).
-# Mirrors extensions/ahrefs/install.sh.
-[CmdletBinding()]
-param()
+# Claude SEO: Ahrefs extension (retired 2026-10-26).
+# Mirrors extensions/ahrefs/install.sh: installs nothing and changes no settings.
+# The extension never worked (it saved the key as AHREFS_API_TOKEN while the
+# archived local package reads API_KEY), and Ahrefs archived that package on
+# 2026-02-24. See extensions/ahrefs/docs/AHREFS-SETUP.md.
 
-$ErrorActionPreference = "Stop"
+Write-Host @"
+The Claude SEO Ahrefs extension is retired. Nothing was installed or changed.
 
-function Test-Cmd($name) {
-    $null = Get-Command $name -ErrorAction SilentlyContinue
-    return $?
-}
+Why: Ahrefs archived the local @ahrefs/mcp package this extension used
+(2026-02-24), and the extension never passed its key to that package.
 
-if (-not (Test-Cmd npx)) { throw "Node 18+ / npx is required." }
+Instead:
+  - Backlink data: DataForSEO (.\extensions\dataforseo\install.ps1) or Moz's
+    free tier (/seo backlinks setup).
+  - Ahrefs data you already have: export a CSV from Ahrefs and give it to
+    /seo links (it runs link_sources.py import --format ahrefs) or to
+    /seo keywords.
+  - Ahrefs' own hosted connector (paid Lite plan or higher; not supported by
+    this plugin): https://docs.ahrefs.com/mcp/docs/claude-code.md
 
-$SkillDir = Join-Path $HOME ".claude/skills"
-# MCP servers live in ~/.claude.json (the file `claude mcp add` writes).
-# NOT ~/.claude/settings.json - `mcpServers` is not a key Claude Code reads
-# there, so entries written to settings.json silently never load.
-$McpConfigJson = Join-Path $HOME ".claude.json"
-
-if (-not (Test-Path (Join-Path $SkillDir "seo"))) {
-    throw "claude-seo base plugin not installed."
-}
-
-$Token = Read-Host "Ahrefs API token" -AsSecureString
-$Plain = [System.Net.NetworkCredential]::new("", $Token).Password
-if (-not $Plain) { throw "No token provided." }
-
-$SourceDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$SkillTarget = Join-Path $SkillDir "seo-ahrefs"
-New-Item -ItemType Directory -Path $SkillTarget -Force | Out-Null
-Copy-Item -Path (Join-Path $SourceDir "skills/seo-ahrefs/SKILL.md") `
-          -Destination (Join-Path $SkillTarget "SKILL.md") -Force
-Write-Host "[OK] Installed skill: $SkillTarget"
-
-# Pre-warm.
-& npx --yes --package=@ahrefs/mcp@0.0.11 mcp --help *> $null
-
-# Merge ~/.claude.json.
-$settingsContent = if (Test-Path $McpConfigJson) { Get-Content $McpConfigJson -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
-if (-not $settingsContent.mcpServers) { $settingsContent | Add-Member -NotePropertyName mcpServers -NotePropertyValue ([pscustomobject]@{}) -Force }
-$settingsContent.mcpServers | Add-Member -NotePropertyName 'ahrefs' -NotePropertyValue @{
-    command = 'npx'
-    args = @('--yes', '--package=@ahrefs/mcp@0.0.11', 'mcp')
-    env = @{ AHREFS_API_TOKEN = $Plain }
-} -Force
-# Write atomically: stage to a temp file in the same directory, then swap
-# it into place, so a crash mid-write never leaves ~/.claude.json truncated
-# or half-written (it is shared with Claude Code and other installers).
-# -Depth 100 (not the ConvertTo-Json default of 2) so an existing
-# ~/.claude.json with deeply nested config round-trips intact.
-$TempConfigJson = Join-Path (Split-Path -Parent $McpConfigJson) ".claude.json.$([guid]::NewGuid().ToString('N')).tmp"
-$jsonText = $settingsContent | ConvertTo-Json -Depth 100
-# Write without a byte-order mark: on Windows PowerShell 5.1, Set-Content -Encoding UTF8
-# emits a BOM and Node's JSON.parse rejects it, which would make ~/.claude.json unreadable.
-[System.IO.File]::WriteAllText($TempConfigJson, $jsonText, (New-Object System.Text.UTF8Encoding $false))
-Move-Item -Path $TempConfigJson -Destination $McpConfigJson -Force
-Write-Host "Wrote mcpServers.ahrefs to $McpConfigJson"
-
-# Older releases wrote this server, with its credential, to
-# ~/.claude/settings.json, which Claude Code never reads for MCP servers.
-# Remove that stale copy when Python is available; the helper never
-# rewrites a settings file that does not parse.
-$LegacyCleanup = Join-Path (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)) "mcp_config_cleanup.py"
-$LegacyPython = Get-Command -Name python -ErrorAction SilentlyContinue
-if ($null -ne $LegacyPython -and (Test-Path $LegacyCleanup)) {
-    & $LegacyPython.Source $LegacyCleanup ahrefs
-}
-
-Write-Host ""
-Write-Host "Done. Open a new Claude Code session and run /seo ahrefs metrics <url>."
+To remove an earlier install, delete %USERPROFILE%\.claude\skills\seo-ahrefs
+and remove the "ahrefs" entry under mcpServers in %USERPROFILE%\.claude.json
+if it runs the local @ahrefs/mcp package.
+"@

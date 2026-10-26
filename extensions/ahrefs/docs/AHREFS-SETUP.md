@@ -1,66 +1,41 @@
-# Ahrefs extension setup
+# Ahrefs extension: retired
 
-Wires the official [`@ahrefs/mcp@0.0.11`](https://www.npmjs.com/package/@ahrefs/mcp)
-server into your Claude Code session so the `seo-ahrefs` skill can call
-live Ahrefs data.
+The Ahrefs extension was retired on 2026-10-26. `install.sh` and
+`install.ps1` now only print this notice; they install nothing and change no
+settings.
 
-## Install
+## Why
 
-```bash
-./extensions/ahrefs/install.sh        # Linux / macOS
-.\extensions\ahrefs\install.ps1       # Windows PowerShell
-```
+- **It never worked.** The installer saved the key as `AHREFS_API_TOKEN`,
+  but the package it ran, `@ahrefs/mcp@0.0.11`, reads `API_KEY`. The server
+  always started without a key.
+- **The package is archived.** Ahrefs archived `ahrefs/ahrefs-mcp-server` on
+  2026-02-24 and says it "IS NOT maintained".
+- **The replacement needs a paid plan.** Ahrefs' hosted MCP server
+  (`https://api.ahrefs.com/mcp/mcp`, browser sign-in) requires a Lite plan or
+  higher, and every call uses API units.
 
-The installer:
+## What to use instead
 
-1. Verifies Python 3 + Node 18+ are on `$PATH`.
-2. Prompts for your Ahrefs API token (input is hidden).
-3. Pre-warms the `@ahrefs/mcp@0.0.11` npm package via `npx --yes` so the first
-   MCP call doesn't spend 10+ seconds downloading.
-4. Copies `skills/seo-ahrefs/SKILL.md` into `~/.claude/skills/seo-ahrefs/`.
-5. Atomically writes `mcpServers.ahrefs` into `~/.claude.json` (the file `claude mcp add` writes; Claude Code does not read MCP servers from `~/.claude/settings.json`)
-   with your token in the `env` block. The settings file is `chmod 0o600`
-   after the merge (same hardening as the OAuth token).
+| Need | Use |
+|---|---|
+| Backlink and referring-domain data | DataForSEO (`./extensions/dataforseo/install.sh`) or Moz's free tier (`/seo backlinks setup`) |
+| Ahrefs data you already have | Export a CSV from Ahrefs and give it to `/seo links` (it runs `link_sources.py import --format ahrefs`) or to `/seo keywords` |
+| Live Ahrefs data, with a paid Ahrefs plan | Ahrefs' own hosted connector: [Ahrefs MCP for Claude Code](https://docs.ahrefs.com/mcp/docs/claude-code.md). It is not supported by this plugin. |
 
-## Verify
-
-Open a new Claude Code session and ask:
-
-```
-/seo ahrefs metrics https://example.com
-```
-
-If you see "Ahrefs MCP not connected", the npm package is not yet cached.
-Re-run the installer to pre-warm or run `npx --yes --package=@ahrefs/mcp@0.0.11 mcp --help` manually.
-
-## Rotate token
+## Clean up an earlier install
 
 ```bash
-./extensions/ahrefs/install.sh   # re-runs the prompt; overwrites the env entry
+./extensions/ahrefs/uninstall.sh
 ```
 
-The Python merge script is idempotent — re-running only replaces the
-`mcpServers.ahrefs.env.AHREFS_API_TOKEN` value, leaving the rest of
-`~/.claude.json` intact.
+The uninstaller:
+- removes `~/.claude/skills/seo-ahrefs`;
+- removes `mcpServers.ahrefs` from `~/.claude.json` **only** if it runs the
+  old local `@ahrefs/mcp` package (an Ahrefs hosted connector you added
+  yourself is kept);
+- removes the stale copy older releases wrote to `~/.claude/settings.json`.
 
-## Uninstall
-
-```bash
-./extensions/ahrefs/uninstall.sh    # removes the skill + clears the MCP entry
-```
-
-## Cost model
-
-Ahrefs charges per "unit". A unit covers most read endpoints (domain
-metrics, backlink data) at 1 unit each; bulk endpoints cost more. The
-`scripts/dataforseo_costs.py` cost tracker shipped with claude-seo
-generalises across vendors — see `references/cost-guardrails.md` in
-the orchestrator skill for how to wire Ahrefs accounting.
-
-## Troubleshooting
-
-| Symptom | Cause | Fix |
-|---|---|---|
-| `Error: AHREFS_API_TOKEN is empty` | Installer didn't capture input | Re-run installer; type token at the prompt, then press Enter |
-| `npx: package not found` | Offline run / fresh machine | Run with internet on; the installer pre-warms but the cache needs network |
-| 401 from any `/seo ahrefs *` command | Token revoked / expired | Generate a new token at https://ahrefs.com/api and re-run the installer |
+On Windows, delete `%USERPROFILE%\.claude\skills\seo-ahrefs`, then remove the
+`ahrefs` entry under `mcpServers` in `%USERPROFILE%\.claude.json` if it runs
+the local `@ahrefs/mcp` package.
