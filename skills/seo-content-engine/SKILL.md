@@ -210,6 +210,12 @@ python3 scripts/content_export.py check draft.md --for publish
 
 ## Step 8: Export
 
+Supported targets today: local bundle, WordPress draft and the signed webhook
+(which reaches other systems through their own automation). Other targets
+(Ghost, Webflow, Contentful) and the opportunity-sources and brand-hub
+checklists are in
+[cms-targets-and-opportunities.md](references/cms-targets-and-opportunities.md).
+
 Always a dry run first; show the operator what would be sent; add
 `--confirm` only after they approve in chat.
 

@@ -177,6 +177,32 @@ custom-channel-group regex so the client's own GA4 UI matches the report.
 Sources that look AI-related but are not in the table are listed for review,
 never counted automatically.
 
+### Tying AI visits to leads
+
+A citation is not a visit and a visit is not a lead. The chain, with what is
+measured at each step and what is not:
+
+1. **Visit:** `ai_referrals.py` classifies sessions by `sessionSource`
+   (a floor, since some assistants send no referrer and arrive as Direct).
+2. **Landing page and engine:** keep both per session. Report them per page
+   and per engine, with the AI-versus-organic comparison for engagement and
+   key events.
+3. **Conversion:** use the GA4 key events the client already defined (see
+   `ga4_report.py`). Never invent a conversion; a client with none gets
+   "not measured".
+4. **Lead:** join to the CRM only where the client's form or tracking stores
+   the GA4 source or landing page with the lead. If it does not, say the lead
+   count is not attributable to AI, and recommend capturing source and landing
+   page on the form. Do not estimate.
+
+Limits to state every time: referrer stripping sends AI visits to Direct,
+and a platform changing its tags can break a series overnight (Indexly
+reports that ChatGPT stopped sending `utm_source` for about eight days in
+October 2026 and that those visits are not recoverable; reported by Indexly,
+not independently checked). Server-side tracking cannot restore a source the
+browser never sent. Flag any sudden fall in AI-classified sessions alongside
+a rise in Direct as a possible tagging change before calling it a loss.
+
 ## 5. Reports for clients
 
 ```bash

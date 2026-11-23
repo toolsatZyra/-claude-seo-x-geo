@@ -48,6 +48,23 @@ Record the source of each prompt in the profile notes
 (`seo_project.py note ... --approved-by user`) so a later reviewer can see
 why it is in the panel.
 
+## Personas and tags
+
+Besides funnel stage, tag each prompt with the buyer persona it speaks for
+(for example "owner of a small shop", "IT manager", "first-time buyer") and
+the country/language it is asked in. Report by persona only when a persona
+has at least 10 prompts, otherwise the numbers are too thin to read. Tags
+are for slicing the report; they must not change the wording of a prompt
+that is already in a tracked panel (that would break the time series).
+
+## Brands you did not list
+
+Read the brand names that appear in stored answers but are not in the client
+profile. A name seen in 3 or more answers in a window is a candidate
+competitor: hand it to `seo-competitors` Step 1 for the client to confirm.
+Match names by the same lexical rule as profile brands and ignore generic
+words; a candidate is a lead, never an automatic profile change.
+
 ## Treatment and control groups
 
 Use groups whenever the client plans AEO changes and wants to know whether
@@ -80,6 +97,7 @@ Keep everything else constant across windows: model id, engine, surface,
 
 | Engine | How | Surface |
 |---|---|---|
+| Grok (xAI) | licensed provider or manual capture, then `ingest --engine grok` | ui |
 | Claude (Messages API + web search) | `ai_visibility.py run --engine anthropic` | api |
 | ChatGPT app | DataForSEO `ai_optimization_chat_gpt_scraper` via `seo-dataforseo`, then `ingest --engine chatgpt` | ui |
 | AI Overviews / AI Mode, Copilot, Perplexity | licensed provider or manual capture, then `ingest` | ui |
