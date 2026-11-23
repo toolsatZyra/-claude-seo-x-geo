@@ -49,7 +49,13 @@ gaps, and routes comparison gaps there.
    the user to confirm. Never silently add a competitor. Record the choice:
    - `seo_project.py add-competitor <domain> <competitor> --name <Name>`
    - `seo_project.py note <domain> "Competitor set confirmed" --approved-by user`
-3. Keep two kinds of competitor distinct:
+3. Also look for competitors nobody listed. If AI answers have been sampled
+   (`geo-share-of-voice`), brands that appear in 3 or more stored answers in
+   a window but are not in the profile are candidates. Show the brand, the
+   prompts and the count, and ask the user to confirm or dismiss each one.
+   (Source idea: Indexly auto-detects new entrants in answers; we confirm
+   with the client instead of adding automatically.)
+4. Keep two kinds of competitor distinct:
    - **Business competitors**: who the client sells against. These come from
      the client.
    - **Search competitors**: who ranks for the client's keywords. They are

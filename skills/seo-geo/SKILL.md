@@ -34,6 +34,8 @@ number into the SEO score.
 | AI crawler access sub-score (deterministic, robots.txt per RFC 9309, Cloudflare managed-robots detection) | `python3 scripts/aeo_score.py crawlers <url> --json` |
 | The AEO Readiness Score (one number, from component scores) | `python3 scripts/aeo_score.py compute ... --json` (see below) |
 | AI share of voice: are we actually mentioned and cited in AI answers (outcome, measured) | `geo-share-of-voice` (backed by `scripts/ai_visibility.py`) |
+| How AI answers describe the brand (sentiment) and whether they state it correctly (accuracy against an approved fact sheet); watchlist of what changed | `geo-share-of-voice` steps 8 and 9, method in `skills/geo-share-of-voice/references/sentiment-and-accuracy.md` |
+| Tying AI-referred visits to conversions and leads | `seo-track` section 4, "Tying AI visits to leads" |
 | KPI history and trends for `aeo.*` and `ai.*` metrics | `seo-track` (`scripts/performance_tracker.py`) |
 | Month-over-month AEO delta reporting for a client | `geo-compare` (reads `performance_tracker.py export`) |
 | Agency prospect/CRM pipeline | `geo-prospect` |

@@ -32,8 +32,10 @@ Score and the SEO Health Score, never averaged into either. A site can score
 85 on readiness and still be absent from answers, and that gap is the finding.
 
 Script: `scripts/ai_visibility.py`. Methodology: [prompt-panel-design.md](references/prompt-panel-design.md)
-(building the panel) and [sov-metrics.md](references/sov-metrics.md)
-(definitions, statistics, verdict rules, limitations).
+(building the panel), [sov-metrics.md](references/sov-metrics.md)
+(definitions, statistics, verdict rules, limitations) and
+[sentiment-and-accuracy.md](references/sentiment-and-accuracy.md) (how AI
+answers describe the brand, and whether they state it correctly).
 
 ## Prerequisites
 
@@ -181,6 +183,35 @@ compares treatment with control. The decision rule is in
 `skills/seo-track/references/measurement-protocol.md`. Leave a gap between
 windows long enough for the change to be crawled and picked up.
 
+### 8. Sentiment and accuracy pass (optional, from stored answers)
+
+Reads the answers already stored; no new engine calls. Follow
+[sentiment-and-accuracy.md](references/sentiment-and-accuracy.md): label each
+brand-mentioning answer Positive / Neutral / Negative / Mixed, report net
+sentiment with its interval and n, rank the reasons behind negative answers,
+and check brand claims against a client-approved, dated fact sheet. Both are
+outcome measures, reported beside share of voice and never blended into it or
+into the AEO score. Until a script does the labelling, state in the report
+that labels were applied by procedure and human-sampled.
+
+### 9. Watchlist: what changed since the last run
+
+After each `report`, list only changes that clear the noise, so a scheduled
+run can alert without crying wolf:
+
+| Event | Fires when |
+|---|---|
+| Prompt flip | A prompt's mention state changes in the same direction in at least 2 of the last 3 runs (single flips are noise) |
+| Share-of-voice move | The interval for the new window no longer overlaps the previous window's interval |
+| New entrant | A brand not in the profile appears in 3 or more answers in a window. Propose it in `seo-competitors` Step 1; never add it silently |
+| Citation change | The own-domain citation rate interval no longer overlaps, or a competitor enters the top 10 cited domains |
+| Sentiment or accuracy | Net sentiment moves by more than its interval, or a new contradicted claim repeats in 2 or more answers |
+
+Each event names the prompts or answers behind it. Delivery (email, Slack,
+webhook) is the client's choice; this skill produces the list, and
+`performance_tracker.py report --fail-on-drop` remains the exit-code gate for
+scheduled jobs. An event is a lead to investigate, not a conclusion.
+
 ## Client-facing output
 
 ```markdown
@@ -204,6 +235,8 @@ Caveats: non-deterministic answers; API is not the consumer app; a citation is n
 
 - Never quote a rate without its n and interval; label n < 20 as thin.
 - Never put API and UI figures in one number or one trend line.
+- Sentiment and accuracy figures carry n, agreement and spot-check results,
+  or they are not published.
 - Never call a period change real without `compare`; a raw rise between two
   reports is not evidence.
 - A metric that was not measured is "not measured", never estimated.

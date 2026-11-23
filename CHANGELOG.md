@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added (from the Indexly review, 23 Nov 2026)
+
+- **Sentiment and accuracy of AI answers.** `geo-share-of-voice` gains steps 8 and 9 and a new reference, `references/sentiment-and-accuracy.md`: Positive / Neutral / Negative / Mixed labelling of stored answers with double labelling, a human spot-check and net sentiment with an interval; an accuracy pass against a client-approved, dated fact sheet; and a noise-aware watchlist of what changed. Method only: no script labels answers yet, and the text says so.
+- **Persona tags and brands you did not list** in the prompt-panel design; `seo-competitors` Step 1 now offers brands seen in answers as candidates for the client to confirm.
+- **"Tying AI visits to leads"** in `seo-track`, with the limits (referrer stripping, tag changes).
+- **CMS targets, opportunity sources and brand-hub checklist** for `seo-content-engine` (`references/cms-targets-and-opportunities.md`). No new adapter.
+- **Routing rows** in `seo-geo`, and `docs/reference/INDEXLY-COMPARISON.md` with the full covered / partial / missing / not-relevant matrix.
+- No script, manifest or skill count changed.
+
 ### Removed
 
 - **The Ahrefs extension is retired.**
